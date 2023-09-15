@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "extract-cbd-shape": "^0.0.1",
+    "n3": "^1.17.1",
+    "rdf-dereference": "^2.2.0"
+  },
+  "dev-dependencies" : {
+    "@types/n3": "^1.16.0"
+  }
+}
