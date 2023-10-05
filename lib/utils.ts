@@ -1,7 +1,5 @@
-import { IActorDereferenceRdfOutput } from "@comunica/bus-dereference-rdf";
 import { Stream } from "@rdfjs/types";
 import { BaseQuad } from "n3";
-import { IDereferenceOptions, RdfDereferencer } from "rdf-dereference";
 
 interface Task<F extends (...args: any) => any> {
   resolve: (value: ReturnType<F>) => void;
@@ -46,7 +44,7 @@ export class Semaphore {
     if (!this.currentRequests.length) {
       return;
     } else if (this.runningRequests < this.maxConcurrentRequests) {
-      let { resolve, reject, fnToCall, args } = this.currentRequests.shift();
+      let { resolve, reject, fnToCall, args } = this.currentRequests.shift()!;
       this.runningRequests++;
       let req = fnToCall(...args);
       req
@@ -83,7 +81,6 @@ export function streamToArray<T extends BaseQuad>(
   return new Promise(async (res, rej) => {
     stream.on("data", (x) => out.push(x));
     stream.on("error", rej);
-    stream.on("done", () => res(out));
+    stream.on("end", () => res(out));
   });
 }
-

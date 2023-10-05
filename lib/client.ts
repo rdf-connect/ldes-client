@@ -1,11 +1,13 @@
 import { Config, getConfig } from "./config";
-import { extractMembers, extractRelations, Member, Relation } from "./page";
+import { extractMembers, extractRelations, Member } from "./page";
 import rdfDereference, { RdfDereferencer } from "rdf-dereference";
 import { SimpleState, State } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { DataFactory, Store } from "n3";
-import { Quad } from "@rdfjs/types";
+import { Quad, Term } from "@rdfjs/types";
 import { Semaphore, streamToArray } from "./utils";
+import { TREE } from "@treecg/types";
+import { FetchedPage, Fetcher } from "./pageFetcher";
 
 const { namedNode } = DataFactory;
 
@@ -20,121 +22,152 @@ export async function startClient() {
   const client = replicateLDES(config);
 }
 
-type FetchedPage = {
-  url: string;
-  page: Quad[];
-};
-
 export function replicateLDES(
   config: Config,
-  {
-    membersState,
-    fragmentState,
-    dereferencer,
-  }: {
+  states: {
     membersState?: State;
     fragmentState?: State;
     dereferencer?: RdfDereferencer;
   } = {},
-): ReadableStream<Member> {
-  const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 100 });
-  const fetchedPages: FetchedPage[] = [];
-  const myFetch = new Semaphore(10).wrapFunction(fetch);
+): Client {
+  return new Client(config, states);
+}
 
-  if (!dereferencer) {
-    dereferencer = rdfDereference;
-  }
-  let cbdExtractor: CBDShapeExtractor = new CBDShapeExtractor(
-    undefined,
-    dereferencer,
-  );
+export class Client {
+  private config: Config;
+  private membersState: State;
+  private fragmentState: State;
+  private fetcher: Fetcher;
+  private dereferencer: RdfDereferencer;
+  private fetch: typeof fetch;
+  private cbdExtractor: CBDShapeExtractor;
+  public streamId: Term;
 
-  return new ReadableStream(
+  constructor(
+    config: Config,
     {
-      async start(controller) {
-        if (!membersState) {
-          membersState = new SimpleState(config.memberStateLocation);
-          await membersState.init();
-        }
+      membersState,
+      fragmentState,
+      dereferencer,
+    }: {
+      membersState?: State;
+      fragmentState?: State;
+      dereferencer?: RdfDereferencer;
+    } = {},
+    stream?: Term,
+  ) {
+    this.config = config;
+    this.fetch = new Semaphore(10).wrapFunction(fetch);
+    if (stream) {
+      this.streamId = stream;
+    } else {
+      // This might be updated if it is clear that the ldes stream identifier is not actually the config url
+      this.streamId = namedNode(config.url);
+    }
 
-        if (!fragmentState) {
-          fragmentState = new SimpleState(config.fragmentStateLocation);
-          await fragmentState.init();
-        }
+    this.dereferencer = dereferencer ?? rdfDereference;
+    this.membersState =
+      membersState ?? new SimpleState(config.memberStateLocation);
+    this.fragmentState =
+      fragmentState ?? new SimpleState(config.fragmentStateLocation);
+    this.cbdExtractor = new CBDShapeExtractor(undefined, this.dereferencer);
 
-        // Fetch the url
-        // Try to get a shape
-        // Choose a view
-        // Fetch view but do not interpret
-        fetchedPages.push({ url: config.url, page: [] });
-      },
+    this.fetcher = new Fetcher(
+      this.dereferencer,
+      this.fetch,
+      this.fragmentState,
+    );
+  }
 
-      async pull(controller) {
-        if (!fetchedPages && config.follow) return controller.close();
+  async init(): Promise<void> {
+    await this.membersState.init();
+    await this.fragmentState.init();
 
-        const newPages: Promise<any>[] = [];
-        // Fetched Pages can be more smart
-        let page = fetchedPages.shift();
-        while (page) {
-          const store = new Store();
-          // Streaming parse?
-          store.addQuads(page.page);
+    // Fetch the url
+    const root = await fetchPage(this.config.url, this.dereferencer, fetch);
+    // Try to get a shape
+    // TODO
+    // Choose a view
+    const viewQuads = root.data.getQuads(null, TREE.terms.view, null, null);
 
-          extractMembers(
-            store,
-            namedNode(page.url),
-            cbdExtractor,
-            (member) => controller.enqueue(member),
-            membersState,
-          );
+    if (viewQuads.length === 0) {
+      throw "Did not find tree:view predicate, this is required to interpret the LDES";
+    }
 
-          const relations = extractRelations(store, namedNode(page.url));
+    this.streamId = viewQuads[0].subject;
 
-          const goodRelations = await fragmentState.filter(
-            relations,
-            (x) => x.node,
-          );
+    console.log(
+      "Found",
+      viewQuads.length,
+      "views, choosing",
+      viewQuads[0].object.value,
+    );
 
-          // This is an array that holds all promises that fetch a new page
-          // Please do not `pull` us again, before at least one is loaded
-          // This is incorrect though, please pull use again if at least one is done
-          // This might be one that was already started on the previous page
-          newPages.push(
-            ...goodRelations.map((x) => {
-              fragmentState.add(x.node);
-              return fetchPage(x, dereferencer, myFetch).then((page) =>
-                fetchedPages.push(page),
-              );
-            }),
-          );
+    // Fetch view but do not interpret
+    this.fetcher.fetchPage(viewQuads[0].object.value);
+  }
 
-          page = fetchedPages.shift();
-        }
+  async pull(cb: (member: Member) => void, close: () => void) {
+    await this.fetcher.ready();
+    let page = this.fetcher.getPage();
 
-        // Create Store
-        // Some fragments are already polled, but not interpretted
-        // Interpret these fragments and emit the members
-        // Poll all linked fragments according to the strategy
-        // Return this pull function when at least one fetch is completed
-        if (newPages) {
-          await Promise.race(newPages);
-        }
-      },
-      cancel() {},
-    },
-    queueingStrategy,
-  );
+    this.fetcher.commit();
+    if (!page) return close();
+
+    const newMembers: Promise<any>[] = [];
+    // Fetched Pages can be more smart
+    while (page) {
+      newMembers.push(
+        ...extractMembers(
+          page.data,
+          this.streamId,
+          this.cbdExtractor,
+          this.membersState,
+          cb,
+        ),
+      );
+
+      // This is an array that holds all promises that fetch a new page
+      // Please do not `pull` us again, before at least one is loaded
+      // This is incorrect though, please pull use again if at least one is done
+      // This might be one that was already started on the previous page
+      page = this.fetcher.getPage();
+    }
+
+    // Return this pull function when at least one fetch is completed
+    await this.fetcher.ready();
+
+    try {
+      await Promise.any(newMembers).catch(console.error);
+    } catch (ex: any) {
+      console.error(ex);
+      await this.pull(cb, close);
+    }
+  }
+
+  stream(): ReadableStream<Member> {
+    const config = {
+      start: () => this.init(),
+      pull: (controller: Controller) =>
+        this.pull(
+          (member) => controller.enqueue(member),
+          () => controller.close(),
+        ),
+    };
+    return new ReadableStream(config);
+  }
 }
 
 async function fetchPage(
-  relation: Relation,
+  location: string,
   dereferencer: RdfDereferencer,
   myFetch: typeof fetch,
 ): Promise<FetchedPage> {
-  const resp = await dereferencer.dereference(relation.node, {
+  const resp = await dereferencer.dereference(location, {
     fetch: myFetch,
   });
   const url = resp.url;
   const page = await streamToArray(resp.data);
-  return <FetchedPage>{ url, page };
+  const data = new Store(page);
+  return <FetchedPage>{ url, data };
 }

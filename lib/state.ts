@@ -5,9 +5,9 @@ export interface ClientState {
 
 export interface State {
   init(): Promise<void>;
-  seen(id: string): Promise<boolean>;
-  filter<T>(ids: T[], getId: (item: T) => string): Promise<T[]>;
-  add(id: string): Promise<void>;
+  seen(id: string): boolean;
+  filter<T>(ids: T[], getId: (item: T) => string): T[];
+  add(id: string): void;
   save(): Promise<void>;
 }
 
@@ -17,6 +17,7 @@ export class SimpleState implements State {
 
   constructor(location: string) {
     this.location = location;
+    this.state = new Set();
   }
 
   async init() {
@@ -26,15 +27,15 @@ export class SimpleState implements State {
     // Setup on exit hooks
   }
 
-  filter<T>(ids: T[], getId: (item: T) => string): Promise<T[]> {
-    return Promise.all(ids.filter((x) => !this.seen(getId(x))));
+  filter<T>(ids: T[], getId: (item: T) => string): T[] {
+    return ids.filter(async (x) => !this.seen(getId(x)));
   }
 
-  async seen(id: string): Promise<boolean> {
+  seen(id: string): boolean {
     return this.state.has(id);
   }
 
-  async add(id: string): Promise<void> {
+  add(id: string): void {
     this.state.add(id);
   }
 

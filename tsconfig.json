@@ -1,8 +1,16 @@
 {
     "compilerOptions": {
-      "declaration": true,
+"lib": ["es2023", "dom"],
+    "module": "node16",
+    "target": "es2022",
+
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node16",
       "outDir": "dist",
-      "esModuleInterop": true
+      "declaration": true
     },
     "exclude": [
       "node_modules",

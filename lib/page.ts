@@ -22,28 +22,35 @@ export interface Page {
   node: string;
 }
 
-export async function extractMembers(
+export function extractMembers(
   store: Store,
-  node: Term,
+  stream: Term,
   extractor: CBDShapeExtractor,
-  cb: (member: Member) => void,
   state: State,
+  cb: (member: Member) => void,
   shapeId?: Term,
-): Promise<number> {
-  const members = store.getObjects(node, TREE.terms.member, null);
+): Promise<void>[] {
+  const members = store.getObjects(stream, TREE.terms.member, null);
 
+  const extractMember = async (member: Term) => {
+    state.add(member.value);
+    const quads = await extractor.extract(
+      store,
+      <N3.Term>member,
+      <N3.Term>shapeId,
+    );
+    cb({ quads, id: member });
+  };
+
+  const out = [];
   for (let member of members) {
-    if (!(await state.seen(member.id))) {
-      const addPromise = state.add(member.id);
-      extractor
-        .extract(store, member, <N3.Term>shapeId)
-        .then((quads) => cb({ quads, id: member }));
-      await addPromise;
+    if (!state.seen(member.value)) {
+      state.add(member.value);
+      out.push(extractMember(member));
     }
   }
 
-  // This is an estimation
-  return members.length;
+  return out;
 }
 
 export function extractRelations(store: Store, node: Term): Relation[] {
