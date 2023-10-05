@@ -1,40 +1,44 @@
-import { Shape } from "extract-cbd-shape/dist/lib/Shape";
-import { NamedNode, Term } from "n3";
-
-/**
- * The State class represents the state kept by a specific kind of LDES
- * The default behaviour is to keep a list of all done HTTP requests and all retrieved members.
- * If however the LDES documents an iterator, we can keep the State much more memory efficiently
- */
-export default class State {
-
-    shape: Shape;
-    collection: NamedNode;
-    view: NamedNode;
-    bookmark: LDESBookmark; 
-
-    constructor () {
-        
-    }
-
+export interface ClientState {
+  root: string; // Used to acquire shape
+  inFlight: string[]; // fragments that are currently being checked
 }
 
-export class LDESBookmark {
-
-
+export interface State {
+  init(): Promise<void>;
+  seen(id: string): Promise<boolean>;
+  filter<T>(ids: T[], getId: (item: T) => string): Promise<T[]>;
+  add(id: string): Promise<void>;
+  save(): Promise<void>;
 }
 
-export class IteratorBookmark extends LDESBookmark {
+export class SimpleState implements State {
+  state: Set<string>;
+  location: string;
 
-}
+  constructor(location: string) {
+    this.location = location;
+  }
 
-export class HTTPBookmark extends LDESBookmark {
-    retrievedMembers: Term[]; // Should work as a very big LRU cache to prevent memory outage
-    immutable : string[]; // Already fetched immutable pages
+  async init() {
+    // Loaad location into state, or default
+    // Take into account nodejs and browser runtimes
+    //
+    // Setup on exit hooks
+  }
 
-    store;
+  filter<T>(ids: T[], getId: (item: T) => string): Promise<T[]> {
+    return Promise.all(ids.filter((x) => !this.seen(getId(x))));
+  }
 
-    constructor () {
-        super();        
-    }
+  async seen(id: string): Promise<boolean> {
+    return this.state.has(id);
+  }
+
+  async add(id: string): Promise<void> {
+    this.state.add(id);
+  }
+
+  async save(): Promise<void> {
+    // Save state into location
+  }
 }

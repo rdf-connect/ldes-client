@@ -1,41 +1,140 @@
-import { CBDShapeExtractor} from "extract-cbd-shape";
-import { Dereferencer } from "./dereferencer";
-import { Term, Quad, Store} from "n3";
-import { Runner } from "./runner";
+import { Config, getConfig } from "./config";
+import { extractMembers, extractRelations, Member, Relation } from "./page";
+import rdfDereference, { RdfDereferencer } from "rdf-dereference";
+import { SimpleState, State } from "./state";
+import { CBDShapeExtractor } from "extract-cbd-shape";
+import { DataFactory, Store } from "n3";
+import { Quad } from "@rdfjs/types";
+import { Semaphore, streamToArray } from "./utils";
 
-/**
- * This is basically a runner factory: it creates runners based on context given.
- */
-export class LDESClient {
-    dereferencer : Dereferencer;
-    constructor () {
-        this.dereferencer = new Dereferencer();
-    }
+const { namedNode } = DataFactory;
 
-    /**
-     * Fetches the context and starts up a repl+sync runner
-     * @param url 
-     */
-    async replicate (url: string): Promise<Runner> {
-        let response = await this.dereferencer.dereference(url);
-        // First fetch context information and put this in the context store
-        let contextStore = new Store(response.quads);
+type Controller = ReadableStreamDefaultController<Member>;
 
-        let memberExtractor = new CBDShapeExtractor(contextStore, this.dereferencer.rdfDereference);
+export async function startClient() {
+  // Extract config from command line args
+  const config = await getConfig();
 
-        //Store used for member extraction
-        let memberStore = new Store(response.quads);
-        
-        // If the URL was a URI for the LDES,
-        // select the best view that could be found for repl+sync (TODO)
-        let entryNodeUrl = url;
+  // Start channel from target
 
-        let runner = new Runner(memberExtractor, contextStore, entryNodeUrl, memberStore);
-        return runner;
-    }
-
-    async synchronize (): Promise<Runner> {
-        return new Runner();
-    }
+  const client = replicateLDES(config);
 }
 
+type FetchedPage = {
+  url: string;
+  page: Quad[];
+};
+
+export function replicateLDES(
+  config: Config,
+  {
+    membersState,
+    fragmentState,
+    dereferencer,
+  }: {
+    membersState?: State;
+    fragmentState?: State;
+    dereferencer?: RdfDereferencer;
+  } = {},
+): ReadableStream<Member> {
+  const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 100 });
+  const fetchedPages: FetchedPage[] = [];
+  const myFetch = new Semaphore(10).wrapFunction(fetch);
+
+  if (!dereferencer) {
+    dereferencer = rdfDereference;
+  }
+  let cbdExtractor: CBDShapeExtractor = new CBDShapeExtractor(
+    undefined,
+    dereferencer,
+  );
+
+  return new ReadableStream(
+    {
+      async start(controller) {
+        if (!membersState) {
+          membersState = new SimpleState(config.memberStateLocation);
+          await membersState.init();
+        }
+
+        if (!fragmentState) {
+          fragmentState = new SimpleState(config.fragmentStateLocation);
+          await fragmentState.init();
+        }
+
+        // Fetch the url
+        // Try to get a shape
+        // Choose a view
+        // Fetch view but do not interpret
+        fetchedPages.push({ url: config.url, page: [] });
+      },
+
+      async pull(controller) {
+        if (!fetchedPages && config.follow) return controller.close();
+
+        const newPages: Promise<any>[] = [];
+        // Fetched Pages can be more smart
+        let page = fetchedPages.shift();
+        while (page) {
+          const store = new Store();
+          // Streaming parse?
+          store.addQuads(page.page);
+
+          extractMembers(
+            store,
+            namedNode(page.url),
+            cbdExtractor,
+            (member) => controller.enqueue(member),
+            membersState,
+          );
+
+          const relations = extractRelations(store, namedNode(page.url));
+
+          const goodRelations = await fragmentState.filter(
+            relations,
+            (x) => x.node,
+          );
+
+          // This is an array that holds all promises that fetch a new page
+          // Please do not `pull` us again, before at least one is loaded
+          // This is incorrect though, please pull use again if at least one is done
+          // This might be one that was already started on the previous page
+          newPages.push(
+            ...goodRelations.map((x) => {
+              fragmentState.add(x.node);
+              return fetchPage(x, dereferencer, myFetch).then((page) =>
+                fetchedPages.push(page),
+              );
+            }),
+          );
+
+          page = fetchedPages.shift();
+        }
+
+        // Create Store
+        // Some fragments are already polled, but not interpretted
+        // Interpret these fragments and emit the members
+        // Poll all linked fragments according to the strategy
+        // Return this pull function when at least one fetch is completed
+        if (newPages) {
+          await Promise.race(newPages);
+        }
+      },
+      cancel() {},
+    },
+    queueingStrategy,
+  );
+}
+
+async function fetchPage(
+  relation: Relation,
+  dereferencer: RdfDereferencer,
+  myFetch: typeof fetch,
+): Promise<FetchedPage> {
+  const resp = await dereferencer.dereference(relation.node, {
+    fetch: myFetch,
+  });
+  const url = resp.url;
+  const page = await streamToArray(resp.data);
+  return <FetchedPage>{ url, page };
+}
