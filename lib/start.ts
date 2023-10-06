@@ -1,11 +1,9 @@
-import rdfDereference, { RdfDereferencer } from "rdf-dereference";
 import { replicateLDES } from "./client";
 import { intoConfig } from "./config";
-import { streamToArray } from "./utils";
 
 async function main() {
   const client = replicateLDES(
-    intoConfig({ url: "http://era.ilabt.imec.be/ldes/default" }),
+    intoConfig({ url: "http://era.ilabt.imec.be/ldes/onType/root" }),
   );
 
   const reader = client.stream().getReader();

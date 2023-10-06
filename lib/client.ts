@@ -8,6 +8,7 @@ import { Quad, Term } from "@rdfjs/types";
 import { Semaphore, streamToArray } from "./utils";
 import { TREE } from "@treecg/types";
 import { FetchedPage, Fetcher } from "./pageFetcher";
+import { Manager } from "./memberManager";
 
 const { namedNode } = DataFactory;
 
@@ -37,11 +38,13 @@ export class Client {
   private config: Config;
   private membersState: State;
   private fragmentState: State;
-  private fetcher: Fetcher;
+
   private dereferencer: RdfDereferencer;
   private fetch: typeof fetch;
   private cbdExtractor: CBDShapeExtractor;
-  public streamId: Term;
+
+  private fetcher: Fetcher;
+  private memberManager: Manager;
 
   constructor(
     config: Config,
@@ -58,12 +61,6 @@ export class Client {
   ) {
     this.config = config;
     this.fetch = new Semaphore(10).wrapFunction(fetch);
-    if (stream) {
-      this.streamId = stream;
-    } else {
-      // This might be updated if it is clear that the ldes stream identifier is not actually the config url
-      this.streamId = namedNode(config.url);
-    }
 
     this.dereferencer = dereferencer ?? rdfDereference;
     this.membersState =
@@ -77,9 +74,15 @@ export class Client {
       this.fetch,
       this.fragmentState,
     );
+
+    this.memberManager = new Manager(
+      stream || namedNode(config.url),
+      this.membersState,
+      this.cbdExtractor,
+    );
   }
 
-  async init(): Promise<void> {
+  async init(cb: (member: Member) => void): Promise<void> {
     await this.membersState.init();
     await this.fragmentState.init();
 
@@ -94,7 +97,10 @@ export class Client {
       throw "Did not find tree:view predicate, this is required to interpret the LDES";
     }
 
-    this.streamId = viewQuads[0].subject;
+    this.memberManager.setOptions({
+      callback: cb,
+      ldesId: viewQuads[0].subject,
+    });
 
     console.log(
       "Found",
@@ -109,24 +115,17 @@ export class Client {
 
   async pull(cb: (member: Member) => void, close: () => void) {
     await this.fetcher.ready();
+
     let page = this.fetcher.getPage();
 
     this.fetcher.commit();
     if (!page) return close();
 
-    const newMembers: Promise<any>[] = [];
+    const submitMember = this.memberManager.reset();
+    // const newMembers: Promise<any>[] = [];
     // Fetched Pages can be more smart
     while (page) {
-      newMembers.push(
-        ...extractMembers(
-          page.data,
-          this.streamId,
-          this.cbdExtractor,
-          this.membersState,
-          cb,
-        ),
-      );
-
+      this.memberManager.extractMembers(page);
       // This is an array that holds all promises that fetch a new page
       // Please do not `pull` us again, before at least one is loaded
       // This is incorrect though, please pull use again if at least one is done
@@ -135,19 +134,19 @@ export class Client {
     }
 
     // Return this pull function when at least one fetch is completed
-    await this.fetcher.ready();
+    // await this.fetcher.ready();
 
-    try {
-      await Promise.any(newMembers).catch(console.error);
-    } catch (ex: any) {
-      console.error(ex);
+    if (this.memberManager.queued > 0) {
+      await submitMember;
+    } else {
       await this.pull(cb, close);
     }
   }
 
   stream(): ReadableStream<Member> {
     const config = {
-      start: () => this.init(),
+      start: (controller: Controller) =>
+        this.init((member) => controller.enqueue(member)),
       pull: (controller: Controller) =>
         this.pull(
           (member) => controller.enqueue(member),
