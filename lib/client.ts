@@ -34,6 +34,35 @@ export function replicateLDES(
   return new Client(config, states);
 }
 
+async function getShape(
+  ldesId: Term,
+  store: Store,
+  dereferencer: RdfDereferencer,
+): Promise<[CBDShapeExtractor, Term] | undefined> {
+  try {
+    const shapeIds = store.getObjects(ldesId, TREE.terms.shape, null);
+    if (shapeIds.length === 0) {
+      const resp = await dereferencer.dereference(ldesId.value);
+      store = new Store(await streamToArray(resp.data));
+      shapeIds.push(...store.getObjects(ldesId, TREE.terms.shape, null));
+      if (shapeIds.length === 0) {
+        console.error("Could not determine the shape, no shape found");
+        return;
+      }
+    }
+
+    if (shapeIds.length > 1) {
+      console.error("Expected at most one shape id, found " + shapeIds.length);
+    }
+
+    return [new CBDShapeExtractor(store, dereferencer), shapeIds[0]];
+  } catch (ex: any) {
+    console.error("Could not determine the shape");
+    console.error(ex);
+    return;
+  }
+}
+
 export class Client {
   private config: Config;
   private membersState: State;
@@ -93,21 +122,34 @@ export class Client {
     // Choose a view
     const viewQuads = root.data.getQuads(null, TREE.terms.view, null, null);
 
+    let ldesId: Term = namedNode(this.config.url);
     if (viewQuads.length === 0) {
-      throw "Did not find tree:view predicate, this is required to interpret the LDES";
+      console.error(
+        "Did not find tree:view predicate, this is required to interpret the LDES",
+      );
+    } else {
+      ldesId = viewQuads[0].subject;
     }
 
     this.memberManager.setOptions({
       callback: cb,
-      ldesId: viewQuads[0].subject,
+      ldesId,
     });
 
-    console.log(
-      "Found",
-      viewQuads.length,
-      "views, choosing",
-      viewQuads[0].object.value,
-    );
+    const shapeOutput = await getShape(ldesId, root.data, this.dereferencer);
+    let shapeId;
+    if (shapeOutput) {
+      console.log("Found shape!", shapeOutput[1]);
+      this.cbdExtractor = shapeOutput[0];
+      shapeId = shapeOutput[1];
+
+      this.memberManager.setOptions({
+        shapeId,
+        extractor: this.cbdExtractor,
+      });
+    }
+
+    console.log("Found", viewQuads.length, "views, choosing", ldesId.value);
 
     // Fetch view but do not interpret
     this.fetcher.fetchPage(viewQuads[0].object.value);

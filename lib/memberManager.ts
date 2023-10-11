@@ -10,6 +10,7 @@ export interface Options {
   ldesId?: Term;
   shapeId?: Term;
   callback?: (member: Member) => void;
+  extractor?: CBDShapeExtractor;
 }
 
 export class Manager {
@@ -29,14 +30,17 @@ export class Manager {
   }
 
   setOptions(options: Partial<Options>) {
-    if(options.callback) {
+    if (options.callback) {
       this.callback = options.callback;
     }
-    if(options.shapeId) {
+    if (options.shapeId) {
       this.shapeId = options.shapeId;
     }
-    if(options.ldesId) {
+    if (options.ldesId) {
       this.ldesId = options.ldesId;
+    }
+    if(options.extractor) {
+      this.extractor = options.extractor;
     }
   }
 
@@ -45,10 +49,11 @@ export class Manager {
 
     const extractMember = async (member: Term) => {
       this.state.add(member.value);
+
       const quads = await this.extractor.extract(
         page.data,
-        <N3.Term>member,
-        <N3.Term>this.shapeId,
+        member,
+        this.shapeId,
       );
       this.memberFound({ id: member, quads });
     };

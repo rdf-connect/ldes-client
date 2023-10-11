@@ -32,6 +32,8 @@ export class Fetcher {
   }
 
   private async _fetchPage(location: string) {
+    console.log("Fetching page", location);
+
     const resp = await this.dereferencer.dereference(location, {
       fetch: this.fetch,
     });
@@ -41,8 +43,14 @@ export class Fetcher {
 
     // Maybe extract relations here
     // And already add them to me
-    for (let relation of extractRelations(data, namedNode(url))) {
+    for (let relation of extractRelations(data, namedNode(location))) {
       this.stage(relation.node);
+    }
+
+    if (url !== location) {
+      for (let relation of extractRelations(data, namedNode(url))) {
+        this.stage(relation.node);
+      }
     }
 
     this.readyPages.push({ data, url });
@@ -69,6 +77,8 @@ export class Fetcher {
     if (!this.state.seen(url)) {
       this.state.add(url);
       this.pages.push(this._fetchPage(url));
+    } else {
+      console.log("Cannot fetch page", url, "already seen!");
     }
   }
 

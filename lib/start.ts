@@ -3,7 +3,8 @@ import { intoConfig } from "./config";
 
 async function main() {
   const client = replicateLDES(
-    intoConfig({ url: "http://era.ilabt.imec.be/ldes/onType/root" }),
+    // intoConfig({ url: "http://era.ilabt.imec.be/ldes/onType/root" }),
+    intoConfig({ url: "http://marineregions.org/feed" }),
   );
 
   const reader = client.stream().getReader();
@@ -17,7 +18,7 @@ async function main() {
         el.value.id.value,
         el.value.quads.length,
         "quads",
-        seen.size
+        seen.size,
       );
     }
 
@@ -28,4 +29,3 @@ async function main() {
 }
 
 main().catch(console.error);
-
