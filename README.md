@@ -17,7 +17,7 @@ ldes-client <url> [-f] [--save <path>] [--pollInterval <number>] [--shape <shape
 ### Flags
 
 - `-f` `--follow`: follow the LDES, the client stays in sync
-- `-s` `--save`: filepath to the save file to use, used both to resume and to update
+- `-s` `--state`: filepath to the save state file to use, used both to resume and to update
 - `--pollInterval`: time to wait between polling the LDES when the client is following the LDES.
 - `--shape`: shape file to which LDES members should conform (overwrite LDES configured shape)
 - Others soon comming
