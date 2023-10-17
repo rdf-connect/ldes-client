@@ -2,7 +2,9 @@ import { RdfDereferencer } from "rdf-dereference";
 import { streamToArray } from "./utils";
 import { State } from "./state";
 import { DataFactory, Store } from "n3";
-import { extractRelations } from "./page";
+import { extractRelations, Relation } from "./page";
+
+import { Comparator, Heap } from "heap-js";
 
 const { namedNode } = DataFactory;
 
@@ -11,86 +13,123 @@ export type FetchedPage = {
   data: Store;
 };
 
+// At most concurrentRequests + maxFetched pages will be stored in memory
+// First maxFetched can be ready, but already concurrentRequests are sent out
+export type FetcherConfig = {
+  concurrentRequests: number;
+  maxFetched: number;
+};
+
+export const DefaultFetcherConfig: FetcherConfig = {
+  concurrentRequests: 10,
+  maxFetched: 10,
+};
+
+type LongPromise = {
+  waiting: Promise<void>;
+  callback: () => void;
+};
+
+function longPromise(): LongPromise {
+  const out = {} as LongPromise;
+  out.waiting = new Promise((res) => (out.callback = res));
+  return out;
+}
+
+function resetPromise(promise: LongPromise) {
+  const cb = promise.callback;
+  promise.waiting = new Promise((res) => (promise.callback = res));
+  cb();
+}
+
+type PageAndRelation = {
+  page: FetchedPage;
+  relation: Relation;
+};
+
 export class Fetcher {
   private dereferencer: RdfDereferencer;
-  private fetch: typeof fetch;
 
-  private pages: Promise<void>[] = [];
-  private readyPages: FetchedPage[] = [];
+  private readyPages: Heap<PageAndRelation>;
+  private inFlight = 0;
+
   private state: State;
 
-  private staged: string[] = [];
+  private heap: Heap<Relation>;
+  private readonly config: FetcherConfig;
+
+  private pageFetched: LongPromise;
+  private pageUsed: LongPromise;
 
   constructor(
     dereferencer: RdfDereferencer,
-    myFetch: typeof fetch,
     state: State,
+    config = DefaultFetcherConfig,
+    comp?: Comparator<Relation>,
   ) {
     this.dereferencer = dereferencer;
-    this.fetch = myFetch;
     this.state = state;
+    this.heap = new Heap(comp);
+    const compPage = comp
+      ? (a: PageAndRelation, b: PageAndRelation) => comp(a.relation, b.relation)
+      : undefined;
+    this.readyPages = new Heap(compPage);
+    this.config = config;
+
+    this.pageFetched = longPromise();
+    this.pageUsed = longPromise();
   }
 
-  private async _fetchPage(location: string) {
-    console.log("Fetching page", location);
+  private fetched(relation: Relation, page: FetchedPage) {
+    this.readyPages.add({ relation, page });
+    resetPromise(this.pageFetched);
 
-    const resp = await this.dereferencer.dereference(location, {
-      fetch: this.fetch,
-    });
+    while (this.inFlight < this.config.concurrentRequests) {
+      const item = this.heap.pop();
+      if (item) {
+        if (!this.state.seen(item.node)) {
+          this.state.add(item.node);
+          this.inFlight += 1;
+          this._fetchPage(item);
+        }
+      }
+    }
+  }
+
+  start(url: string) {
+    this._fetchPage({ node: url, type: [] });
+  }
+
+  private async _fetchPage(relation: Relation) {
+    const resp = await this.dereferencer.dereference(relation.node);
     const url = resp.url;
     const page = await streamToArray(resp.data);
     const data = new Store(page);
 
-    // Maybe extract relations here
-    // And already add them to me
-    for (let relation of extractRelations(data, namedNode(location))) {
-      this.stage(relation.node);
+    this.heap.addAll(extractRelations(data, namedNode(relation.node)));
+
+    if (url !== relation.node) {
+      this.heap.addAll(extractRelations(data, namedNode(url)));
     }
 
-    if (url !== location) {
-      for (let relation of extractRelations(data, namedNode(url))) {
-        this.stage(relation.node);
-      }
+    while (this.readyPages.length >= this.config.maxFetched) {
+      await this.pageUsed.waiting;
     }
 
-    this.readyPages.push({ data, url });
-    console.log("Adding ready page", this.readyPages.length);
-  }
-
-  /// Stage an url to be fetched on the next commit
-  stage(url: string) {
-    console.log("Staging ", url);
-    this.staged.push(url);
-  }
-
-  // Start fetch the staged urls
-  commit() {
-    this.pages = [];
-    console.log("Commit", this.staged.length);
-    const staged = this.staged;
-    this.staged = [];
-    staged.forEach((x) => this.fetchPage(x));
-  }
-
-  // Fetch a page, don't stage and commit, just fetch it
-  fetchPage(url: string) {
-    if (!this.state.seen(url)) {
-      this.state.add(url);
-      this.pages.push(this._fetchPage(url));
-    } else {
-      console.log("Cannot fetch page", url, "already seen!");
-    }
+    this.inFlight -= 1;
+    this.fetched(relation, { data, url });
   }
 
   /// Get a page that is ready
-  getPage(): FetchedPage | undefined {
-    return this.readyPages.shift();
-  }
+  async getPage(): Promise<FetchedPage> {
+    if (this.readyPages.length > 0) {
+      const out = this.readyPages.pop()!;
+      resetPromise(this.pageUsed);
+      return out.page;
+    }
 
-  /// Wait until at least one page is ready
-  async ready(): Promise<void> {
-    if (!!this.readyPages.length) return Promise.resolve();
+    await this.pageFetched.waiting;
 
-    await Promise.any(this.pages);
+    return this.getPage();
   }
 }

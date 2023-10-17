@@ -4,7 +4,6 @@ import { FetchedPage } from "./pageFetcher";
 import { State } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { TREE } from "@treecg/types";
-import * as N3 from "n3";
 
 export interface Options {
   ldesId?: Term;
@@ -39,7 +38,7 @@ export class Manager {
     if (options.ldesId) {
       this.ldesId = options.ldesId;
     }
-    if(options.extractor) {
+    if (options.extractor) {
       this.extractor = options.extractor;
     }
   }

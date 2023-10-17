@@ -1,11 +1,11 @@
 import { Config, getConfig } from "./config";
-import { extractMembers, extractRelations, Member } from "./page";
+import { Member } from "./page";
 import rdfDereference, { RdfDereferencer } from "rdf-dereference";
 import { SimpleState, State } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { DataFactory, Store } from "n3";
-import { Quad, Term } from "@rdfjs/types";
-import { Semaphore, streamToArray } from "./utils";
+import { Term } from "@rdfjs/types";
+import { streamToArray } from "./utils";
 import { TREE } from "@treecg/types";
 import { FetchedPage, Fetcher } from "./pageFetcher";
 import { Manager } from "./memberManager";
@@ -69,7 +69,6 @@ export class Client {
   private fragmentState: State;
 
   private dereferencer: RdfDereferencer;
-  private fetch: typeof fetch;
   private cbdExtractor: CBDShapeExtractor;
 
   private fetcher: Fetcher;
@@ -89,8 +88,6 @@ export class Client {
     stream?: Term,
   ) {
     this.config = config;
-    this.fetch = new Semaphore(10).wrapFunction(fetch);
-
     this.dereferencer = dereferencer ?? rdfDereference;
     this.membersState =
       membersState ?? new SimpleState(config.memberStateLocation);
@@ -98,11 +95,7 @@ export class Client {
       fragmentState ?? new SimpleState(config.fragmentStateLocation);
     this.cbdExtractor = new CBDShapeExtractor(undefined, this.dereferencer);
 
-    this.fetcher = new Fetcher(
-      this.dereferencer,
-      this.fetch,
-      this.fragmentState,
-    );
+    this.fetcher = new Fetcher(this.dereferencer, this.fragmentState, config.fetcher);
 
     this.memberManager = new Manager(
       stream || namedNode(config.url),
@@ -152,40 +145,39 @@ export class Client {
     console.log("Found", viewQuads.length, "views, choosing", ldesId.value);
 
     // Fetch view but do not interpret
-    this.fetcher.fetchPage(viewQuads[0].object.value);
+    this.fetcher.start(viewQuads[0].object.value);
   }
 
-  async pull(cb: (member: Member) => void, close: () => void) {
-    await this.fetcher.ready();
-
-    let page = this.fetcher.getPage();
-
-    this.fetcher.commit();
+  async pull(cb: (member: Member) => void, close: () => void, highWater = 10) {
+    let page = await this.fetcher.getPage();
     if (!page) return close();
 
     const submitMember = this.memberManager.reset();
+
     // const newMembers: Promise<any>[] = [];
     // Fetched Pages can be more smart
-    while (page) {
+    while (page && this.memberManager.queued < highWater) {
       this.memberManager.extractMembers(page);
       // This is an array that holds all promises that fetch a new page
       // Please do not `pull` us again, before at least one is loaded
       // This is incorrect though, please pull use again if at least one is done
       // This might be one that was already started on the previous page
-      page = this.fetcher.getPage();
+      page = await this.fetcher.getPage();
+      if (!page) return close();
     }
 
     // Return this pull function when at least one fetch is completed
     // await this.fetcher.ready();
 
+    console.log("Members queued", this.memberManager.queued);
     if (this.memberManager.queued > 0) {
       await submitMember;
     } else {
-      await this.pull(cb, close);
+      await this.pull(cb, close, highWater);
     }
   }
 
-  stream(): ReadableStream<Member> {
+  stream(strategy?: { highWaterMark?: number }): ReadableStream<Member> {
     const config = {
       start: (controller: Controller) =>
         this.init((member) => controller.enqueue(member)),
@@ -193,9 +185,10 @@ export class Client {
         this.pull(
           (member) => controller.enqueue(member),
           () => controller.close(),
+          controller.desiredSize || 10,
         ),
     };
-    return new ReadableStream(config);
+    return new ReadableStream(config, strategy);
   }
 }
 

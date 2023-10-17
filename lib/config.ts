@@ -1,4 +1,5 @@
 import { NamedNode, Quad } from "@rdfjs/types";
+import { DefaultFetcherConfig, FetcherConfig } from "./pageFetcher";
 
 export interface ShapeConfig {
   quads: Quad[];
@@ -20,6 +21,7 @@ export interface Config {
   url: string;
   pollInterval: number;
   mediator: MediatorConfig;
+  fetcher: FetcherConfig,
   memberStateLocation: string;
   fragmentStateLocation: string;
   before?: Date;
@@ -42,6 +44,7 @@ const defaultConfig: Config = {
   memberStateLocation: "members.json",
   fragmentStateLocation: "fragments.json",
   pollInterval: 200,
+  fetcher: DefaultFetcherConfig,
   mediator: defaultMediatorConfig,
 };
 

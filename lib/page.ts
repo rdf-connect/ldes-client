@@ -12,7 +12,7 @@ export interface Member {
 
 export interface Relation {
   node: string;
-  type: Term;
+  type: Term[];
   value?: Term[];
   path?: Term;
 }
@@ -59,10 +59,14 @@ export function extractRelations(store: Store, node: Term): Relation[] {
   const out: Relation[] = [];
   for (let relationId of relationIds) {
     const node = store.getObjects(relationId, TREE.terms.node, null)[0];
-    const ty = store.getObjects(relationId, RDF.terms.type, null)[0];
+    const ty = store.getObjects(relationId, RDF.terms.type, null);
+    const path = store.getObjects(relationId, TREE.terms.path, null)[0];
+    const value = store.getObjects(relationId, TREE.terms.value, null);
     out.push({
       node: node.value,
       type: ty,
+      path,
+      value,
     });
   }
 
