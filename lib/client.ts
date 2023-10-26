@@ -6,9 +6,10 @@ import { CBDShapeExtractor } from "extract-cbd-shape";
 import { DataFactory, Store } from "n3";
 import { Term } from "@rdfjs/types";
 import { streamToArray } from "./utils";
-import { TREE } from "@treecg/types";
+import { LDES, TREE } from "@treecg/types";
 import { FetchedPage, Fetcher } from "./pageFetcher";
 import { Manager } from "./memberManager";
+import { orderedHelper, unorderedHelper } from "./helper";
 
 const { namedNode } = DataFactory;
 
@@ -34,33 +35,67 @@ export function replicateLDES(
   return new Client(config, states);
 }
 
+export type LDESInfo = {
+  shape?: Term;
+  extractor: CBDShapeExtractor;
+  timestampPath?: Term;
+  isVersionOfPath?: Term;
+};
+
 async function getShape(
   ldesId: Term,
   store: Store,
   dereferencer: RdfDereferencer,
-): Promise<[CBDShapeExtractor, Term] | undefined> {
-  try {
-    const shapeIds = store.getObjects(ldesId, TREE.terms.shape, null);
-    if (shapeIds.length === 0) {
+): Promise<LDESInfo> {
+  const shapeIds = store.getObjects(ldesId, TREE.terms.shape, null);
+  const timestampPaths = store.getObjects(
+    ldesId,
+    LDES.terms.timestampPath,
+    null,
+  );
+  const isVersionOfPaths = store.getObjects(
+    ldesId,
+    LDES.terms.versionOfPath,
+    null,
+  );
+
+  if (!shapeIds || !timestampPaths || !isVersionOfPaths) {
+    try {
       const resp = await dereferencer.dereference(ldesId.value);
       store = new Store(await streamToArray(resp.data));
       shapeIds.push(...store.getObjects(ldesId, TREE.terms.shape, null));
-      if (shapeIds.length === 0) {
-        console.error("Could not determine the shape, no shape found");
-        return;
-      }
-    }
 
-    if (shapeIds.length > 1) {
-      console.error("Expected at most one shape id, found " + shapeIds.length);
-    }
-
-    return [new CBDShapeExtractor(store, dereferencer), shapeIds[0]];
-  } catch (ex: any) {
-    console.error("Could not determine the shape");
-    console.error(ex);
-    return;
+      timestampPaths.push(
+        ...store.getObjects(ldesId, LDES.terms.timestampPath, null),
+      );
+      isVersionOfPaths.push(
+        ...store.getObjects(ldesId, LDES.terms.versionOfPath, null),
+      );
+    } catch (ex: any) {}
   }
+
+  if (shapeIds.length > 1) {
+    console.error("Expected at most one shape id, found " + shapeIds.length);
+  }
+
+  if (timestampPaths.length > 1) {
+    console.error(
+      "Expected at most one timestamp path, found " + timestampPaths.length,
+    );
+  }
+
+  if (isVersionOfPaths.length > 1) {
+    console.error(
+      "Expected at most one versionOf path, found " + isVersionOfPaths.length,
+    );
+  }
+
+  return {
+    extractor: new CBDShapeExtractor(store, dereferencer),
+    shape: shapeIds[0],
+    timestampPath: timestampPaths[0],
+    isVersionOfPath: isVersionOfPaths[0],
+  };
 }
 
 export class Client {
@@ -71,8 +106,10 @@ export class Client {
   private dereferencer: RdfDereferencer;
   private cbdExtractor: CBDShapeExtractor;
 
-  private fetcher: Fetcher;
-  private memberManager: Manager;
+  private fetcher!: Fetcher;
+  private memberManager!: Manager;
+
+  private streamId?: Term;
 
   constructor(
     config: Config,
@@ -95,13 +132,7 @@ export class Client {
       fragmentState ?? new SimpleState(config.fragmentStateLocation);
     this.cbdExtractor = new CBDShapeExtractor(undefined, this.dereferencer);
 
-    this.fetcher = new Fetcher(this.dereferencer, this.fragmentState, config.fetcher);
-
-    this.memberManager = new Manager(
-      stream || namedNode(config.url),
-      this.membersState,
-      this.cbdExtractor,
-    );
+    this.streamId = stream;
   }
 
   async init(cb: (member: Member) => void): Promise<void> {
@@ -124,62 +155,45 @@ export class Client {
       ldesId = viewQuads[0].subject;
     }
 
-    this.memberManager.setOptions({
-      callback: cb,
-      ldesId,
-    });
+    const info = await getShape(ldesId, root.data, this.dereferencer);
+    this.cbdExtractor = info.extractor;
 
-    const shapeOutput = await getShape(ldesId, root.data, this.dereferencer);
-    let shapeId;
-    if (shapeOutput) {
-      console.log("Found shape!", shapeOutput[1]);
-      this.cbdExtractor = shapeOutput[0];
-      shapeId = shapeOutput[1];
+    this.memberManager = new Manager(
+      this.streamId || ldesId,
+      this.membersState,
+      cb,
+      info,
+    );
 
-      this.memberManager.setOptions({
-        shapeId,
-        extractor: this.cbdExtractor,
-      });
-    }
+    const helper = info.timestampPath
+      ? orderedHelper(this.memberManager)
+      : unorderedHelper(this.memberManager);
+
+    this.fetcher = new Fetcher(
+      this.dereferencer,
+      this.fragmentState,
+      helper,
+      this.config.fetcher,
+    );
 
     console.log("Found", viewQuads.length, "views, choosing", ldesId.value);
 
     // Fetch view but do not interpret
-    this.fetcher.start(viewQuads[0].object.value);
+    this.fetcher.start(viewQuads[0].object.value, (a, b) => {
+      if (a == b) return 0;
+      if (a < b) return -1;
+      return 1;
+    });
   }
 
   async pull(cb: (member: Member) => void, close: () => void, highWater = 10) {
-    let page = await this.fetcher.getPage();
-    if (!page) return close();
-
     const submitMember = this.memberManager.reset();
-
-    // const newMembers: Promise<any>[] = [];
-    // Fetched Pages can be more smart
-    while (page && this.memberManager.queued < highWater) {
-      this.memberManager.extractMembers(page);
-      // This is an array that holds all promises that fetch a new page
-      // Please do not `pull` us again, before at least one is loaded
-      // This is incorrect though, please pull use again if at least one is done
-      // This might be one that was already started on the previous page
-      page = await this.fetcher.getPage();
-      if (!page) return close();
-    }
-
-    // Return this pull function when at least one fetch is completed
-    // await this.fetcher.ready();
-
-    console.log("Members queued", this.memberManager.queued);
-    if (this.memberManager.queued > 0) {
-      await submitMember;
-    } else {
-      await this.pull(cb, close, highWater);
-    }
+    await submitMember;
   }
 
   stream(strategy?: { highWaterMark?: number }): ReadableStream<Member> {
     const config = {
-      start: (controller: Controller) =>
+      start: (controller: Controller) => 
         this.init((member) => controller.enqueue(member)),
       pull: (controller: Controller) =>
         this.pull(

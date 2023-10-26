@@ -8,11 +8,13 @@ import { State } from "./state";
 export interface Member {
   id: Term;
   quads: Quad[];
+  timestamp?: string;
+  isVersionOf?: string;
 }
 
 export interface Relation {
   node: string;
-  type: Term[];
+  type: Term;
   value?: Term[];
   path?: Term;
 }
@@ -29,6 +31,8 @@ export function extractMembers(
   state: State,
   cb: (member: Member) => void,
   shapeId?: Term,
+  timestampPath?: Term,
+  isVersionOfPath?: Term,
 ): Promise<void>[] {
   const members = store.getObjects(stream, TREE.terms.member, null);
 
@@ -39,7 +43,22 @@ export function extractMembers(
       <N3.Term>member,
       <N3.Term>shapeId,
     );
-    cb({ quads, id: member });
+    // Get timestamp
+    let timestamp: string | undefined;
+    if (timestampPath) {
+      timestamp = quads.find(
+        (x) => x.subject.equals(member) && x.predicate.equals(timestampPath),
+      )?.object.value;
+    }
+
+    let isVersionOf: string | undefined;
+    if (isVersionOfPath) {
+      isVersionOf = quads.find(
+        (x) => x.subject.equals(member) && x.predicate.equals(isVersionOfPath),
+      )?.object.value;
+    }
+    // Get isVersionof
+    cb({ quads, id: member, isVersionOf, timestamp });
   };
 
   const out = [];
@@ -64,7 +83,7 @@ export function extractRelations(store: Store, node: Term): Relation[] {
     const value = store.getObjects(relationId, TREE.terms.value, null);
     out.push({
       node: node.value,
-      type: ty,
+      type: ty[0],
       path,
       value,
     });

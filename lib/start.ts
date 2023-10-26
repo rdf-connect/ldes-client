@@ -4,7 +4,7 @@ import { intoConfig } from "./config";
 async function main() {
   const client = replicateLDES(
     intoConfig({
-      url: "http://era.ilabt.imec.be/ldes/onType/root",
+      url: "http://era.ilabt.imec.be/ldes/default",
       fetcher: { maxFetched: 2, concurrentRequests: 10 },
     }),
     // intoConfig({ url: "http://marineregions.org/feed" }),
