@@ -49,6 +49,35 @@ Difficulties:
   - Keeping state of visited pages is unbounded
   These are also influenced by the configuration.
 
+### Fragment Fetcher
+
+The fragment fetcher fetches the fragments. 
+These fragments are targeted by relation chains, but only two types exist, important and not important.
+For example, when emitting members in order, the important relations are the GreaterThan relations, because all other relation types are equivalent, that is to say, we can only emit members when all unimportant relations are fetched and processed.
+
+Relation Chains are chains, because when you fetch a page, you can find new relations pointing from that page. But we need to distinguish between a relation after an important relation or a relation after an unimportant relation.
+Important relations squash unimportant relations, these chains should only be fetched if all unimportant relations are done.
+Unimportant relations squash other unimportant relations.
+Important relations squash other important relations, the new _value_ is the bigger value of the two.
+The ordering of these chains is thus, first unimportant relations, then important relations ordered on value.
+
+These chains dictate the order that pages should be fetched.
+Because fetching is asynchonous, we can only interpret a page, if no pages are in flight, that came from a smaller relation. In code this is denoted by heaps `readyPage` and `inFlightPages`, that both contain relation chains.
+Note that relation can be interpretted at any time.
+
+When a page is ready to be interpretted, the `helper` is asked to interpret the page. 
+A special value called `marker` is derived from the value of the incoming chain if the chain was important.
+For example, when emitting members in order, the member manager can always extract the members that are found, but can only emit them when a marker is issued and only the members that are smaller than that marker.
+
+### Member Manager
+
+The member manager _just_ extract members and emits them when they are ready.
+Extracting members is asynchonous, because sometime out of bound requests are made.
+This result in `currentPromises` that are awaited before sorting and emitting members.
+
+The streaming api comes with a requirement to always emit at least one member, per poll.
+To achieve this, the `memberManager` has a function called `reset()` which returns a promise when a member is emitted.
+
 
 ## Expected Features
 
