@@ -18,12 +18,12 @@
   "license": "ISC",
   "dependencies": {
     "@treecg/types": "^0.4.5",
+    "@types/debug": "^4.1.10",
+    "debug": "^4.3.4",
     "extract-cbd-shape": "0.0.2",
     "heap-js": "^2.3.0",
     "n3": "^1.17.1",
-    "rdf-dereference": "^2.2.0",
-    "rdf-parse": "^2.3.2",
-    "readable-web-to-node-stream": "^3.0.2"
+    "rdf-dereference": "^2.2.0"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",

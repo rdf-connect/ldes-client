@@ -6,6 +6,9 @@ import { CBDShapeExtractor } from "extract-cbd-shape";
 import { TREE } from "@treecg/types";
 import Heap from "heap-js";
 import { LDESInfo } from "./client";
+import debug from "debug";
+
+const log = debug("manager");
 
 export interface Options {
   ldesId?: Term;
@@ -40,6 +43,7 @@ export class Manager {
     callback: (member: Member) => void,
     info: LDESInfo,
   ) {
+    const logger = log.extend("constructor");
     this.callback = callback;
     this.ldesId = ldesId;
     this.state = state;
@@ -47,6 +51,8 @@ export class Manager {
     this.timestampPath = info.timestampPath;
     this.isVersionOfPath = info.isVersionOfPath;
     this.shapeId = info.shape;
+
+    logger("new %s %o", ldesId.value, info);
 
     this.members = new Heap((a, b) => {
       if (a.id.equals(b.id)) return 0;
@@ -60,6 +66,8 @@ export class Manager {
 
   // Extract members found in this page, this does not yet emit the members
   extractMembers(page: FetchedPage, ordered: boolean) {
+    const logger = log.extend("extract");
+
     const members = page.data.getObjects(this.ldesId, TREE.terms.member, null);
 
     const extractMember = async (member: Term) => {
@@ -93,34 +101,47 @@ export class Manager {
       }
 
       this.members.push({ id: member, quads, timestamp, isVersionOf });
+
       if (!ordered) this.emitAll();
     };
+
+    logger("%d members", members.length);
 
     for (let member of members) {
       if (!this.state.seen(member.value)) {
         this.queued += 1;
         if (ordered) {
           this.currentPromises.push(extractMember(member));
+        } else {
+          extractMember(member);
         }
-        extractMember(member);
       }
     }
+
+    logger("%d queued %d promises", this.queued, this.currentPromises.length);
   }
 
   // Wait for the current bunch of members to be extracted
   async marker(value: any, ordered: boolean) {
+    const logger = log.extend("marker");
     if (!ordered) {
+      logger("not ordered, no need for marker");
       return;
     }
 
+    logger("value %o", value);
+
     const promises = this.currentPromises;
     this.currentPromises = [];
+    logger("Awaiting %d promises", promises.length);
     await Promise.all(promises);
+    logger("succesful");
 
     let head = this.members.pop();
     while (head) {
       // Potentially this member is not yet ready
       if (!head.timestamp) {
+        logger("Emitting member without timestamp!");
         this.emit(head);
       } else if (head.timestamp < value) {
         this.emit(head);
@@ -130,15 +151,22 @@ export class Manager {
   }
 
   emitAll() {
+    const logger = log.extend("emitAll");
+    logger("Emitting %d members", this.members.length);
+
     let head = this.members.pop();
     while (head) {
       this.emit(head);
+      head = this.members.pop();
     }
   }
 
   /// Get a promsie that resolves when a member is submitted
   /// Only listen to this promise if a member is queued
   reset(): Promise<void> {
+    const logger = log.extend("reset");
+    logger("Resetting with %d members in queue", this.queued);
+
     this.queued = 0;
     return new Promise((res) => (this.resolve = res));
   }

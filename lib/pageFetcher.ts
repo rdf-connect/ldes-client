@@ -3,10 +3,10 @@ import { streamToArray } from "./utils";
 import { State } from "./state";
 import { DataFactory, Store } from "n3";
 import { extractRelations, Relation } from "./page";
-import { ReadableWebToNodeStream } from "readable-web-to-node-stream";
 import { Heap } from "heap-js";
-import rdfParser from "rdf-parse";
+import debug from "debug";
 
+const log = debug("fetcher");
 const { namedNode } = DataFactory;
 
 export type SimpleRelation = {
@@ -160,7 +160,6 @@ export class Fetcher {
   private readonly config: FetcherConfig;
 
   private pageFetched: LongPromise;
-  private pageUsed: LongPromise;
 
   private helper: Helper;
 
@@ -172,6 +171,8 @@ export class Fetcher {
     helper: Helper,
     config = DefaultFetcherConfig,
   ) {
+    const logger = log.extend("constructor");
+
     this.helper = helper;
     this.bound = {
       open_relations: 1,
@@ -186,29 +187,33 @@ export class Fetcher {
     this.config = config;
 
     this.pageFetched = longPromise();
-    this.pageUsed = longPromise();
+    logger("new fetcher %o", config);
   }
 
   private async fetched(relation: RelationChain, page: FetchedPage) {
-    console.log(
-      "Fetched",
+    const logger = log.extend("fetched");
+    logger(
+      "target %s inflight %d concurrentRequests %d",
       relation.target,
       this.inFlight,
       this.config.concurrentRequests,
     );
+
     this.readyPages.add({ relation, page });
     resetPromise(this.pageFetched);
 
     while (this.inFlight < this.config.concurrentRequests) {
       const item = this.toFetchHeap.pop();
       if (item) {
-        console.log("Maybe fetch", item.target);
         if (!this.state.seen(item.target)) {
-          console.log("Fetch", item.target);
           this.state.add(item.target);
+
           this.inFlight += 1;
           this._fetchPage(item);
+          logger("ready to fetch %s", item.target);
         }
+      } else {
+        break;
       }
     }
 
@@ -223,6 +228,12 @@ export class Fetcher {
       if (a.relation.relations[0]?.important) {
         marker = a.relation.relations[0].value;
       }
+      logger(
+        "%s is ready and should be handled (marker %s)",
+        a.relation.target,
+        marker,
+      );
+
       await this.helper.handleFetchedPage(a.page, marker);
 
       a = this.readyPages.pop();
@@ -236,74 +247,43 @@ export class Fetcher {
   }
 
   start(url: string, cmp: (a: any, b: any) => number) {
+    const logger = log.extend("start");
+    logger("Starting at %s", url);
     const rel = new RelationChain(url, [], undefined, cmp);
     this._fetchPage(rel);
     this.inFlight = 1;
   }
 
   private async _fetchPage(relation: RelationChain) {
-    console.log("_fetchPage");
+    const logger = log.extend("fetch");
+
     this.inFlightHeap.push(relation);
-    console.log(
-      "_fetchPage: gonna dereference",
-      relation.target,
-      encodeURI(relation.target),
-    );
-
-    const resp = await fetch(relation.target, {
-      referrerPolicy: "no-referrer",
-      referrer: "http://example.com/ldes-client",
-      cache: "reload",
-    });
+    const resp = await this.dereferencer.dereference(relation.target);
     const url = resp.url;
-    console.log("_fetchPage: gonna dereferenced");
+    const page = await streamToArray(resp.data);
+    const data = new Store(page);
 
-    if (resp.ok) {
-      const page = await streamToArray(
-        rdfParser.parse(new ReadableWebToNodeStream(resp.body!), {
-          baseIRI: relation.target,
-          contentType: resp.headers.get("Content-Type") || "text/turtle",
-        }),
-      );
-      // const resp = await this.dereferencer.dereference(relation.target);
-      // const url = resp.url;
-      console.log("Got resp");
-      // const page = await streamToArray(resp.data);
-      const data = new Store(page);
-      console.log("Got data", page.length, "quads");
+    logger("Got data %s (%d quads)", url, page.length);
 
-      for (let rel of extractRelations(data, namedNode(relation.target))) {
+    let foundRelations = 0;
+    for (let rel of extractRelations(data, namedNode(relation.target))) {
+      const target = this.helper.extractRelation(rel);
+      const chain = relation.push(target.node, target.rel);
+      this.toFetchHeap.push(chain);
+      foundRelations += 1;
+    }
+
+    if (url !== relation.target) {
+      for (let rel of extractRelations(data, namedNode(url))) {
         const target = this.helper.extractRelation(rel);
         const chain = relation.push(target.node, target.rel);
-        console.log("Adding toFetchHeap", chain.target);
         this.toFetchHeap.push(chain);
+        foundRelations += 1;
       }
-
-      if (url !== relation.target) {
-        for (let rel of extractRelations(data, namedNode(url))) {
-          const target = this.helper.extractRelation(rel);
-          const chain = relation.push(target.node, target.rel);
-          console.log("Adding toFetchHeap", chain.target);
-          this.toFetchHeap.push(chain);
-        }
-      }
-      this.inFlight -= 1;
-      await this.fetched(relation, { data, url });
-    } else {
-      this.inFlight -= 1;
     }
-  }
+    logger("%s produced %d relations", relation.target, foundRelations);
 
-  // /// Get a page that is ready
-  // async getPage(): Promise<FetchedPage> {
-  //   if (this.readyPages.length > 0) {
-  //     const out = this.readyPages.pop()!;
-  //     resetPromise(this.pageUsed);
-  //     return out.page;
-  //   }
-  //
-  //   await this.pageFetched.waiting;
-  //
-  //   return this.getPage();
-  // }
+    this.inFlight -= 1;
+    await this.fetched(relation, { data, url });
+  }
 }

@@ -2,7 +2,7 @@ import { Config, getConfig } from "./config";
 import { Member } from "./page";
 import rdfDereference, { RdfDereferencer } from "rdf-dereference";
 import { SimpleState, State } from "./state";
-import { CBDShapeExtractor } from "extract-cbd-shape";
+import { CBDShapeExtractor, shape } from "extract-cbd-shape";
 import { DataFactory, Store } from "n3";
 import { Term } from "@rdfjs/types";
 import { streamToArray } from "./utils";
@@ -10,7 +10,8 @@ import { LDES, TREE } from "@treecg/types";
 import { FetchedPage, Fetcher } from "./pageFetcher";
 import { Manager } from "./memberManager";
 import { orderedHelper, unorderedHelper } from "./helper";
-
+import debug from "debug";
+const log = debug("client");
 const { namedNode } = DataFactory;
 
 type Controller = ReadableStreamDefaultController<Member>;
@@ -47,29 +48,39 @@ async function getShape(
   store: Store,
   dereferencer: RdfDereferencer,
 ): Promise<LDESInfo> {
-  const shapeIds = store.getObjects(ldesId, TREE.terms.shape, null);
-  const timestampPaths = store.getObjects(
-    ldesId,
-    LDES.terms.timestampPath,
-    null,
-  );
-  const isVersionOfPaths = store.getObjects(
+  const logger = log.extend("getShape");
+
+  let shapeIds = store.getObjects(ldesId, TREE.terms.shape, null);
+  let timestampPaths = store.getObjects(ldesId, LDES.terms.timestampPath, null);
+  let isVersionOfPaths = store.getObjects(
     ldesId,
     LDES.terms.versionOfPath,
     null,
   );
+  logger(
+    "Found %d shapes, %d timestampPaths, %d isVersionOfPaths",
+    shapeIds.length,
+    timestampPaths.length,
+    isVersionOfPaths.length,
+  );
 
-  if (!shapeIds || !timestampPaths || !isVersionOfPaths) {
+  if (
+    shapeIds.length === 0 ||
+    timestampPaths.length === 0 ||
+    isVersionOfPaths.length === 0
+  ) {
     try {
+      logger("Maybe find more info at %s", ldesId.value);
       const resp = await dereferencer.dereference(ldesId.value);
       store = new Store(await streamToArray(resp.data));
-      shapeIds.push(...store.getObjects(ldesId, TREE.terms.shape, null));
-
-      timestampPaths.push(
-        ...store.getObjects(ldesId, LDES.terms.timestampPath, null),
-      );
-      isVersionOfPaths.push(
-        ...store.getObjects(ldesId, LDES.terms.versionOfPath, null),
+      shapeIds = store.getObjects(null, TREE.terms.shape, null);
+      timestampPaths = store.getObjects(null, LDES.terms.timestampPath, null);
+      isVersionOfPaths = store.getObjects(null, LDES.terms.versionOfPath, null);
+      logger(
+        "Found %d shapes, %d timestampPaths, %d isVersionOfPaths",
+        shapeIds.length,
+        timestampPaths.length,
+        isVersionOfPaths.length,
       );
     } catch (ex: any) {}
   }
@@ -104,7 +115,6 @@ export class Client {
   private fragmentState: State;
 
   private dereferencer: RdfDereferencer;
-  private cbdExtractor: CBDShapeExtractor;
 
   private fetcher!: Fetcher;
   private memberManager!: Manager;
@@ -130,17 +140,17 @@ export class Client {
       membersState ?? new SimpleState(config.memberStateLocation);
     this.fragmentState =
       fragmentState ?? new SimpleState(config.fragmentStateLocation);
-    this.cbdExtractor = new CBDShapeExtractor(undefined, this.dereferencer);
 
     this.streamId = stream;
   }
 
   async init(cb: (member: Member) => void): Promise<void> {
+    const logger = log.extend("init");
     await this.membersState.init();
     await this.fragmentState.init();
 
     // Fetch the url
-    const root = await fetchPage(this.config.url, this.dereferencer, fetch);
+    const root = await fetchPage(this.config.url, this.dereferencer);
     // Try to get a shape
     // TODO
     // Choose a view
@@ -156,7 +166,6 @@ export class Client {
     }
 
     const info = await getShape(ldesId, root.data, this.dereferencer);
-    this.cbdExtractor = info.extractor;
 
     this.memberManager = new Manager(
       this.streamId || ldesId,
@@ -164,6 +173,8 @@ export class Client {
       cb,
       info,
     );
+
+    logger("info %o timestampPath %o", info, !!info.timestampPath);
 
     const helper = info.timestampPath
       ? orderedHelper(this.memberManager)
@@ -176,7 +187,7 @@ export class Client {
       this.config.fetcher,
     );
 
-    console.log("Found", viewQuads.length, "views, choosing", ldesId.value);
+    logger("Found %d views, choosing %s", viewQuads.length, ldesId.value);
 
     // Fetch view but do not interpret
     this.fetcher.start(viewQuads[0].object.value, (a, b) => {
@@ -186,21 +197,17 @@ export class Client {
     });
   }
 
-  async pull(cb: (member: Member) => void, close: () => void, highWater = 10) {
+  async pull(highWater = 10) {
+    console.log("PULL");
     const submitMember = this.memberManager.reset();
     await submitMember;
   }
 
   stream(strategy?: { highWaterMark?: number }): ReadableStream<Member> {
     const config = {
-      start: (controller: Controller) => 
+      start: (controller: Controller) =>
         this.init((member) => controller.enqueue(member)),
-      pull: (controller: Controller) =>
-        this.pull(
-          (member) => controller.enqueue(member),
-          () => controller.close(),
-          controller.desiredSize || 10,
-        ),
+      pull: (controller: Controller) => this.pull(controller.desiredSize || 10),
     };
     return new ReadableStream(config, strategy);
   }
@@ -209,11 +216,8 @@ export class Client {
 async function fetchPage(
   location: string,
   dereferencer: RdfDereferencer,
-  myFetch: typeof fetch,
 ): Promise<FetchedPage> {
-  const resp = await dereferencer.dereference(location, {
-    fetch: myFetch,
-  });
+  const resp = await dereferencer.dereference(location, {});
   const url = resp.url;
   const page = await streamToArray(resp.data);
   const data = new Store(page);
