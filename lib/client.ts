@@ -7,7 +7,7 @@ import { DataFactory, Store } from "n3";
 import { Term } from "@rdfjs/types";
 import { streamToArray } from "./utils";
 import { LDES, TREE } from "@treecg/types";
-import { FetchedPage, Fetcher } from "./pageFetcher";
+import { FetchedPage, Fetcher, Helper } from "./pageFetcher";
 import { Manager } from "./memberManager";
 import { orderedHelper, unorderedHelper } from "./helper";
 import debug from "debug";
@@ -32,8 +32,10 @@ export function replicateLDES(
     fragmentState?: State;
     dereferencer?: RdfDereferencer;
   } = {},
+  streamId?: Term,
+  ordered?: boolean,
 ): Client {
-  return new Client(config, states);
+  return new Client(config, states, streamId, ordered);
 }
 
 export type LDESInfo = {
@@ -120,6 +122,7 @@ export class Client {
   private memberManager!: Manager;
 
   private streamId?: Term;
+  private ordered?: boolean;
 
   constructor(
     config: Config,
@@ -133,6 +136,7 @@ export class Client {
       dereferencer?: RdfDereferencer;
     } = {},
     stream?: Term,
+    ordered?: boolean,
   ) {
     this.config = config;
     this.dereferencer = dereferencer ?? rdfDereference;
@@ -142,6 +146,7 @@ export class Client {
       fragmentState ?? new SimpleState(config.fragmentStateLocation);
 
     this.streamId = stream;
+    this.ordered = ordered;
   }
 
   async init(cb: (member: Member) => void): Promise<void> {
@@ -174,9 +179,16 @@ export class Client {
       info,
     );
 
-    logger("info %o timestampPath %o", info, !!info.timestampPath);
+    logger("timestampPath %o", !!info.timestampPath);
 
-    const helper = info.timestampPath
+    if (this.ordered && !info.timestampPath) {
+      throw "Can only emit members in order, if LDES is configured with timestampPath";
+    }
+
+    const wantsOrderedHelper =
+      this.ordered === undefined ? !!info.timestampPath : this.ordered;
+
+    const helper = wantsOrderedHelper
       ? orderedHelper(this.memberManager)
       : unorderedHelper(this.memberManager);
 
@@ -197,17 +209,26 @@ export class Client {
     });
   }
 
-  async pull(highWater = 10) {
-    console.log("PULL");
-    const submitMember = this.memberManager.reset();
-    await submitMember;
+  async pull(controller: Controller, highWater = 10) {
+    const logger = log.extend("pull");
+    logger("PULL");
+    if ( await this.fetcher.checkFinished()) {
+      controller.close();
+    } else {
+      const submitMember = this.memberManager.reset();
+      logger("awaiting");
+      await submitMember;
+      logger("awaited %d", this.memberManager.queued);
+      // iew
+      if (this.memberManager.queued === 0) controller.close();
+    }
   }
 
   stream(strategy?: { highWaterMark?: number }): ReadableStream<Member> {
     const config = {
       start: (controller: Controller) =>
         this.init((member) => controller.enqueue(member)),
-      pull: (controller: Controller) => this.pull(controller.desiredSize || 10),
+      pull: (controller: Controller) => this.pull(controller),
     };
     return new ReadableStream(config, strategy);
   }

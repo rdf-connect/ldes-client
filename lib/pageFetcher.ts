@@ -5,98 +5,10 @@ import { DataFactory, Store } from "n3";
 import { extractRelations, Relation } from "./page";
 import { Heap } from "heap-js";
 import debug from "debug";
+import { RelationChain, SimpleRelation } from "./relation";
 
 const log = debug("fetcher");
 const { namedNode } = DataFactory;
-
-export type SimpleRelation = {
-  important: boolean;
-  value: any;
-};
-
-// This relation chian is important to better understand the order of fragments to fetch
-// First fetch all not important relations
-// Then fetch an important relation with the smallest value (for timestamp path)
-// This new relation can access other unimportant relations, but these should only be fetched after full unimportant relation chains
-export class RelationChain {
-  relations: SimpleRelation[];
-  readonly target: string;
-  private cmp?: (a: any, b: any) => number;
-
-  constructor(
-    target: string,
-    relations: SimpleRelation[] = [],
-    additional?: SimpleRelation,
-    cmp?: (a: any, b: any) => number,
-  ) {
-    this.target = target;
-    this.cmp = cmp;
-    this.relations = relations.slice();
-    if (additional) {
-      this.relations.push(additional);
-      while (this.relations.length >= 2) {
-        // Second to last element
-        const a = this.relations[this.relations.length - 2];
-        // Last element
-        const b = this.relations[this.relations.length - 1];
-
-        if (a.important && !b.important) {
-          break; // This cannot be compacted
-        }
-        // A and B are important, compact on value
-        if (a.important) {
-          const va = a.value;
-          const vb = b.value;
-          if (this.cmp) {
-            if (this.cmp(va, vb) > 0) {
-              a.value = b.value;
-            }
-          } else {
-            a.value = va < vb ? va : vb;
-          }
-        } else {
-          // a is not important, so we can just take b values
-          a.important = b.important;
-          a.value = b.value;
-        }
-
-        this.relations.pop();
-      }
-    }
-  }
-
-  push(target: string, relation: SimpleRelation): RelationChain {
-    return new RelationChain(target, this.relations, relation, this.cmp);
-  }
-
-  /**
-   * If the returned number is less than 0, it indicates that the first item should come before the second item in the sorted order.
-   * If the returned number is greater than 0, it indicates that the first item should come after the second item in the sorted order.
-   * If the returned number is equal to 0, it means that the two items are considered equivalent in terms of sorting order.
-   */
-  ordering(other: RelationChain): number {
-    const la = this.relations.length;
-    const lb = other.relations.length;
-    for (let i = 0; i < Math.min(la, lb); i++) {
-      if (!this.relations[i].important && !other.relations[i].important) {
-        return 0;
-      }
-      if (!this.relations[i].important) return -1;
-      if (!other.relations[i].important) return 1;
-
-      // Both are important
-      if (this.cmp) {
-        const v = this.cmp(this.relations[i].value, other.relations[i].value);
-        if (v !== 0) return v;
-      } else {
-        if (this.relations[i].value < other.relations[i].value) return -1;
-        if (this.relations[i].value > other.relations[i].value) return 1;
-      }
-    }
-
-    return 0;
-  }
-}
 
 export type TimeBound = {
   open_relations: number;
@@ -145,23 +57,26 @@ type PageAndRelation = {
 export interface Helper {
   extractRelation(relation: Relation): { rel: SimpleRelation; node: string };
   handleFetchedPage(page: FetchedPage, marker?: any): void | Promise<void>;
+  close(): void | Promise<void>;
 }
 
 export class Fetcher {
   private dereferencer: RdfDereferencer;
 
-  private readyPages: Heap<PageAndRelation>;
   private inFlight = 0;
 
   private state: State;
 
   private toFetchHeap: Heap<RelationChain>;
-  private inFlightHeap: Heap<RelationChain>;
+
+  // Heap keeping track pages that are fetched
+  private fetchedPages: Heap<PageAndRelation>;
+  // Heap keeping track the relations that are launched
+  private readonly launchedRelations: Heap<RelationChain>;
   private readonly config: FetcherConfig;
 
-  private pageFetched: LongPromise;
-
   private helper: Helper;
+  private isFinished = false;
 
   public bound: TimeBound;
 
@@ -181,47 +96,62 @@ export class Fetcher {
     this.state = state;
 
     this.toFetchHeap = new Heap((a, b) => a.ordering(b));
-    this.inFlightHeap = new Heap((a, b) => a.ordering(b));
-    this.readyPages = new Heap((a, b) => a.relation.ordering(b.relation));
+    this.launchedRelations = new Heap((a, b) => a.ordering(b));
+    this.fetchedPages = new Heap((a, b) => a.relation.ordering(b.relation));
 
     this.config = config;
 
-    this.pageFetched = longPromise();
     logger("new fetcher %o", config);
   }
 
-  private async fetched(relation: RelationChain, page: FetchedPage) {
-    const logger = log.extend("fetched");
-    logger(
-      "target %s inflight %d concurrentRequests %d",
-      relation.target,
-      this.inFlight,
-      this.config.concurrentRequests,
-    );
+  start(url: string, cmp: (a: any, b: any) => number) {
+    const logger = log.extend("start");
+    logger("Starting at %s", url);
+    const rel = new RelationChain(url, [], undefined, cmp);
+    this._fetchPage(rel);
+  }
 
-    this.readyPages.add({ relation, page });
-    resetPromise(this.pageFetched);
-
+  private launchNewRequests() {
+    const logger = log.extend("launch");
     while (this.inFlight < this.config.concurrentRequests) {
       const item = this.toFetchHeap.pop();
+      logger("Checking item %o", item?.target);
       if (item) {
         if (!this.state.seen(item.target)) {
           this.state.add(item.target);
 
-          this.inFlight += 1;
           this._fetchPage(item);
           logger("ready to fetch %s", item.target);
         }
       } else {
+        logger("breaking");
         break;
       }
     }
+  }
 
-    let a = this.readyPages.pop();
-    let b = this.inFlightHeap.pop();
+  private async handleFetchedPages() {
+    const logger = log.extend("handleFetched");
+    // Loop over ready pages and inFlightRelations
+    //
+    let a = this.fetchedPages.pop();
+    let b = this.launchedRelations.pop();
+
+    if (a && b) {
+      logger(
+        "Maybe handling page! %d %s %s %s",
+        a.relation.ordering(b),
+        a.relation.ordering(b) == 0,
+        a.relation.target,
+        b.target,
+      );
+    } else {
+      logger(" first a %o b %o", a?.relation.target, b?.target);
+    }
 
     while (a && b && a.relation.ordering(b) === 0) {
-      // This page is actaully and can be activated
+      logger("Handling page!", a.relation.target);
+      // This page is ready and can be activated
 
       // Try to find a marker
       let marker = undefined;
@@ -236,28 +166,69 @@ export class Fetcher {
 
       await this.helper.handleFetchedPage(a.page, marker);
 
-      a = this.readyPages.pop();
-      b = this.inFlightHeap.pop();
+      a = this.fetchedPages.pop();
+      b = this.launchedRelations.pop();
     }
 
-    if (a && b) {
-      this.readyPages.push(a);
-      this.inFlightHeap.push(b);
-    }
+    if (a) this.fetchedPages.push(a);
+    if (b) this.launchedRelations.push(b);
+
+    logger(" second a %o b %o", a?.relation.target, b?.target);
   }
 
-  start(url: string, cmp: (a: any, b: any) => number) {
-    const logger = log.extend("start");
-    logger("Starting at %s", url);
-    const rel = new RelationChain(url, [], undefined, cmp);
-    this._fetchPage(rel);
-    this.inFlight = 1;
+  private async fetched(relation: RelationChain, page: FetchedPage) {
+    const logger = log.extend("fetched");
+    logger(
+      "target %s inflight %d concurrentRequests %d",
+      relation.target,
+      this.inFlight,
+      this.config.concurrentRequests,
+    );
+
+    this.fetchedPages.add({ relation, page });
+    this.inFlight -= 1;
+
+    this.launchNewRequests();
+    await this.handleFetchedPages();
+
+    await this.checkFinished();
+  }
+
+  async checkFinished(): Promise<boolean> {
+    const logger = log.extend("finished");
+    const closing =
+      this.inFlight === 0 &&
+      this.fetchedPages.length === 0 &&
+      this.toFetchHeap.length === 0;
+    logger("Finished %o", closing);
+    if (closing && !this.isFinished) {
+      this.isFinished = true;
+      await this.helper.close();
+    }
+    return closing;
+  }
+
+  private extractRelationsForUri(
+    data: Store,
+    relation: RelationChain,
+    uri: string,
+  ): number {
+    let out = 0;
+    for (let rel of extractRelations(data, namedNode(uri))) {
+      const target = this.helper.extractRelation(rel);
+      const chain = relation.push(target.node, target.rel);
+      this.toFetchHeap.push(chain);
+      out += 1;
+    }
+    return out;
   }
 
   private async _fetchPage(relation: RelationChain) {
     const logger = log.extend("fetch");
 
-    this.inFlightHeap.push(relation);
+    this.inFlight += 1;
+    this.launchedRelations.push(relation);
+
     const resp = await this.dereferencer.dereference(relation.target);
     const url = resp.url;
     const page = await streamToArray(resp.data);
@@ -265,25 +236,18 @@ export class Fetcher {
 
     logger("Got data %s (%d quads)", url, page.length);
 
-    let foundRelations = 0;
-    for (let rel of extractRelations(data, namedNode(relation.target))) {
-      const target = this.helper.extractRelation(rel);
-      const chain = relation.push(target.node, target.rel);
-      this.toFetchHeap.push(chain);
-      foundRelations += 1;
-    }
+    let foundRelations = this.extractRelationsForUri(
+      data,
+      relation,
+      relation.target,
+    );
 
     if (url !== relation.target) {
-      for (let rel of extractRelations(data, namedNode(url))) {
-        const target = this.helper.extractRelation(rel);
-        const chain = relation.push(target.node, target.rel);
-        this.toFetchHeap.push(chain);
-        foundRelations += 1;
-      }
+      foundRelations += this.extractRelationsForUri(data, relation, url);
     }
+
     logger("%s produced %d relations", relation.target, foundRelations);
 
-    this.inFlight -= 1;
     await this.fetched(relation, { data, url });
   }
 }

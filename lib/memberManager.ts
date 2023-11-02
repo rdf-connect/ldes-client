@@ -7,6 +7,7 @@ import { TREE } from "@treecg/types";
 import Heap from "heap-js";
 import { LDESInfo } from "./client";
 import debug from "debug";
+import { Store } from "n3";
 
 const log = debug("manager");
 
@@ -64,56 +65,63 @@ export class Manager {
     });
   }
 
+  async close() {
+    log("Closing");
+    await Promise.all(this.currentPromises);
+    this.emitAll();
+    if (this.resolve) {
+      this.resolve();
+      this.resolve = undefined;
+    }
+    log("this.resolve()");
+  }
+
+  private async extractMember(member: Term, data: Store) {
+    const quads = await this.extractor.extract(data, member, this.shapeId);
+
+    if (this.state.seen(member.value)) {
+      return;
+    }
+    this.state.add(member.value);
+
+    // Get timestamp
+    let timestamp: string | undefined;
+    if (this.timestampPath) {
+      timestamp = quads.find(
+        (x) =>
+          x.subject.equals(member) && x.predicate.equals(this.timestampPath),
+      )?.object.value;
+    }
+
+    let isVersionOf: string | undefined;
+    if (this.isVersionOfPath) {
+      isVersionOf = quads.find(
+        (x) =>
+          x.subject.equals(member) && x.predicate.equals(this.isVersionOfPath),
+      )?.object.value;
+    }
+
+    this.members.push({ id: member, quads, timestamp, isVersionOf });
+  }
+
   // Extract members found in this page, this does not yet emit the members
   extractMembers(page: FetchedPage, ordered: boolean) {
     const logger = log.extend("extract");
-
     const members = page.data.getObjects(this.ldesId, TREE.terms.member, null);
 
-    const extractMember = async (member: Term) => {
-      const quads = await this.extractor.extract(
-        page.data,
-        member,
-        this.shapeId,
-      );
-
-      if (this.state.seen(member.value)) {
-        return;
-      }
-      this.state.add(member.value);
-
-      // Get timestamp
-      let timestamp: string | undefined;
-      if (this.timestampPath) {
-        timestamp = quads.find(
-          (x) =>
-            x.subject.equals(member) && x.predicate.equals(this.timestampPath),
-        )?.object.value;
-      }
-
-      let isVersionOf: string | undefined;
-      if (this.isVersionOfPath) {
-        isVersionOf = quads.find(
-          (x) =>
-            x.subject.equals(member) &&
-            x.predicate.equals(this.isVersionOfPath),
-        )?.object.value;
-      }
-
-      this.members.push({ id: member, quads, timestamp, isVersionOf });
-
-      if (!ordered) this.emitAll();
-    };
-
-    logger("%d members", members.length);
+    logger(
+      "%d members %o",
+      members.length,
+      members.map((x) => x.value),
+    );
 
     for (let member of members) {
       if (!this.state.seen(member.value)) {
         this.queued += 1;
         if (ordered) {
-          this.currentPromises.push(extractMember(member));
+          this.currentPromises.push(this.extractMember(member, page.data));
         } else {
-          extractMember(member);
+          this.extractMember(member, page.data).then(() => this.emitAll());
         }
       }
     }
@@ -122,7 +130,7 @@ export class Manager {
   }
 
   // Wait for the current bunch of members to be extracted
-  async marker(value: any, ordered: boolean) {
+  async marker(value: any, ordered: boolean, force: boolean) {
     const logger = log.extend("marker");
     if (!ordered) {
       logger("not ordered, no need for marker");
@@ -135,19 +143,33 @@ export class Manager {
     this.currentPromises = [];
     logger("Awaiting %d promises", promises.length);
     await Promise.all(promises);
-    logger("succesful");
+    logger(
+      "succesful %o",
+      this.members.toArray().map((x) => x.timestamp),
+    );
 
     let head = this.members.pop();
+
     while (head) {
       // Potentially this member is not yet ready
-      if (!head.timestamp) {
-        logger("Emitting member without timestamp!");
+      if (!head.timestamp || force) {
+        if (!force) {
+          logger("Emitting member without timestamp!");
+        }
         this.emit(head);
       } else if (head.timestamp < value) {
+        logger("%o < %o == %o", head.timestamp, value, head.timestamp! < value);
         this.emit(head);
+      } else {
+        break;
       }
+      head = this.members.pop();
     }
-    if (head) this.members.push(head);
+
+    // This member failed, let's put him back
+    if (head) {
+      this.members.push(head);
+    }
   }
 
   emitAll() {

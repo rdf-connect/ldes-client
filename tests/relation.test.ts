@@ -1,5 +1,5 @@
 import { describe, expect, test } from "@jest/globals";
-import { RelationChain, SimpleRelation } from "../lib/pageFetcher";
+import { RelationChain, SimpleRelation } from "../lib/relation";
 
 describe("Chain relations", () => {
   test("correct chaining", () => {
