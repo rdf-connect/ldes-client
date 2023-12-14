@@ -8,6 +8,7 @@ import Heap from "heap-js";
 import { LDESInfo } from "./client";
 import debug from "debug";
 import { Store } from "n3";
+import { Notifier } from "./utils";
 
 const log = debug("manager");
 
@@ -22,11 +23,15 @@ export type ExtractedMember = {
   member: Member;
 };
 
+export type MemberEvents = {
+  extracted: Member;
+  done: Member[];
+};
+
 export class Manager {
   private members: Heap<Member>;
   public queued: number = 0;
   private resolve?: () => void;
-  private callback: (member: Member) => void;
   private ldesId: Term;
 
   private currentPromises: Promise<void>[] = [];
@@ -38,14 +43,8 @@ export class Manager {
   private timestampPath?: Term;
   private isVersionOfPath?: Term;
 
-  constructor(
-    ldesId: Term,
-    state: State,
-    callback: (member: Member) => void,
-    info: LDESInfo,
-  ) {
+  constructor(ldesId: Term, state: State, info: LDESInfo) {
     const logger = log.extend("constructor");
-    this.callback = callback;
     this.ldesId = ldesId;
     this.state = state;
     this.extractor = info.extractor;
@@ -68,7 +67,7 @@ export class Manager {
   async close() {
     log("Closing");
     await Promise.all(this.currentPromises);
-    this.emitAll();
+    // this.emitAll();
     if (this.resolve) {
       this.resolve();
       this.resolve = undefined;
@@ -76,7 +75,10 @@ export class Manager {
     log("this.resolve()");
   }
 
-  private async extractMember(member: Term, data: Store) {
+  private async extractMember(
+    member: Term,
+    data: Store,
+  ): Promise<Member | undefined> {
     const quads = await this.extractor.extract(data, member, this.shapeId);
 
     if (this.state.seen(member.value)) {
@@ -102,85 +104,48 @@ export class Manager {
     }
 
     this.members.push({ id: member, quads, timestamp, isVersionOf });
+    return { id: member, quads, timestamp, isVersionOf };
   }
 
   // Extract members found in this page, this does not yet emit the members
-  extractMembers(page: FetchedPage, ordered: boolean) {
+  extractMembers<S>(
+    page: FetchedPage,
+    state: S,
+    notifier: Notifier<MemberEvents, S>,
+  ) {
     const logger = log.extend("extract");
     const members = page.data.getObjects(this.ldesId, TREE.terms.member, null);
 
     logger(
-      "%d members %o",
-      members.length,
-      members.map((x) => x.value),
+      "%d members",
+      members.length
     );
 
+    const promises: Promise<Member | undefined>[] = [];
+
+    let found = 0;
     for (let member of members) {
       if (!this.state.seen(member.value)) {
-        this.queued += 1;
-        if (ordered) {
-          this.currentPromises.push(this.extractMember(member, page.data));
-        } else {
-          this.extractMember(member, page.data).then(() => this.emitAll());
-        }
+        const promise = this.extractMember(member, page.data).then((member) => {
+          found += 1;
+          // logger("Found member %d/%d", found, promises.length);
+          if (member) {
+            notifier.extracted(member, state);
+          }
+          return member;
+        });
+
+        promises.push(promise);
       }
     }
 
-    logger("%d queued %d promises", this.queued, this.currentPromises.length);
-  }
-
-  // Wait for the current bunch of members to be extracted
-  async marker(value: any, ordered: boolean, force: boolean) {
-    const logger = log.extend("marker");
-    if (!ordered) {
-      logger("not ordered, no need for marker");
-      return;
-    }
-
-    logger("value %o", value);
-
-    const promises = this.currentPromises;
-    this.currentPromises = [];
-    logger("Awaiting %d promises", promises.length);
-    await Promise.all(promises);
-    logger(
-      "succesful %o",
-      this.members.toArray().map((x) => x.timestamp),
-    );
-
-    let head = this.members.pop();
-
-    while (head) {
-      // Potentially this member is not yet ready
-      if (!head.timestamp || force) {
-        if (!force) {
-          logger("Emitting member without timestamp!");
-        }
-        this.emit(head);
-      } else if (head.timestamp < value) {
-        logger("%o < %o == %o", head.timestamp, value, head.timestamp! < value);
-        this.emit(head);
-      } else {
-        break;
-      }
-      head = this.members.pop();
-    }
-
-    // This member failed, let's put him back
-    if (head) {
-      this.members.push(head);
-    }
-  }
-
-  emitAll() {
-    const logger = log.extend("emitAll");
-    logger("Emitting %d members", this.members.length);
-
-    let head = this.members.pop();
-    while (head) {
-      this.emit(head);
-      head = this.members.pop();
-    }
+    Promise.all(promises).then((members) => {
+      logger("All members extracted");
+      notifier.done(
+        members.flatMap((x) => (x ? [x] : [])),
+        state,
+      );
+    });
   }
 
   /// Get a promsie that resolves when a member is submitted
@@ -191,15 +156,5 @@ export class Manager {
 
     this.queued = 0;
     return new Promise((res) => (this.resolve = res));
-  }
-
-  private emit(member: Member) {
-    if (this.callback) {
-      this.callback(member);
-    }
-    if (this.resolve) {
-      this.resolve();
-      this.resolve = undefined;
-    }
   }
 }

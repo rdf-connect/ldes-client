@@ -93,6 +93,8 @@ export class Tree<T> {
   private memberToQuads: (id: string, member: T) => Quad[];
   private timestampPath?: string;
 
+  fetched: string[] = [];
+
   constructor(
     memberToQuads: (id: string, member: T) => Quad[],
     timestampPath?: string,
@@ -125,6 +127,8 @@ export class Tree<T> {
         return new Response("", { status: 404 });
       }
 
+      this.fetched.push(req.toString().slice(BASE.length));
+
       const quads: Quad[] = [];
 
       if (req.toString() === BASE + this.root()) {
@@ -143,6 +147,9 @@ export class Tree<T> {
       const index = parseInt(req.toString().substring(BASE.length));
       console.log("Handling req", req.toString());
       const fragment = this.fragments[index];
+      if (fragment.delay) {
+        await new Promise((res) => setTimeout(res, fragment.delay));
+      }
       quads.push(...fragment.toQuads(BASE + this.root(), this.memberToQuads));
 
       const respText = new Writer().quadsToString(quads);

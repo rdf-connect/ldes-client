@@ -5,11 +5,19 @@ import { SimpleState, State } from "./state";
 import { CBDShapeExtractor, shape } from "extract-cbd-shape";
 import { DataFactory, Store } from "n3";
 import { Term } from "@rdfjs/types";
-import { streamToArray } from "./utils";
+import { ModulatorFactory, Notifier, streamToArray } from "./utils";
 import { LDES, TREE } from "@treecg/types";
-import { FetchedPage, Fetcher, Helper } from "./pageFetcher";
+import {
+  FetchedPage,
+  Fetcher,
+  Helper,
+  longPromise,
+  resetPromise,
+} from "./pageFetcher";
 import { Manager } from "./memberManager";
 import { orderedHelper, unorderedHelper } from "./helper";
+import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
+
 import debug from "debug";
 const log = debug("client");
 const { namedNode } = DataFactory;
@@ -120,9 +128,12 @@ export class Client {
 
   private fetcher!: Fetcher;
   private memberManager!: Manager;
+  private strategy!: OrderedStrategy | UnorderedStrategy;
 
   private streamId?: Term;
   private ordered?: boolean;
+
+  private modulatorFactory = new ModulatorFactory();
 
   constructor(
     config: Config,
@@ -149,7 +160,11 @@ export class Client {
     this.ordered = ordered;
   }
 
-  async init(cb: (member: Member) => void): Promise<void> {
+  async init(
+    emit: (member: Member) => void,
+    close: () => void,
+    factory: ModulatorFactory,
+  ): Promise<void> {
     const logger = log.extend("init");
     await this.membersState.init();
     await this.fragmentState.init();
@@ -167,15 +182,14 @@ export class Client {
         "Did not find tree:view predicate, this is required to interpret the LDES",
       );
     } else {
-      ldesId = viewQuads[0].subject;
+      ldesId = viewQuads[0].object;
     }
 
     const info = await getShape(ldesId, root.data, this.dereferencer);
 
     this.memberManager = new Manager(
-      this.streamId || ldesId,
+      this.streamId || viewQuads[0].subject,
       this.membersState,
-      cb,
       info,
     );
 
@@ -188,49 +202,58 @@ export class Client {
     const wantsOrderedHelper =
       this.ordered === undefined ? !!info.timestampPath : this.ordered;
 
-    const helper = wantsOrderedHelper
-      ? orderedHelper(this.memberManager)
-      : unorderedHelper(this.memberManager);
-
     this.fetcher = new Fetcher(
       this.dereferencer,
       this.fragmentState,
-      helper,
       this.config.fetcher,
     );
 
-    logger("Found %d views, choosing %s", viewQuads.length, ldesId.value);
-
-    // Fetch view but do not interpret
-    this.fetcher.start(viewQuads[0].object.value, (a, b) => {
-      if (a == b) return 0;
-      if (a < b) return -1;
-      return 1;
-    });
-  }
-
-  async pull(controller: Controller, highWater = 10) {
-    const logger = log.extend("pull");
-    logger("PULL");
-    if ( await this.fetcher.checkFinished()) {
-      controller.close();
-    } else {
-      const submitMember = this.memberManager.reset();
-      logger("awaiting");
-      await submitMember;
-      logger("awaited %d", this.memberManager.queued);
-      // iew
-      if (this.memberManager.queued === 0) controller.close();
-    }
-  }
-
-  stream(strategy?: { highWaterMark?: number }): ReadableStream<Member> {
-    const config = {
-      start: (controller: Controller) =>
-        this.init((member) => controller.enqueue(member)),
-      pull: (controller: Controller) => this.pull(controller),
+    const notifier: Notifier<StrategyEvents, {}> = {
+      member: (m) => emit(m),
+      close: () => close(),
     };
-    return new ReadableStream(config, strategy);
+
+    this.strategy = wantsOrderedHelper
+      ? new OrderedStrategy(this.memberManager, this.fetcher, notifier, factory)
+      : new UnorderedStrategy(
+          this.memberManager,
+          this.fetcher,
+          notifier,
+          factory,
+        );
+
+    logger("Found %d views, choosing %s", viewQuads.length, ldesId.value);
+    this.strategy.start(ldesId.value);
+  }
+
+  stream(strategy?: {
+    highWaterMark?: number;
+    size?: (chunk: Member) => number;
+  }): ReadableStream<Member> {
+    const emitted = longPromise();
+    const config = {
+      start: async (controller: Controller) => {
+        this.modulatorFactory.pause();
+        await this.init(
+          (member) => {
+            controller.enqueue(member);
+            resetPromise(emitted);
+          },
+          () => controller.close(),
+          this.modulatorFactory,
+        );
+      },
+      pull: async (controller: Controller) => {
+        resetPromise(emitted);
+        this.modulatorFactory.unpause();
+        await emitted.waiting;
+        this.modulatorFactory.pause();
+        return;
+      },
+    };
+
+    const out = new ReadableStream(config, strategy);
+    return out;
   }
 }
 

@@ -24,10 +24,11 @@ export function unorderedHelper(memberManager: Manager): Helper {
     },
 
     handleFetchedPage: (page, _) => {
-      logger("fetched page");
-      memberManager.extractMembers(page, false);
-      memberManager.marker(0, false, false);
+      // logger("fetched page");
+      // memberManager.extractMembers(page, false);
+      // memberManager.marker(0, false, false);
     },
+
     close: async () => {
       logger("close");
       await memberManager.close();
@@ -61,10 +62,10 @@ export function orderedHelper(memberManager: Manager): Helper {
 
     handleFetchedPage: (page, marker) => {
       logger("fetched page");
-      memberManager.extractMembers(page, true);
-      if (marker) {
-        memberManager.marker(marker, true, false);
-      }
+      // memberManager.extractMembers(page, true);
+      // if (marker) {
+      //   memberManager.marker(marker, true, false);
+      // }
     },
     close: async () => {
       logger("close");
