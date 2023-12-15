@@ -33,6 +33,8 @@ export async function startClient() {
   const client = replicateLDES(config);
 }
 
+export type Ordered = "ascending" | "descending" | "none";
+
 export function replicateLDES(
   config: Config,
   states: {
@@ -41,7 +43,7 @@ export function replicateLDES(
     dereferencer?: RdfDereferencer;
   } = {},
   streamId?: Term,
-  ordered?: boolean,
+  ordered: Ordered = "none",
 ): Client {
   return new Client(config, states, streamId, ordered);
 }
@@ -131,7 +133,7 @@ export class Client {
   private strategy!: OrderedStrategy | UnorderedStrategy;
 
   private streamId?: Term;
-  private ordered?: boolean;
+  private ordered: Ordered;
 
   private modulatorFactory = new ModulatorFactory();
 
@@ -147,7 +149,7 @@ export class Client {
       dereferencer?: RdfDereferencer;
     } = {},
     stream?: Term,
-    ordered?: boolean,
+    ordered: Ordered = "none",
   ) {
     this.config = config;
     this.dereferencer = dereferencer ?? rdfDereference;
@@ -213,8 +215,8 @@ export class Client {
       close: () => close(),
     };
 
-    this.strategy = wantsOrderedHelper
-      ? new OrderedStrategy(this.memberManager, this.fetcher, notifier, factory)
+    this.strategy = this.ordered !== "none"
+      ? new OrderedStrategy(this.memberManager, this.fetcher, notifier, factory, this.ordered)
       : new UnorderedStrategy(
           this.memberManager,
           this.fetcher,

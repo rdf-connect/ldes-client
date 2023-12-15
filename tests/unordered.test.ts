@@ -7,7 +7,12 @@ import { Parser } from "n3";
 import { TREE } from "@treecg/types";
 
 describe("Simple Tree", () => {
-  function simpleTree(perPage = 1, pages = 2, values = [3, 2], delay?: number): Tree<number> {
+  function simpleTree(
+    perPage = 1,
+    pages = 2,
+    values = [3, 2],
+    delay?: number,
+  ): Tree<number> {
     // root -> first -> second
     const tree = new Tree<number>(
       (x, numb) =>
@@ -19,7 +24,6 @@ describe("Simple Tree", () => {
 
     for (let j = 0; j < pages; j++) {
       const first = tree.newFragment(delay);
-      console.log("page", first);
       for (let i = 0; i < perPage; i++) {
         tree.fragment(first).addMember("a" + j + i, values[j * perPage + i]);
       }
@@ -29,7 +33,7 @@ describe("Simple Tree", () => {
     return tree;
   }
 
-  test("ordered tree, emits ordered", async () => {
+  test("ascending tree, emits ordered", async () => {
     const tree = simpleTree(1);
 
     const base = tree.base() + tree.root();
@@ -43,7 +47,7 @@ describe("Simple Tree", () => {
       }),
       undefined,
       undefined,
-      true,
+      "ascending",
     );
 
     const members = await read(client.stream());
@@ -53,9 +57,8 @@ describe("Simple Tree", () => {
 
     mock.mockClear();
   });
-
-  test("tree handles backpressure", async () => {
-    const tree = simpleTree(2, 6, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 50);
+  test("descending tree, emits ordered", async () => {
+    const tree = simpleTree(1);
 
     const base = tree.base() + tree.root();
     const mock = tree.mock();
@@ -68,7 +71,37 @@ describe("Simple Tree", () => {
       }),
       undefined,
       undefined,
-      false,
+      "descending",
+    );
+
+    const members = await read(client.stream());
+
+    expect(members.length).toBe(2);
+    expect(members.map((x) => x.timestamp)).toEqual(["3", "2"]);
+
+    mock.mockClear();
+  });
+
+  test("tree handles backpressure", async () => {
+    const tree = simpleTree(
+      2,
+      6,
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      50,
+    );
+
+    const base = tree.base() + tree.root();
+    const mock = tree.mock();
+    global.fetch = mock;
+
+    const client = replicateLDES(
+      intoConfig({
+        url: base,
+        fetcher: { maxFetched: 2, concurrentRequests: 10 },
+      }),
+      undefined,
+      undefined,
+      "none",
     );
 
     const stream = client.stream({ highWaterMark: 1, size: () => 1 });
@@ -97,7 +130,7 @@ describe("Simple Tree", () => {
       }),
       undefined,
       undefined,
-      false,
+      "none",
     );
 
     const members = await read(client.stream());
@@ -152,17 +185,16 @@ describe("more complex tree", () => {
       }),
       undefined,
       undefined,
-      false,
+      "none",
     );
 
     const members = await read(client.stream());
-
     expect(members.length).toBe(3);
 
     mock.mockClear();
   });
 
-  test("ordered tree, emits ordered", async () => {
+  test("ascending tree, emits ordered", async () => {
     const tree = simpleTree();
 
     const base = tree.base() + tree.root();
@@ -176,18 +208,38 @@ describe("more complex tree", () => {
       }),
       undefined,
       undefined,
-      true,
+      "ascending",
     );
 
     const members = await read(client.stream());
 
     expect(members.length).toBe(3);
-
-    console.log(
-      "members",
-      members.map((x) => x.timestamp),
-    );
     expect(members.map((x) => x.timestamp)).toEqual(["2", "3", "5"]);
+
+    mock.mockClear();
+  });
+
+  test("descending tree, emits ordered", async () => {
+    const tree = simpleTree();
+
+    const base = tree.base() + tree.root();
+    const mock = tree.mock();
+    global.fetch = mock;
+
+    const client = replicateLDES(
+      intoConfig({
+        url: base,
+        fetcher: { maxFetched: 2, concurrentRequests: 10 },
+      }),
+      undefined,
+      undefined,
+      "descending",
+    );
+
+    const members = await read(client.stream());
+
+    expect(members.length).toBe(3);
+    expect(members.map((x) => x.timestamp)).toEqual(["5", "3", "2"]);
 
     mock.mockClear();
   });
@@ -206,7 +258,7 @@ describe("more complex tree", () => {
       }),
       undefined,
       undefined,
-      true,
+      "ascending",
     );
 
     const first = await client.stream().getReader().read();

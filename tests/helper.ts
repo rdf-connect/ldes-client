@@ -122,7 +122,7 @@ export class Tree<T> {
   }
 
   mock(): jest.Mock<typeof fetch> {
-    return jest.fn(async (req, opts) => {
+    return jest.fn(async (req, _opts) => {
       if (!req.toString().startsWith(BASE)) {
         return new Response("", { status: 404 });
       }
@@ -145,7 +145,6 @@ export class Tree<T> {
       }
 
       const index = parseInt(req.toString().substring(BASE.length));
-      console.log("Handling req", req.toString());
       const fragment = this.fragments[index];
       if (fragment.delay) {
         await new Promise((res) => setTimeout(res, fragment.delay));

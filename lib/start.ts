@@ -10,7 +10,7 @@ async function main() {
     }),
     {},
     undefined,
-    false,
+    "none",
     // intoConfig({ url: "http://marineregions.org/feed" }),
   );
 
