@@ -20,7 +20,10 @@ export class RelationChain {
   ) {
     this.target = target;
     this.cmp = cmp;
-    this.relations = relations.slice();
+    this.relations = relations.map(({ value, important }) => ({
+      value,
+      important,
+    }));
     if (additional) {
       this.relations.push(additional);
       while (this.relations.length >= 2) {
@@ -37,7 +40,7 @@ export class RelationChain {
           const va = a.value;
           const vb = b.value;
           if (this.cmp) {
-            if (this.cmp(va, vb) > 0) {
+            if (this.cmp(va, vb) < 0) {
               a.value = b.value;
             }
           } else {
@@ -58,12 +61,27 @@ export class RelationChain {
     return new RelationChain(target, this.relations, relation, this.cmp);
   }
 
+  important(): boolean {
+    if (this.relations.length > 0) {
+      return this.relations[0].important;
+    } else {
+      return false;
+    }
+  }
+
   /**
    * If the returned number is less than 0, it indicates that the first item should come before the second item in the sorted order.
    * If the returned number is greater than 0, it indicates that the first item should come after the second item in the sorted order.
    * If the returned number is equal to 0, it means that the two items are considered equivalent in terms of sorting order.
    */
   ordering(other: RelationChain): number {
+    if (this.important() && !other.important()) {
+      return 1;
+    }
+    if (!this.important() && other.important()) {
+      return -1;
+    }
+
     const la = this.relations.length;
     const lb = other.relations.length;
     for (let i = 0; i < Math.min(la, lb); i++) {
@@ -86,4 +104,3 @@ export class RelationChain {
     return 0;
   }
 }
-

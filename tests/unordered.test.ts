@@ -53,7 +53,9 @@ describe("Simple Tree", () => {
     const members = await read(client.stream());
 
     expect(members.length).toBe(2);
-    expect(members.map((x) => x.timestamp)).toEqual(["2", "3"]);
+    expect(members.map((x) => x.timestamp)).toEqual(
+      ["2", "3"].map((x) => new Date(x)),
+    );
 
     mock.mockClear();
   });
@@ -77,7 +79,9 @@ describe("Simple Tree", () => {
     const members = await read(client.stream());
 
     expect(members.length).toBe(2);
-    expect(members.map((x) => x.timestamp)).toEqual(["3", "2"]);
+    expect(members.map((x) => x.timestamp)).toEqual(
+      ["3", "2"].map((x) => new Date(x)),
+    );
 
     mock.mockClear();
   });
@@ -110,7 +114,6 @@ describe("Simple Tree", () => {
     expect(tree.fetched.length).toEqual(5);
 
     const members = await read(stream);
-
     expect(members.length).toBe(12);
 
     mock.mockClear();
@@ -136,7 +139,9 @@ describe("Simple Tree", () => {
     const members = await read(client.stream());
 
     expect(members.length).toBe(2);
-    expect(members.map((x) => x.timestamp)).toEqual(["3", "2"]);
+    expect(members.map((x) => x.timestamp)).toEqual(
+      ["3", "2"].map((x) => new Date(x)),
+    );
 
     mock.mockClear();
   });
@@ -170,6 +175,35 @@ describe("more complex tree", () => {
 
     return tree;
   }
+
+  test("tree handles backpressure", async () => {
+    const tree = simpleTree();
+
+    const base = tree.base() + tree.root();
+    const mock = tree.mock();
+    global.fetch = mock;
+
+    const client = replicateLDES(
+      intoConfig({
+        url: base,
+        fetcher: { maxFetched: 2, concurrentRequests: 10 },
+      }),
+      undefined,
+      undefined,
+      "none",
+    );
+
+    const stream = client.stream({ highWaterMark: 1, size: () => 1 });
+
+    await new Promise((res) => setTimeout(res, 500));
+    console.log(tree.fetched);
+    expect(tree.fetched.length).toEqual(5);
+
+    const members = await read(stream);
+    expect(members.length).toBe(3);
+
+    mock.mockClear();
+  });
 
   test("unordered tree, emits", async () => {
     const tree = simpleTree();
@@ -214,7 +248,9 @@ describe("more complex tree", () => {
     const members = await read(client.stream());
 
     expect(members.length).toBe(3);
-    expect(members.map((x) => x.timestamp)).toEqual(["2", "3", "5"]);
+    expect(members.map((x) => x.timestamp)).toEqual(
+      ["2", "3", "5"].map((x) => new Date(x)),
+    );
 
     mock.mockClear();
   });
@@ -239,7 +275,9 @@ describe("more complex tree", () => {
     const members = await read(client.stream());
 
     expect(members.length).toBe(3);
-    expect(members.map((x) => x.timestamp)).toEqual(["5", "3", "2"]);
+    expect(members.map((x) => x.timestamp)).toEqual(
+      ["5", "3", "2"].map((x) => new Date(x)),
+    );
 
     mock.mockClear();
   });
@@ -263,7 +301,7 @@ describe("more complex tree", () => {
 
     const first = await client.stream().getReader().read();
     expect(first.done).toBe(false);
-    expect(first.value?.timestamp).toBe("2");
+    expect(first.value?.timestamp).toEqual(new Date("2"));
 
     mock.mockClear();
   });

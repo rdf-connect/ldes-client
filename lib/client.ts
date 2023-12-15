@@ -197,12 +197,9 @@ export class Client {
 
     logger("timestampPath %o", !!info.timestampPath);
 
-    if (this.ordered && !info.timestampPath) {
+    if (this.ordered !== "none" && !info.timestampPath) {
       throw "Can only emit members in order, if LDES is configured with timestampPath";
     }
-
-    const wantsOrderedHelper =
-      this.ordered === undefined ? !!info.timestampPath : this.ordered;
 
     this.fetcher = new Fetcher(
       this.dereferencer,
@@ -215,14 +212,21 @@ export class Client {
       close: () => close(),
     };
 
-    this.strategy = this.ordered !== "none"
-      ? new OrderedStrategy(this.memberManager, this.fetcher, notifier, factory, this.ordered)
-      : new UnorderedStrategy(
-          this.memberManager,
-          this.fetcher,
-          notifier,
-          factory,
-        );
+    this.strategy =
+      this.ordered !== "none"
+        ? new OrderedStrategy(
+            this.memberManager,
+            this.fetcher,
+            notifier,
+            factory,
+            this.ordered,
+          )
+        : new UnorderedStrategy(
+            this.memberManager,
+            this.fetcher,
+            notifier,
+            factory,
+          );
 
     logger("Found %d views, choosing %s", viewQuads.length, ldesId.value);
     this.strategy.start(ldesId.value);
@@ -245,7 +249,7 @@ export class Client {
           this.modulatorFactory,
         );
       },
-      pull: async (controller: Controller) => {
+      pull: async () => {
         resetPromise(emitted);
         this.modulatorFactory.unpause();
         await emitted.waiting;

@@ -12,7 +12,6 @@ let ordered: Ordered = "none";
 program
   .arguments("<url>")
   .option("-f, --follow", "follow the LDES, the client stays in sync")
-  .option("--ordered", "follow the LDES, the client stays in sync")
   .addOption(
     new Option("--ordered <ordered>", "emit members in order")
       .choices(["ascending", "descending", "none"])
@@ -55,7 +54,9 @@ async function main() {
   while (el) {
     if (el.value) {
       seen.add(el.value.id);
-      console.log("Got member", seen.size, "quads", el.value.quads.length);
+      if (seen.size % 100 == 1) {
+        console.log("Got member", seen.size, "quads", el.value.quads.length);
+      }
     }
 
     if (el.done) break;

@@ -8,7 +8,7 @@ import { State } from "./state";
 export interface Member {
   id: Term;
   quads: Quad[];
-  timestamp?: string;
+  timestamp?: string | Date;
   isVersionOf?: string;
 }
 

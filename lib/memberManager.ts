@@ -87,12 +87,19 @@ export class Manager {
     this.state.add(member.value);
 
     // Get timestamp
-    let timestamp: string | undefined;
+    let timestamp: Date | string | undefined;
     if (this.timestampPath) {
-      timestamp = quads.find(
+      const ts = quads.find(
         (x) =>
           x.subject.equals(member) && x.predicate.equals(this.timestampPath),
       )?.object.value;
+      if (ts) {
+        try {
+          timestamp = new Date(ts);
+        } catch (ex: any) {
+          timestamp = ts;
+        }
+      }
     }
 
     let isVersionOf: string | undefined;
@@ -116,10 +123,7 @@ export class Manager {
     const logger = log.extend("extract");
     const members = page.data.getObjects(this.ldesId, TREE.terms.member, null);
 
-    logger(
-      "%d members",
-      members.length
-    );
+    logger("%d members", members.length);
 
     const promises: Promise<Member | undefined>[] = [];
 
