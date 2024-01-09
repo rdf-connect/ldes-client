@@ -85,6 +85,7 @@ export class OrderedStrategy {
     // - relationFound: a relation has been found, put the extended chain in the queue
     this.fetchNotifier = {
       seen: (_, relation) => {
+        this.modulator.finished();
         this.launchedRelations.remove(relation, (a, b) => a.ordering(b) === 0);
         logger("Already seen %s", relation.target);
         // We put the same relation multiple times in launchedRelations, but only once with findOrDefault
@@ -95,6 +96,7 @@ export class OrderedStrategy {
       },
       pageFetched: (page, relation) => {
         logger("Page fetched %s", page.url);
+        this.modulator.finished();
         this.handleFetched(page, relation);
       },
       relationFound: (rel, chain) => {
@@ -276,7 +278,7 @@ export class OrderedStrategy {
         if (member) {
           this.members.push(member);
         }
-      } 
+      }
 
       head = this.launchedRelations.pop();
     }
@@ -329,6 +331,7 @@ export class UnorderedStrategy {
       seen: () => {
         this.inFlight -= 1;
         this.checkEnd();
+        this.modulator.finished();
       },
       pageFetched: (page) => this.handleFetched(page),
       relationFound: (rel) => {
