@@ -130,6 +130,8 @@ export class Client {
 
   private modulatorFactory = new ModulatorFactory();
 
+  private pollCycle: (() => void)[] = [];
+
   constructor(
     config: Config,
     {
@@ -153,6 +155,10 @@ export class Client {
 
     this.streamId = stream;
     this.ordered = ordered;
+  }
+
+  addPollCycle(cb: () => void) {
+    this.pollCycle.push(cb);
   }
 
   async init(
@@ -194,14 +200,13 @@ export class Client {
       throw "Can only emit members in order, if LDES is configured with timestampPath";
     }
 
-    this.fetcher = new Fetcher(
-      this.dereferencer,
-      this.fragmentState,
-      this.config.fetcher,
-    );
+    this.fetcher = new Fetcher(this.dereferencer, this.fragmentState);
 
     const notifier: Notifier<StrategyEvents, {}> = {
       member: (m) => emit(m),
+      pollCycle: () => {
+        this.pollCycle.forEach((cb) => cb());
+      },
       close: () => close(),
     };
 
@@ -232,7 +237,7 @@ export class Client {
     size?: (chunk: Member) => number;
   }): ReadableStream<Member> {
     const emitted = longPromise();
-    const config = {
+    const config: UnderlyingDefaultSource = {
       start: async (controller: Controller) => {
         this.modulatorFactory.pause();
         await this.init(
@@ -250,6 +255,10 @@ export class Client {
         await emitted.waiting;
         this.modulatorFactory.pause();
         return;
+      },
+      cancel: async () => {
+        console.log("Cancled");
+        this.strategy.cancle();
       },
     };
 

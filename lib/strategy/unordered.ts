@@ -19,6 +19,8 @@ export class UnorderedStrategy {
   private cacheList: string[] = [];
   private polling: boolean;
 
+  private cancled = false;
+
   constructor(
     memberManager: Manager,
     fetcher: Fetcher,
@@ -53,9 +55,7 @@ export class UnorderedStrategy {
       },
     };
 
-    // Callbacks for the member extractor
-    // - done: all members have been extracted, we are finally done with a page inFlight -= 1
-    // - extracted: a member has been found, yeet it
+    // Callbacks for the member extractor - done: all members have been extracted, we are finally done with a page inFlight -= 1 - extracted: a member has been found, yeet it
     this.memberNotifier = {
       done: () => {
         this.inFlight -= 1;
@@ -79,15 +79,23 @@ export class UnorderedStrategy {
     this.modulator.push({ url });
   }
 
+  cancle() {
+    this.cancled = true;
+  }
+
   private handleFetched(page: FetchedPage) {
     this.modulator.finished();
     this.manager.extractMembers(page, {}, this.memberNotifier);
   }
 
   private checkEnd() {
+    if (this.cancled) return;
     if (this.inFlight == 0) {
       if (this.polling) {
         setTimeout(() => {
+          if (this.cancled) return;
+
+          this.notifier.pollCycle({}, {});
           const cl = this.cacheList.slice();
           this.cacheList = [];
           for (let cache of cl) {
@@ -97,6 +105,7 @@ export class UnorderedStrategy {
         }, 1000);
       } else {
         console.log("Closing notifier");
+        this.cancled = true;
         this.notifier.close({}, {});
       }
     }

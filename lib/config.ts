@@ -40,7 +40,7 @@ export interface WithTarget {
 }
 
 const defaultConfig: Config = {
-  polling: true,
+  polling: false,
   follow: false,
   url: "",
   memberStateLocation: "members.json",

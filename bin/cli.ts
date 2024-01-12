@@ -9,6 +9,8 @@ let paramFollow: boolean;
 let paramPollInterval: number;
 let ordered: Ordered = "none";
 
+let polling = false;
+
 program
   .arguments("<url>")
   .option("-f, --follow", "follow the LDES, the client stays in sync")
@@ -21,6 +23,11 @@ program
     "-s, --save <path>",
     "filepath to the save state file to use, used both to resume and to update",
   )
+  .addOption(
+    new Option("--polling <boolean>", "Enable polling")
+      .choices(["true", "false"])
+      .default("false"),
+  )
   .option("--pollInterval <number>", "Specify poll interval")
   .option("--shape <shapefile>", "Specify a shapefile")
   .action((url: string, program) => {
@@ -28,6 +35,7 @@ program
     paramFollow = program.follow;
     paramPollInterval = program.pollInterval;
     ordered = program.ordered;
+    polling = program.polling == "true";
     // console.log(paramURL)
     // console.log(program.follow, paramPollInterval)
   });
@@ -37,6 +45,7 @@ program.parse(process.argv);
 async function main() {
   const client = replicateLDES(
     intoConfig({
+      polling,
       url: paramURL,
       follow: paramFollow,
       pollInterval: paramPollInterval,

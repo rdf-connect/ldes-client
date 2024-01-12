@@ -1,10 +1,28 @@
-import { describe, expect, test } from "@jest/globals";
+import { afterEach, beforeEach, describe, expect, test } from "@jest/globals";
 import { read, Tree } from "./helper";
 
 import { replicateLDES } from "../lib/client";
 import { intoConfig } from "../lib/config";
 import { Parser } from "n3";
 import { TREE } from "@treecg/types";
+
+const oldFetch = global.fetch;
+beforeEach(() => {
+  if ("mockClear" in global.fetch) {
+    console.log("Clearing");
+    (<any>global.fetch).mockClear();
+  }
+  console.log("running test.");
+  global.fetch = oldFetch;
+});
+afterEach(() => {
+  if ("mockClear" in global.fetch) {
+    console.log("Clearing");
+    (<any>global.fetch).mockClear();
+  }
+  console.log("done with test.");
+  global.fetch = oldFetch;
+});
 
 describe("Simple Tree", () => {
   function simpleTree(
@@ -56,9 +74,8 @@ describe("Simple Tree", () => {
     expect(members.map((x) => x.timestamp)).toEqual(
       ["2", "3"].map((x) => new Date(x)),
     );
-
-    mock.mockClear();
   });
+
   test("descending tree, emits ordered", async () => {
     const tree = simpleTree(1);
 
@@ -82,8 +99,6 @@ describe("Simple Tree", () => {
     expect(members.map((x) => x.timestamp)).toEqual(
       ["3", "2"].map((x) => new Date(x)),
     );
-
-    mock.mockClear();
   });
 
   test("tree handles backpressure", async () => {
@@ -115,8 +130,6 @@ describe("Simple Tree", () => {
 
     const members = await read(stream);
     expect(members.length).toBe(12);
-
-    mock.mockClear();
   });
 
   test("unordered tree, emits", async () => {
@@ -142,8 +155,6 @@ describe("Simple Tree", () => {
     expect(members.map((x) => x.timestamp)).toEqual(
       ["3", "2"].map((x) => new Date(x)),
     );
-
-    mock.mockClear();
   });
 });
 
@@ -201,8 +212,6 @@ describe("more complex tree", () => {
 
     const members = await read(stream);
     expect(members.length).toBe(3);
-
-    mock.mockClear();
   });
 
   test("unordered tree, emits", async () => {
@@ -224,8 +233,6 @@ describe("more complex tree", () => {
 
     const members = await read(client.stream());
     expect(members.length).toBe(3);
-
-    mock.mockClear();
   });
 
   test("ascending tree, emits ordered", async () => {
@@ -251,8 +258,6 @@ describe("more complex tree", () => {
     expect(members.map((x) => x.timestamp)).toEqual(
       ["2", "3", "5"].map((x) => new Date(x)),
     );
-
-    mock.mockClear();
   });
 
   test("descending tree, emits ordered", async () => {
@@ -278,8 +283,6 @@ describe("more complex tree", () => {
     expect(members.map((x) => x.timestamp)).toEqual(
       ["5", "3", "2"].map((x) => new Date(x)),
     );
-
-    mock.mockClear();
   });
 
   test("ordered tree, emits asap", async () => {
@@ -302,7 +305,111 @@ describe("more complex tree", () => {
     const first = await client.stream().getReader().read();
     expect(first.done).toBe(false);
     expect(first.value?.timestamp).toEqual(new Date("2"));
+  });
 
-    mock.mockClear();
+  test("Polling works, single page", async () => {
+    // return;
+    const tree = new Tree<number>(
+      (x, numb) =>
+        new Parser().parse(`<${x}> <http://example.com/value> ${numb}.`),
+      "http://example.com/value",
+    );
+    tree.fragment(tree.root()).addMember("a", 5);
+    const base = tree.base() + tree.root();
+    const mock = tree.mock();
+    global.fetch = mock;
+
+    const client = replicateLDES(
+      intoConfig({
+        polling: true,
+        url: base,
+        fetcher: { maxFetched: 2, concurrentRequests: 10 },
+      }),
+      undefined,
+      undefined,
+      "none",
+    );
+
+    let hasPolled: undefined | ((b: unknown) => void) = undefined;
+    const polled = new Promise((res) => (hasPolled = res));
+
+    let added = false;
+
+    client.addPollCycle(() => {
+      console.log("Poll cycle!");
+      if (!added) {
+        tree.fragment(tree.root()).addMember("b", 7);
+        added = true;
+        hasPolled!({});
+      }
+    });
+
+    const reader = client.stream().getReader();
+
+    const first = await reader.read();
+    expect(first.done).toBe(false);
+    expect(first.value?.timestamp).toEqual(new Date("5"));
+
+    await polled;
+
+    const second = await reader.read();
+    expect(second.done).toBe(false);
+    expect(second.value?.timestamp).toEqual(new Date("7"));
+
+    await reader.cancel();
+  });
+
+  test("Polling works, single page - ordered", async () => {
+    const tree = new Tree<number>(
+      (x, numb) =>
+        new Parser().parse(`<${x}> <http://example.com/value> ${numb}.`),
+      "http://example.com/value",
+    );
+    tree.fragment(tree.root()).addMember("a", 5);
+    const base = tree.base() + tree.root();
+    const mock = tree.mock();
+    global.fetch = mock;
+
+    const client = replicateLDES(
+      intoConfig({
+        polling: true,
+        url: base,
+        fetcher: { maxFetched: 2, concurrentRequests: 10 },
+      }),
+      undefined,
+      undefined,
+      "ascending",
+    );
+
+    let hasPolled: undefined | ((b: unknown) => void) = undefined;
+    const polled = new Promise((res) => (hasPolled = res));
+
+    let added = false;
+
+    client.addPollCycle(() => {
+      console.log("Poll cycle!");
+      if (!added) {
+        tree.fragment(tree.root()).addMember("b", 7);
+        added = true;
+        hasPolled!({});
+      }
+    });
+
+    const reader = client.stream().getReader();
+
+    const first = await reader.read();
+    expect(first.done).toBe(false);
+    expect(first.value?.timestamp).toEqual(new Date("5"));
+
+    console.log("Awaiting promise");
+    await polled;
+    console.log("Promise resolved");
+
+    const second = await reader.read();
+    expect(second.done).toBe(false);
+    expect(second.value?.timestamp).toEqual(new Date("7"));
+
+    await reader.cancel();
   });
 });
+

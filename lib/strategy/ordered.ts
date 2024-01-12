@@ -2,7 +2,7 @@ import Heap from "heap-js";
 import { Manager, MemberEvents } from "../memberManager";
 import { Member, Relation } from "../page";
 import { FetchedPage, Fetcher, FetchEvent } from "../pageFetcher";
-import { Modulator, ModulatorFactory, Notifier, Ranker } from "../utils";
+import { Modulator, ModulatorFactory, Notifier } from "../utils";
 import { RelationChain, SimpleRelation } from "../relation";
 
 import debug from "debug";
@@ -45,6 +45,8 @@ export class OrderedStrategy {
 
   private polling: boolean;
   private toPoll: Heap<RelationChain>;
+
+  private cancled = false;
 
   constructor(
     memberManager: Manager,
@@ -174,6 +176,10 @@ export class OrderedStrategy {
     }
   }
 
+  cancle() {
+    this.cancled = true;
+  }
+
   private findOrDefault(chain: RelationChain): StateItem {
     const out = this.state.find((x) => x.rel.ordering(chain) == 0);
     if (out) {
@@ -295,6 +301,8 @@ export class OrderedStrategy {
   }
 
   checkEnd() {
+    if (this.cancled) return;
+
     const logger = log.extend("checkEnd");
 
     // There are no relations more to be had, emit the other members
@@ -309,6 +317,9 @@ export class OrderedStrategy {
       if (this.polling) {
         logger("Polling is enabled, settings timeout");
         setTimeout(() => {
+          if (this.cancled) return;
+
+          this.notifier.pollCycle({}, {});
           const toPollArray = this.toPoll.toArray();
           logger(
             "Let's repoll (%o)",
@@ -324,6 +335,7 @@ export class OrderedStrategy {
         }, 1000);
       } else {
         logger("Closing the notifier, polling is not set");
+        this.cancled = true;
         this.notifier.close({}, {});
       }
     }
