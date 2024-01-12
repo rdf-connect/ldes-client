@@ -10,11 +10,17 @@ import debug from "debug";
 import { Ordered } from "./client";
 const log = debug("strategy");
 
+/**
+ * Predicates representing greater than relations
+ */
 const GTRs = [
   TREE.terms.GreaterThanRelation,
   TREE.terms.GreaterThanOrEqualRelation,
 ];
 
+/**
+ * Predicates representing less than relations
+ */
 const LTR = [TREE.terms.LessThanRelation, TREE.terms.LessThanOrEqualToRelation];
 
 type PageAndRelation = {
@@ -51,7 +57,7 @@ export class OrderedStrategy {
   // With ordering descending LT relations are important
   private readonly launchedRelations: Heap<RelationChain>;
 
-  private modulator: Modulator<RelationChain>;
+  private modulator: Modulator<{ chain: RelationChain; force?: boolean }>;
 
   private fetchNotifier: Notifier<FetchEvent, RelationChain>;
   private memberNotifer: Notifier<MemberEvents, RelationChain>;
@@ -60,19 +66,25 @@ export class OrderedStrategy {
 
   private ordered: Ordered;
 
+  private polling: boolean;
+  private toPoll: Heap<RelationChain>;
+
   constructor(
     memberManager: Manager,
     fetcher: Fetcher,
     notifier: Notifier<StrategyEvents, {}>,
     factory: ModulatorFactory,
     ordered: Ordered,
+    polling: boolean,
   ) {
     const logger = log.extend("constructor");
     this.ordered = ordered;
     this.manager = memberManager;
     this.fetcher = fetcher;
     this.notifier = notifier;
+    this.polling = polling;
 
+    this.toPoll = new Heap((a, b) => a.ordering(b));
     this.launchedRelations = new Heap((a, b) => a.ordering(b));
     this.fetchedPages = new Heap((a, b) => a.relation.ordering(b.relation));
     this.state = [];
@@ -84,6 +96,9 @@ export class OrderedStrategy {
     //         start member extraction
     // - relationFound: a relation has been found, put the extended chain in the queue
     this.fetchNotifier = {
+      scheduleFetch: (_url, chain) => {
+        this.toPoll.push(chain);
+      },
       seen: (_, relation) => {
         this.modulator.finished();
         this.launchedRelations.remove(relation, (a, b) => a.ordering(b) === 0);
@@ -121,11 +136,19 @@ export class OrderedStrategy {
       },
     };
 
-    this.modulator = factory.create(new Heap((a, b) => a.ordering(b)), {
-      ready: (rel) => {
-        this.fetcher.fetch(rel.target, rel, this.fetchNotifier);
+    this.modulator = factory.create(
+      new Heap((a, b) => a.chain.ordering(b.chain)),
+      {
+        ready: ({ chain, force }) => {
+          this.fetcher.fetch(
+            chain.target,
+            force || false,
+            chain,
+            this.fetchNotifier,
+          );
+        },
       },
-    });
+    );
 
     if (ordered == "ascending") {
       this.members = new Heap((a, b) => {
@@ -185,10 +208,12 @@ export class OrderedStrategy {
     return nel;
   }
 
+  /**
+   * Extracting basic information from the relation, according to the current configuration
+   * Sorting in ascending order: if a relation comes in with a LT relation, then that relation important, because it can be handled later
+   * Sorting in descending order: if a relation comes in with a GT relation, then that relation important, because it can be handled later
+   */
   private extractRelation(rel: Relation): SimpleRelation {
-    // Extracting basic information from the relation, according to the current configuration
-    // Sorting in ascending order: if a relation comes in with a LT relation, then that relation important, because it can be handled later
-    // Sorting in descending order: if a relation comes in with a GT relation, then that relation important, because it can be handled later
     const val = (s: string) => {
       try {
         return new Date(s);
@@ -222,7 +247,7 @@ export class OrderedStrategy {
   private fetch(rel: RelationChain) {
     this.launchedRelations.push(rel);
     this.findOrDefault(rel).inFlight += 1;
-    this.modulator.push(rel);
+    this.modulator.push({ chain: rel });
   }
 
   private handleFetched(page: FetchedPage, relation: RelationChain) {
@@ -237,8 +262,10 @@ export class OrderedStrategy {
     this.manager.extractMembers(page, relation, this.memberNotifer);
   }
 
-  // Maybe we can emit a member
-  // Only the case when our current relation is important
+  /**
+   * Maybe we can emit a member
+   * Only the case when our current relation is important
+   */
   private checkEmit() {
     let head = this.launchedRelations.pop();
     while (head) {
@@ -287,14 +314,38 @@ export class OrderedStrategy {
       this.launchedRelations.push(head);
     }
 
+    this.checkEnd();
+  }
+
+  checkEnd() {
+    const logger = log.extend("checkEnd");
+
     // There are no relations more to be had, emit the other members
     if (this.launchedRelations.isEmpty()) {
+      logger("No more launched relations");
       let member = this.members.pop();
       while (member) {
         this.notifier.member(member, {});
         member = this.members.pop();
       }
-      this.notifier.close({}, {});
+
+      if (this.polling) {
+        logger("Polling is enabled, settings timeout");
+        setTimeout(() => {
+          const toPollArray = this.toPoll.toArray();
+          logger("Let's repoll (%o)", toPollArray.map(x => x.target));
+          this.toPoll.clear();
+
+          for (let rel of toPollArray) {
+            this.launchedRelations.push(rel);
+            this.findOrDefault(rel).inFlight += 1;
+            this.modulator.push({ chain: rel, force: true });
+          }
+        }, 1000);
+      } else {
+        logger("Closing the notifier, polling is not set");
+        this.notifier.close({}, {});
+      }
     }
   }
 }
@@ -309,17 +360,22 @@ export class UnorderedStrategy {
   private fetchNotifier: Notifier<FetchEvent, {}>;
   private memberNotifier: Notifier<MemberEvents, {}>;
 
-  private modulator: Modulator<string>;
+  private modulator: Modulator<{ url: string; force?: boolean }>;
+
+  private cacheList: string[] = [];
+  private polling: boolean;
 
   constructor(
     memberManager: Manager,
     fetcher: Fetcher,
     notifier: Notifier<StrategyEvents, {}>,
     modulatorFactory: ModulatorFactory,
+    polling: boolean,
   ) {
     this.notifier = notifier;
     this.manager = memberManager;
     this.fetcher = fetcher;
+    this.polling = polling;
 
     // Callbacks for the fetcher
     // - seen: the strategy wanted to fetch an uri, but it was already seen
@@ -328,6 +384,9 @@ export class UnorderedStrategy {
     //         start member extraction
     // - relationFound: a relation has been found, inFlight += 1 and put it in the queueu
     this.fetchNotifier = {
+      scheduleFetch: (url: string) => {
+        this.cacheList.push(url);
+      },
       seen: () => {
         this.inFlight -= 1;
         this.checkEnd();
@@ -336,7 +395,7 @@ export class UnorderedStrategy {
       pageFetched: (page) => this.handleFetched(page),
       relationFound: (rel) => {
         this.inFlight += 1;
-        this.modulator.push(rel.node);
+        this.modulator.push({ url: rel.node });
       },
     };
 
@@ -352,14 +411,18 @@ export class UnorderedStrategy {
     };
 
     // Create a modulator, fancy name for something that can pause if we found enough members
-    this.modulator = modulatorFactory.create(<Ranker<string>>[], {
-      ready: (url: string) => this.fetcher.fetch(url, {}, this.fetchNotifier),
-    });
+    this.modulator = modulatorFactory.create(
+      <Ranker<{ url: string; force?: boolean }>>[],
+      {
+        ready: (f) =>
+          this.fetcher.fetch(f.url, f.force || false, {}, this.fetchNotifier),
+      },
+    );
   }
 
   start(url: string) {
     this.inFlight = 1;
-    this.modulator.push(url);
+    this.modulator.push({ url });
   }
 
   private handleFetched(page: FetchedPage) {
@@ -369,7 +432,19 @@ export class UnorderedStrategy {
 
   private checkEnd() {
     if (this.inFlight == 0) {
-      this.notifier.close({}, {});
+      if (this.polling) {
+        setTimeout(() => {
+          const cl = this.cacheList.slice();
+          this.cacheList = [];
+          for (let cache of cl) {
+            this.inFlight += 1;
+            this.modulator.push({ url: cache, force: true });
+          }
+        }, 1000);
+      } else {
+        console.log("Closing notifier");
+        this.notifier.close({}, {});
+      }
     }
   }
 }

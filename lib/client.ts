@@ -7,15 +7,8 @@ import { DataFactory, Store } from "n3";
 import { Term } from "@rdfjs/types";
 import { ModulatorFactory, Notifier, streamToArray } from "./utils";
 import { LDES, TREE } from "@treecg/types";
-import {
-  FetchedPage,
-  Fetcher,
-  Helper,
-  longPromise,
-  resetPromise,
-} from "./pageFetcher";
+import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
 import { Manager } from "./memberManager";
-import { orderedHelper, unorderedHelper } from "./helper";
 import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
 
 import debug from "debug";
@@ -220,12 +213,14 @@ export class Client {
             notifier,
             factory,
             this.ordered,
+            this.config.polling,
           )
         : new UnorderedStrategy(
             this.memberManager,
             this.fetcher,
             notifier,
             factory,
+            this.config.polling,
           );
 
     logger("Found %d views, choosing %s", viewQuads.length, ldesId.value);

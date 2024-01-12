@@ -64,6 +64,12 @@ export type FetchEvent = {
   relationFound: Relation;
   pageFetched: FetchedPage;
   seen: {};
+  scheduleFetch: string;
+};
+
+export type Cache = {
+  immutable?: boolean;
+  maxAge?: number;
 };
 
 export class Fetcher {
@@ -92,8 +98,13 @@ export class Fetcher {
     logger("new fetcher %o", config);
   }
 
-  async fetch<S>(url: string, state: S, notifier: Notifier<FetchEvent, S>) {
-    if (this.state.seen(url)) {
+  async fetch<S>(
+    url: string,
+    force: boolean,
+    state: S,
+    notifier: Notifier<FetchEvent, S>,
+  ) {
+    if (!force && this.state.seen(url)) {
       notifier.seen({}, state);
       return;
     }
@@ -103,8 +114,33 @@ export class Fetcher {
     const logger = log.extend("fetch");
     const resp = await this.dereferencer.dereference(url);
     const page = await streamToArray(resp.data);
-    const data = new Store(page);
+    const cache = {} as Cache;
+    if (resp.headers) {
+      const cacheControlCandidate = resp.headers.get("cache-control");
+      if (cacheControlCandidate) {
+        const controls = cacheControlCandidate
+          .split(",")
+          .map((x) => x.split("=", 2).map((x) => x.trim()));
 
+        for (let control of controls) {
+          if (control[0] == "max-age") {
+            cache.maxAge = parseInt(control[1]);
+          }
+
+          if (control[0] == "immutable") {
+            cache.immutable = true;
+          }
+        }
+      }
+    }
+
+    if (!cache.immutable) {
+      notifier.scheduleFetch(url, state);
+    }
+
+    logger("Cache for  %s %o", url, cache);
+
+    const data = new Store(page);
     logger("Got data %s (%d quads)", url, page.length);
 
     for (let rel of extractRelations(data, namedNode(url))) {

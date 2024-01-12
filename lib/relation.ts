@@ -3,10 +3,12 @@ export type SimpleRelation = {
   value: any;
 };
 
-// This relation chian is important to better understand the order of fragments to fetch
-// First fetch all not important relations
-// Then fetch an important relation with the smallest value (for timestamp path)
-// This new relation can access other unimportant relations, but these should only be fetched after full unimportant relation chains
+/**
+ * This relation chian is important to better understand the order of fragments to fetch
+ * First fetch all not important relations
+ * Then fetch an important relation with the smallest value (for timestamp path)
+ * This new relation can access other unimportant relations, but these should only be fetched after full unimportant relation chains
+ */
 export class RelationChain {
   relations: SimpleRelation[];
   readonly target: string;

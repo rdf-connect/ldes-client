@@ -17,6 +17,7 @@ const defaultMediatorConfig = {
 };
 
 export interface Config {
+  polling: boolean,
   follow: boolean;
   url: string;
   pollInterval: number;
@@ -39,6 +40,7 @@ export interface WithTarget {
 }
 
 const defaultConfig: Config = {
+  polling: true,
   follow: false,
   url: "",
   memberStateLocation: "members.json",

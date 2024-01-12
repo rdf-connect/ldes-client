@@ -21,6 +21,10 @@ export function readableToArray<T>(stream: ReadableStream<T>): Promise<T[]> {
   });
 }
 
+/**
+ * Converts a stream to an array, pushing all elements to an array
+ * Resolving the promise with the 'end' event
+ */
 export function streamToArray<T extends BaseQuad>(
   stream: Stream<T>,
 ): Promise<T[]> {
@@ -37,14 +41,24 @@ export function streamToArray<T extends BaseQuad>(
   });
 }
 
+/**
+ * Generic interface that represents a structure that ranks elements.
+ * Most common is a Prority Queue (heap like) the pops elements in order.
+ * An array is also a Ranker, without ordering.
+ */
 export interface Ranker<T> {
   push(item: T): void;
   pop(): T | undefined;
 }
+
 export type ModulartorEvents<T> = {
   ready: T;
 };
 
+/**
+ * Factory that creates Modulator's
+ * This is a factory to keep track whether or not the Modulator should be paused or not.
+ */
 export class ModulatorFactory {
   concurrent = 10;
   paused: boolean = false;
@@ -76,6 +90,10 @@ export class ModulatorFactory {
   }
 }
 
+/**
+ * Modulator is a stucture that only buffers elements and only handles elements
+ * when the factory is not paused and when not too many items are active at once.
+ */
 export interface Modulator<T> {
   push(item: T): void;
   finished(): void;
