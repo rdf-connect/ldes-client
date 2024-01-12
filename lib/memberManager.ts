@@ -67,7 +67,6 @@ export class Manager {
   async close() {
     log("Closing");
     await Promise.all(this.currentPromises);
-    // this.emitAll();
     if (this.resolve) {
       this.resolve();
       this.resolve = undefined;
@@ -127,12 +126,9 @@ export class Manager {
 
     const promises: Promise<Member | undefined>[] = [];
 
-    let found = 0;
     for (let member of members) {
       if (!this.state.seen(member.value)) {
         const promise = this.extractMember(member, page.data).then((member) => {
-          found += 1;
-          // logger("Found member %d/%d", found, promises.length);
           if (member) {
             notifier.extracted(member, state);
           }

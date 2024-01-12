@@ -152,9 +152,9 @@ export class OrderedStrategy {
     const logger = log.extend("start");
     logger("Starting at %s", url);
     const cmp = (a: string, b: string) => {
-      if (a == b) return 0;
+      if (a > b) return 1;
       if (a < b) return -1;
-      return 1;
+      return 0;
     };
 
     if (this.ordered === "ascending") {

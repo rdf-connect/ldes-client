@@ -3,17 +3,11 @@ import { Notifier, streamToArray } from "./utils";
 import { State } from "./state";
 import { DataFactory, Store } from "n3";
 import { extractRelations, Relation } from "./page";
-import { Heap } from "heap-js";
 import debug from "debug";
-import { RelationChain, SimpleRelation } from "./relation";
+import { SimpleRelation } from "./relation";
 
 const log = debug("fetcher");
 const { namedNode } = DataFactory;
-
-export type TimeBound = {
-  open_relations: number;
-  time?: Date;
-};
 
 export type FetchedPage = {
   url: string;
@@ -49,11 +43,6 @@ export function resetPromise(promise: LongPromise) {
   cb();
 }
 
-type PageAndRelation = {
-  page: FetchedPage;
-  relation: RelationChain;
-};
-
 export interface Helper {
   extractRelation(relation: Relation): { rel: SimpleRelation; node: string };
   handleFetchedPage(page: FetchedPage, marker?: any): void | Promise<void>;
@@ -74,28 +63,11 @@ export type Cache = {
 
 export class Fetcher {
   private dereferencer: RdfDereferencer;
-
   private state: State;
 
-  private readonly config: FetcherConfig;
-
-  public bound: TimeBound;
-
-  constructor(
-    dereferencer: RdfDereferencer,
-    state: State,
-    config = DefaultFetcherConfig,
-  ) {
-    const logger = log.extend("constructor");
-
-    this.bound = {
-      open_relations: 1,
-    };
+  constructor(dereferencer: RdfDereferencer, state: State) {
     this.dereferencer = dereferencer;
     this.state = state;
-    this.config = config;
-
-    logger("new fetcher %o", config);
   }
 
   async fetch<S>(
@@ -112,8 +84,10 @@ export class Fetcher {
     this.state.add(url);
 
     const logger = log.extend("fetch");
+
     const resp = await this.dereferencer.dereference(url);
     const page = await streamToArray(resp.data);
+
     const cache = {} as Cache;
     if (resp.headers) {
       const cacheControlCandidate = resp.headers.get("cache-control");
