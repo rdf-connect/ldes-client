@@ -2,7 +2,7 @@ import { Config, getConfig } from "./config";
 import { Member } from "./page";
 import rdfDereference, { RdfDereferencer } from "rdf-dereference";
 import { SimpleState, State } from "./state";
-import { CBDShapeExtractor, shape } from "extract-cbd-shape";
+import { CBDShapeExtractor } from "extract-cbd-shape";
 import { DataFactory, Store } from "n3";
 import { Term } from "@rdfjs/types";
 import { ModulatorFactory, Notifier, streamToArray } from "./utils";
