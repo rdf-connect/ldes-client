@@ -1,7 +1,7 @@
-import { Config, getConfig } from "./config";
+import { Config } from "./config";
 import { Member } from "./page";
 import rdfDereference, { RdfDereferencer } from "rdf-dereference";
-import { FileStateFactory, SimpleState, State, StateFactory } from "./state";
+import { FileStateFactory, State, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { DataFactory, Store } from "n3";
 import { Term } from "@rdfjs/types";
@@ -16,15 +16,6 @@ const log = debug("client");
 const { namedNode } = DataFactory;
 
 type Controller = ReadableStreamDefaultController<Member>;
-
-export async function startClient() {
-  // Extract config from command line args
-  const config = await getConfig();
-
-  // Start channel from target
-
-  const client = replicateLDES(config);
-}
 
 export type Ordered = "ascending" | "descending" | "none";
 

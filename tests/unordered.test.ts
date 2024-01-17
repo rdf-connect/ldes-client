@@ -5,9 +5,13 @@ import { replicateLDES } from "../lib/client";
 import { intoConfig } from "../lib/config";
 import { Parser } from "n3";
 import { TREE } from "@treecg/types";
+import { rmSync } from "fs";
 
 const oldFetch = global.fetch;
 beforeEach(() => {
+  rmSync("save.json", {
+    force: true,
+  });
   if ("mockClear" in global.fetch) {
     console.log("Clearing");
     (<any>global.fetch).mockClear();
@@ -412,4 +416,3 @@ describe("more complex tree", () => {
     await reader.cancel();
   });
 });
-
