@@ -13,6 +13,7 @@ export interface Member {
 }
 
 export interface Relation {
+  source: string;
   node: string;
   type: Term;
   value?: Term[];
@@ -61,7 +62,7 @@ export function extractMembers(
     cb({ quads, id: member, isVersionOf, timestamp });
   };
 
-  const out = [];
+  const out: Promise<void>[] = [];
   for (let member of members) {
     if (!state.seen(member.value)) {
       state.add(member.value);
@@ -74,6 +75,7 @@ export function extractMembers(
 
 export function extractRelations(store: Store, node: Term): Relation[] {
   const relationIds = store.getObjects(node, TREE.terms.relation, null);
+  const source = node.value;
 
   const out: Relation[] = [];
   for (let relationId of relationIds) {
@@ -82,6 +84,7 @@ export function extractRelations(store: Store, node: Term): Relation[] {
     const path = store.getObjects(relationId, TREE.terms.path, null)[0];
     const value = store.getObjects(relationId, TREE.terms.value, null);
     out.push({
+      source,
       node: node.value,
       type: ty[0],
       path,

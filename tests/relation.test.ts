@@ -35,7 +35,7 @@ describe("Chain relations", () => {
   });
 
   test("correct chaining with ord", () => {
-    let chain = new RelationChain("", [], undefined, (a, b) =>
+    let chain = new RelationChain("", "", [], undefined, (a, b) =>
       a < b ? -1 : 1,
     );
     chain = chain.push("", { value: 0, important: false });
@@ -68,15 +68,21 @@ describe("Chain relations", () => {
   });
 
   test("correct ordering", () => {
-    let value1 = new RelationChain("").push("", { value: 0, important: false });
-    let value2 = new RelationChain("").push("", { value: 0, important: true });
+    let value1 = new RelationChain("", "").push("", {
+      value: 0,
+      important: false,
+    });
+    let value2 = new RelationChain("", "").push("", {
+      value: 0,
+      important: true,
+    });
 
     // unimportant should be handled first!
     expect(value1.ordering(value2)).toBe(-1);
     expect(value2.ordering(value1)).toBe(1);
 
-    value1 = new RelationChain("").push("", { value: 0, important: false });
-    value2 = new RelationChain("")
+    value1 = new RelationChain("", "").push("", { value: 0, important: false });
+    value2 = new RelationChain("", "")
       .push("", { value: 0, important: true })
       .push("", {
         value: 1,
@@ -86,8 +92,8 @@ describe("Chain relations", () => {
     expect(value1.ordering(value2)).toBe(-1);
     expect(value2.ordering(value1)).toBe(1);
 
-    value1 = new RelationChain("").push("", { value: 0, important: false });
-    value2 = new RelationChain("")
+    value1 = new RelationChain("", "").push("", { value: 0, important: false });
+    value2 = new RelationChain("", "")
       .push("", { value: 0, important: false })
       .push("", {
         value: 1,
@@ -98,20 +104,20 @@ describe("Chain relations", () => {
     expect(value1.ordering(value2)).toBe(0);
     expect(value2.ordering(value1)).toBe(0);
 
-    value1 = new RelationChain("").push("", { value: 0, important: true });
-    value2 = new RelationChain("").push("", { value: 10, important: true });
+    value1 = new RelationChain("", "").push("", { value: 0, important: true });
+    value2 = new RelationChain("", "").push("", { value: 10, important: true });
 
     // both are imporant, smallest value first
     expect(value1.ordering(value2)).toBe(-1);
     expect(value2.ordering(value1)).toBe(1);
 
-    value1 = new RelationChain("")
+    value1 = new RelationChain("", "")
       .push("", { value: 0, important: true })
       .push("", {
         value: 0,
         important: false,
       });
-    value2 = new RelationChain("").push("", { value: 0, important: true });
+    value2 = new RelationChain("", "").push("", { value: 0, important: true });
 
     expect(value1.ordering(value2)).toBe(0);
     expect(value2.ordering(value1)).toBe(0);
@@ -124,11 +130,11 @@ describe("Chain relations", () => {
       (a: any, b: any) => number,
     ] = [[], undefined, (a: any, b: any) => (a == b ? 0 : a < b ? 1 : -1)];
 
-    let value1 = new RelationChain("", ...params).push("", {
+    let value1 = new RelationChain("", "", ...params).push("", {
       value: 0,
       important: false,
     });
-    let value2 = new RelationChain("", ...params).push("", {
+    let value2 = new RelationChain("", "", ...params).push("", {
       value: 0,
       important: true,
     });
@@ -137,11 +143,11 @@ describe("Chain relations", () => {
     expect(value1.ordering(value2)).toBe(-1);
     expect(value2.ordering(value1)).toBe(1);
 
-    value1 = new RelationChain("", ...params).push("", {
+    value1 = new RelationChain("", "", ...params).push("", {
       value: 0,
       important: false,
     });
-    value2 = new RelationChain("", ...params)
+    value2 = new RelationChain("", "", ...params)
       .push("", { value: 0, important: true })
       .push("", {
         value: 1,
@@ -151,11 +157,11 @@ describe("Chain relations", () => {
     expect(value1.ordering(value2)).toBe(-1);
     expect(value2.ordering(value1)).toBe(1);
 
-    value1 = new RelationChain("", ...params).push("", {
+    value1 = new RelationChain("", "", ...params).push("", {
       value: 0,
       important: false,
     });
-    value2 = new RelationChain("", ...params).push("", {
+    value2 = new RelationChain("", "", ...params).push("", {
       value: 1,
       important: false,
     });
@@ -164,11 +170,11 @@ describe("Chain relations", () => {
     expect(value1.ordering(value2)).toBe(0);
     expect(value2.ordering(value1)).toBe(0);
 
-    value1 = new RelationChain("", ...params).push("", {
+    value1 = new RelationChain("", "", ...params).push("", {
       value: 0,
       important: true,
     });
-    value2 = new RelationChain("", ...params).push("", {
+    value2 = new RelationChain("", "", ...params).push("", {
       value: 10,
       important: true,
     });
@@ -177,13 +183,13 @@ describe("Chain relations", () => {
     expect(value1.ordering(value2)).toBe(1);
     expect(value2.ordering(value1)).toBe(-1);
 
-    value1 = new RelationChain("", ...params)
+    value1 = new RelationChain("", "", ...params)
       .push("", { value: 0, important: true })
       .push("", {
         value: 0,
         important: false,
       });
-    value2 = new RelationChain("", ...params).push("", {
+    value2 = new RelationChain("", "", ...params).push("", {
       value: 0,
       important: true,
     });
@@ -199,8 +205,8 @@ describe("Chain relations", () => {
       (a: any, b: any) => number,
     ] = [[], undefined, (a: any, b: any) => (a == b ? 0 : a < b ? 1 : -1)];
 
-    let value1 = new RelationChain("", ...params);
-    let value2 = new RelationChain("", ...params).push("", {
+    let value1 = new RelationChain("", "", ...params);
+    let value2 = new RelationChain("", "", ...params).push("", {
       value: new Date("2001-03-01T00:00:00.000Z"),
       important: true,
     });
@@ -213,7 +219,7 @@ describe("Chain relations", () => {
     expect(heap.length).toBe(2);
     expect(heap.toArray()).toEqual([value1, value2]);
 
-    let eq_value1 = new RelationChain("", ...params);
+    let eq_value1 = new RelationChain("", "", ...params);
     console.log(
       "Removed",
       heap.remove(eq_value1, (a, b) => a.ordering(b) === 0),
@@ -230,15 +236,15 @@ describe("Chain relations", () => {
       (a: any, b: any) => number,
     ] = [[], undefined, (a: any, b: any) => (a == b ? 0 : a < b ? 1 : -1)];
 
-    let value0 = new RelationChain("", ...params).push("", {
+    let value0 = new RelationChain("", "", ...params).push("", {
       value: new Date("2001-03-01T00:00:00.000Z"),
       important: true,
     });
-    let value1 = new RelationChain("", ...params).push("", {
+    let value1 = new RelationChain("", "", ...params).push("", {
       value: new Date("2001-03-01T00:01:00.000Z"),
       important: true,
     });
-    let value2 = new RelationChain("", ...params).push("", {
+    let value2 = new RelationChain("", "", ...params).push("", {
       value: new Date("2001-03-01T00:02:00.000Z"),
       important: true,
     });

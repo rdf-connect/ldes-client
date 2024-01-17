@@ -1,6 +1,6 @@
 import { Manager, MemberEvents } from "../memberManager";
-import { FetchedPage, Fetcher, FetchEvent } from "../pageFetcher";
-import { Modulator, ModulatorFactory, Notifier, Ranker } from "../utils";
+import { FetchedPage, Fetcher, FetchEvent, Node } from "../pageFetcher";
+import { Modulator, ModulatorFactory, Notifier } from "../utils";
 
 import { StrategyEvents } from ".";
 
@@ -11,12 +11,12 @@ export class UnorderedStrategy {
 
   private inFlight: number = 0;
 
-  private fetchNotifier: Notifier<FetchEvent, {}>;
+  private fetchNotifier: Notifier<FetchEvent, { index: number }>;
   private memberNotifier: Notifier<MemberEvents, {}>;
 
-  private modulator: Modulator<{ url: string; force?: boolean }>;
+  private modulator: Modulator<Node>;
 
-  private cacheList: string[] = [];
+  private cacheList: Node[] = [];
   private polling: boolean;
 
   private cancled = false;
@@ -40,18 +40,14 @@ export class UnorderedStrategy {
     //         start member extraction
     // - relationFound: a relation has been found, inFlight += 1 and put it in the queueu
     this.fetchNotifier = {
-      scheduleFetch: (url: string) => {
-        this.cacheList.push(url);
+      scheduleFetch: (node: Node) => {
+        this.cacheList.push(node);
       },
-      seen: () => {
-        this.inFlight -= 1;
-        this.checkEnd();
-        this.modulator.finished();
-      },
-      pageFetched: (page) => this.handleFetched(page),
-      relationFound: (rel) => {
+      pageFetched: (page, { index }) => this.handleFetched(page, index),
+      relationFound: ({ from, target }) => {
+        from.expected.push(target.node);
         this.inFlight += 1;
-        this.modulator.push({ url: rel.node });
+        this.modulator.push({ target: target.node, expected: [from.target] });
       },
     };
 
@@ -64,27 +60,23 @@ export class UnorderedStrategy {
       extracted: (mem) => this.notifier.member(mem, {}),
     };
 
-    // Create a modulator, fancy name for something that can pause if we found enough members
-    this.modulator = modulatorFactory.create(
-      <Ranker<{ url: string; force?: boolean }>>[],
-      {
-        ready: (f) =>
-          this.fetcher.fetch(f.url, f.force || false, {}, this.fetchNotifier),
-      },
-    );
+    this.modulator = modulatorFactory.create<Node>("fetcher", [], {
+      ready: ({ item, index }) =>
+        this.fetcher.fetch(item, { index }, this.fetchNotifier),
+    });
   }
 
   start(url: string) {
     this.inFlight = 1;
-    this.modulator.push({ url });
+    this.modulator.push({ target: url, expected: [] });
   }
 
   cancle() {
     this.cancled = true;
   }
 
-  private handleFetched(page: FetchedPage) {
-    this.modulator.finished();
+  private handleFetched(page: FetchedPage, index: number) {
+    this.modulator.finished(index);
     this.manager.extractMembers(page, {}, this.memberNotifier);
   }
 
@@ -97,10 +89,11 @@ export class UnorderedStrategy {
 
           this.notifier.pollCycle({}, {});
           const cl = this.cacheList.slice();
+          console.log("CL", cl);
           this.cacheList = [];
           for (let cache of cl) {
             this.inFlight += 1;
-            this.modulator.push({ url: cache, force: true });
+            this.modulator.push(cache);
           }
         }, 1000);
       } else {

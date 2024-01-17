@@ -34,9 +34,13 @@ export class OrderedStrategy {
   // With ordering descending LT relations are important
   private readonly launchedRelations: Heap<RelationChain>;
 
-  private modulator: Modulator<{ chain: RelationChain; force?: boolean }>;
+  // TODO: RelationChain is not plain js object
+  private modulator: Modulator<{ chain: RelationChain; expected: string[] }>;
 
-  private fetchNotifier: Notifier<FetchEvent, RelationChain>;
+  private fetchNotifier: Notifier<
+    FetchEvent,
+    { chain: RelationChain; index: number }
+  >;
   private memberNotifer: Notifier<MemberEvents, RelationChain>;
   private fetchedPages: Heap<PageAndRelation>;
   private state: Array<StateItem>;
@@ -44,7 +48,7 @@ export class OrderedStrategy {
   private ordered: Ordered;
 
   private polling: boolean;
-  private toPoll: Heap<RelationChain>;
+  private toPoll: Heap<{ chain: RelationChain; expected: string[] }>;
 
   private cancled = false;
 
@@ -63,7 +67,7 @@ export class OrderedStrategy {
     this.notifier = notifier;
     this.polling = polling;
 
-    this.toPoll = new Heap((a, b) => a.ordering(b));
+    this.toPoll = new Heap((a, b) => a.chain.ordering(b.chain));
     this.launchedRelations = new Heap((a, b) => a.ordering(b));
     this.fetchedPages = new Heap((a, b) => a.relation.ordering(b.relation));
     this.state = [];
@@ -75,28 +79,35 @@ export class OrderedStrategy {
     //         start member extraction
     // - relationFound: a relation has been found, put the extended chain in the queue
     this.fetchNotifier = {
-      scheduleFetch: (_url, chain) => {
-        this.toPoll.push(chain);
+      scheduleFetch: ({ expected }, { chain }) => {
+        this.toPoll.push({ chain, expected });
       },
-      seen: (_, relation) => {
-        this.modulator.finished();
-        this.launchedRelations.remove(relation, (a, b) => a.ordering(b) === 0);
-        logger("Already seen %s", relation.target);
-        // We put the same relation multiple times in launchedRelations, but only once with findOrDefault
-        // This keeps track of how many are in transit / member extracting
-        const found = this.findOrDefault(relation);
-        found.inFlight -= 1;
-        this.checkEmit();
-      },
-      pageFetched: (page, relation) => {
+      // seen: (_, relation) => {
+      //   this.modulator.finished();
+      //   this.launchedRelations.remove(relation, (a, b) => a.ordering(b) === 0);
+      //   logger("Already seen %s", relation.target);
+      //   // We put the same relation multiple times in launchedRelations, but only once with findOrDefault
+      //   // This keeps track of how many are in transit / member extracting
+      //   const found = this.findOrDefault(relation);
+      //   found.inFlight -= 1;
+      //   this.checkEmit();
+      // },
+      pageFetched: (page, { chain, index }) => {
         logger("Page fetched %s", page.url);
-        this.modulator.finished();
-        this.handleFetched(page, relation);
+        this.modulator.finished(index);
+        this.handleFetched(page, chain);
       },
-      relationFound: (rel, chain) => {
-        logger("Relation found %s", rel.node);
-        const newChain = chain.push(rel.node, this.extractRelation(rel));
-        this.fetch(newChain);
+      relationFound: ({ from, target }, { chain }) => {
+        from.expected.push(target.node);
+        logger("Relation found %s", target.node);
+        const newChain = chain.push(target.node, this.extractRelation(target));
+        if (newChain.ordering(chain) >= 0) {
+          this.fetch(newChain, [from.target]);
+        } else {
+          console.error(
+            "Found relation backwards in time, this indicates wrong tree structure. Ignoring",
+          );
+        }
       },
     };
 
@@ -116,13 +127,13 @@ export class OrderedStrategy {
     };
 
     this.modulator = factory.create(
-      new Heap((a, b) => a.chain.ordering(b.chain)),
+      "fetcher",
+      new Heap((a, b) => a.item.chain.ordering(b.item.chain)),
       {
-        ready: ({ chain, force }) => {
+        ready: ({ item: { chain, expected }, index }) => {
           this.fetcher.fetch(
-            chain.target,
-            force || false,
-            chain,
+            { target: chain.target, expected },
+            { chain, index },
             this.fetchNotifier,
           );
         },
@@ -161,17 +172,25 @@ export class OrderedStrategy {
 
     if (this.ordered === "ascending") {
       this.fetch(
-        new RelationChain(url, [], undefined, (a, b) => cmp(a, b)).push(url, {
-          important: false,
-          value: 0,
-        }),
+        new RelationChain("", url, [], undefined, (a, b) => cmp(a, b)).push(
+          url,
+          {
+            important: false,
+            value: 0,
+          },
+        ),
+        [],
       );
     } else {
       this.fetch(
-        new RelationChain(url, [], undefined, (a, b) => -1 * cmp(a, b)).push(
+        new RelationChain(
+          "",
           url,
-          { important: false, value: 0 },
-        ),
+          [],
+          undefined,
+          (a, b) => -1 * cmp(a, b),
+        ).push(url, { important: false, value: 0 }),
+        [],
       );
     }
   }
@@ -227,10 +246,10 @@ export class OrderedStrategy {
     }
   }
 
-  private fetch(rel: RelationChain) {
+  private fetch(rel: RelationChain, expected: string[]) {
     this.launchedRelations.push(rel);
     this.findOrDefault(rel).inFlight += 1;
-    this.modulator.push({ chain: rel });
+    this.modulator.push({ chain: rel, expected });
   }
 
   private handleFetched(page: FetchedPage, relation: RelationChain) {
@@ -260,9 +279,12 @@ export class OrderedStrategy {
         break;
       }
 
-      if (found.closed) {
-        console.error("Found should never be closed before this moment");
-      }
+      // if (found.closed) {
+      //   console.error(
+      //     "Found should never be closed before this moment, ",
+      //     head,
+      //   );
+      // }
 
       // Actually emit some members in order
       if (marker.important) {
@@ -323,14 +345,15 @@ export class OrderedStrategy {
           const toPollArray = this.toPoll.toArray();
           logger(
             "Let's repoll (%o)",
-            toPollArray.map((x) => x.target),
+            toPollArray.map((x) => x.chain.target),
           );
           this.toPoll.clear();
 
           for (let rel of toPollArray) {
-            this.launchedRelations.push(rel);
-            this.findOrDefault(rel).inFlight += 1;
-            this.modulator.push({ chain: rel, force: true });
+            this.launchedRelations.push(rel.chain);
+            this.findOrDefault(rel.chain).inFlight += 1;
+            this.findOrDefault(rel.chain).closed = false;
+            this.modulator.push(rel);
           }
         }, 1000);
       } else {

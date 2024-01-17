@@ -10,16 +10,19 @@ export type SimpleRelation = {
  * This new relation can access other unimportant relations, but these should only be fetched after full unimportant relation chains
  */
 export class RelationChain {
+  source: string;
   relations: SimpleRelation[];
   readonly target: string;
   private cmp?: (a: any, b: any) => number;
 
   constructor(
+    source: string,
     target: string,
     relations: SimpleRelation[] = [],
     additional?: SimpleRelation,
     cmp?: (a: any, b: any) => number,
   ) {
+    this.source = source;
     this.target = target;
     this.cmp = cmp;
     this.relations = relations.map(({ value, important }) => ({
@@ -60,7 +63,13 @@ export class RelationChain {
   }
 
   push(target: string, relation: SimpleRelation): RelationChain {
-    return new RelationChain(target, this.relations, relation, this.cmp);
+    return new RelationChain(
+      this.target,
+      target,
+      this.relations,
+      relation,
+      this.cmp,
+    );
   }
 
   important(): boolean {

@@ -1,7 +1,7 @@
 import { Config, getConfig } from "./config";
 import { Member } from "./page";
 import rdfDereference, { RdfDereferencer } from "rdf-dereference";
-import { SimpleState, State } from "./state";
+import { FileStateFactory, SimpleState, State } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { DataFactory, Store } from "n3";
 import { Term } from "@rdfjs/types";
@@ -128,7 +128,9 @@ export class Client {
   private streamId?: Term;
   private ordered: Ordered;
 
-  private modulatorFactory = new ModulatorFactory();
+  private modulatorFactory = new ModulatorFactory(
+    new FileStateFactory("mySave.json"),
+  );
 
   private pollCycle: (() => void)[] = [];
 
@@ -200,7 +202,7 @@ export class Client {
       throw "Can only emit members in order, if LDES is configured with timestampPath";
     }
 
-    this.fetcher = new Fetcher(this.dereferencer, this.fragmentState);
+    this.fetcher = new Fetcher(this.dereferencer);
 
     const notifier: Notifier<StrategyEvents, {}> = {
       member: (m) => emit(m),
@@ -277,3 +279,4 @@ async function fetchPage(
   const data = new Store(page);
   return <FetchedPage>{ url, data };
 }
+

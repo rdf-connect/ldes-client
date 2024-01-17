@@ -1,5 +1,6 @@
 import { Stream } from "@rdfjs/types";
 import { BaseQuad } from "n3";
+import { StateFactory, StateT } from "./state";
 
 export type Notifier<Events, S> = {
   [K in keyof Events]: (event: Events[K], state: S) => void;
@@ -52,7 +53,7 @@ export interface Ranker<T> {
 }
 
 export type ModulartorEvents<T> = {
-  ready: T;
+  ready: Indexed<T>;
 };
 
 /**
@@ -63,21 +64,37 @@ export class ModulatorFactory {
   concurrent = 10;
   paused: boolean = false;
 
+  factory: StateFactory;
   children: ModulatorInstance<any>[] = [];
 
-  constructor(concurrent?: number) {
+  constructor(stateFactory: StateFactory, concurrent?: number) {
+    this.factory = stateFactory;
     if (concurrent) {
       this.concurrent = concurrent;
     }
   }
 
+  /**
+   * Note: `T` should be plain javascript objects (because that how state is saved)
+   */
   create<T>(
-    ranker: Ranker<T>,
+    name: string,
+    ranker: Ranker<Indexed<T>>,
     notifier: Notifier<ModulartorEvents<T>, {}>,
   ): Modulator<T> {
-    const out = new ModulatorInstance(ranker, notifier, this);
-    this.children.push(out);
-    return out;
+    const state = this.factory.build<ModulatorInstanceState<T>>(
+      name,
+      JSON.stringify,
+      JSON.parse,
+      () => ({
+        todo: [],
+        inflight: [],
+      }),
+    );
+
+    const modulator = new ModulatorInstance(state, ranker, notifier, this);
+    this.children.push(modulator);
+    return modulator;
   }
 
   pause() {
@@ -96,32 +113,59 @@ export class ModulatorFactory {
  */
 export interface Modulator<T> {
   push(item: T): void;
-  finished(): void;
+  finished(index: number): void;
 }
 
-class ModulatorInstance<T> {
-  at: number = 0;
+type Indexed<T> = {
+  item: T;
+  index: number;
+};
 
-  private ranker: Ranker<T>;
+type ModulatorInstanceState<T> = {
+  todo: Indexed<T>[];
+  inflight: Indexed<T>[];
+};
+
+class ModulatorInstance<T> implements Modulator<T> {
+  at: number = 0;
+  index = 0;
+
+  private state: StateT<ModulatorInstanceState<T>>;
+
+  private ranker: Ranker<Indexed<T>>;
   private notifier: Notifier<ModulartorEvents<T>, {}>;
   private factory: ModulatorFactory;
 
   constructor(
-    ranker: Ranker<T>,
+    state: StateT<ModulatorInstanceState<T>>,
+    ranker: Ranker<Indexed<T>>,
     notifier: Notifier<ModulartorEvents<T>, {}>,
     factory: ModulatorFactory,
   ) {
+    this.state = state;
     this.ranker = ranker;
     this.notifier = notifier;
     this.factory = factory;
   }
 
   push(item: T) {
-    this.ranker.push(item);
+    const indexed = { item, index: this.index };
+    this.state.item.todo.push(indexed);
+    this.index += 1;
+    this.ranker.push(indexed);
     this.checkReady();
   }
 
-  finished() {
+  finished(index: number) {
+    const removeIdx = this.state.item.inflight.findIndex(
+      (x) => x.index == index,
+    );
+    if (removeIdx >= 0) {
+      this.state.item.inflight.splice(removeIdx, 1);
+    } else {
+      console.error("Expected to be able to remove inflight item");
+    }
+
     this.at -= 1;
     this.checkReady();
   }
@@ -134,6 +178,20 @@ class ModulatorInstance<T> {
     while (this.at < this.factory.concurrent) {
       const item = this.ranker.pop();
       if (item) {
+        // This item is no longer todo
+        // I'm quite afraid to use filter for this
+        const removeIdx = this.state.item.todo.findIndex(
+          (x) => x.index == item.index,
+        );
+        if (removeIdx >= 0) {
+          this.state.item.todo.splice(removeIdx, 1);
+        } else {
+          console.error("Expected to be able to remove inflight item");
+        }
+
+        // This item is now inflight
+        this.state.item.inflight.push(item);
+
         this.at += 1;
         this.notifier.ready(item, {});
       } else {

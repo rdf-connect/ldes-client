@@ -66,7 +66,7 @@ async function main() {
       if (seen.size % 100 == 1) {
         console.log("Got member", seen.size, "quads", el.value.quads.length);
       }
-      console.log("Found", seen.size, "members");
+      // console.log("Found", seen.size, "members");
     }
 
     if (el.done) {

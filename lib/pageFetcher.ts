@@ -1,6 +1,5 @@
 import { RdfDereferencer } from "rdf-dereference";
 import { Notifier, streamToArray } from "./utils";
-import { State } from "./state";
 import { DataFactory, Store } from "n3";
 import { extractRelations, Relation } from "./page";
 import debug from "debug";
@@ -8,6 +7,16 @@ import { SimpleRelation } from "./relation";
 
 const log = debug("fetcher");
 const { namedNode } = DataFactory;
+
+/**
+ * target: url to fetch
+ * expected: relations that can be found, and should be ignored
+ *   examples are the originating url
+ */
+export type Node = {
+  target: string;
+  expected: string[];
+};
 
 export type FetchedPage = {
   url: string;
@@ -50,10 +59,10 @@ export interface Helper {
 }
 
 export type FetchEvent = {
-  relationFound: Relation;
+  relationFound: { from: Node; target: Relation };
   pageFetched: FetchedPage;
-  seen: {};
-  scheduleFetch: string;
+  // seen: {};
+  scheduleFetch: Node;
 };
 
 export type Cache = {
@@ -63,29 +72,15 @@ export type Cache = {
 
 export class Fetcher {
   private dereferencer: RdfDereferencer;
-  private state: State;
 
-  constructor(dereferencer: RdfDereferencer, state: State) {
+  constructor(dereferencer: RdfDereferencer) {
     this.dereferencer = dereferencer;
-    this.state = state;
   }
 
-  async fetch<S>(
-    url: string,
-    force: boolean,
-    state: S,
-    notifier: Notifier<FetchEvent, S>,
-  ) {
-    if (!force && this.state.seen(url)) {
-      notifier.seen({}, state);
-      return;
-    }
-
-    this.state.add(url);
-
+  async fetch<S>(node: Node, state: S, notifier: Notifier<FetchEvent, S>) {
     const logger = log.extend("fetch");
 
-    const resp = await this.dereferencer.dereference(url);
+    const resp = await this.dereferencer.dereference(node.target);
     const page = await streamToArray(resp.data);
 
     const cache = {} as Cache;
@@ -109,24 +104,29 @@ export class Fetcher {
     }
 
     if (!cache.immutable) {
-      notifier.scheduleFetch(url, state);
+      notifier.scheduleFetch(node, state);
     }
 
-    logger("Cache for  %s %o", url, cache);
+    logger("Cache for  %s %o", node.target, cache);
 
     const data = new Store(page);
-    logger("Got data %s (%d quads)", url, page.length);
+    logger("Got data %s (%d quads)", node.target, page.length);
 
-    for (let rel of extractRelations(data, namedNode(url))) {
-      notifier.relationFound(rel, state);
-    }
-
-    if (url !== resp.url) {
-      for (let rel of extractRelations(data, namedNode(resp.url))) {
-        notifier.relationFound(rel, state);
+    for (let rel of extractRelations(data, namedNode(node.target))) {
+      if (!node.expected.some((x) => x == rel.node)) {
+        notifier.relationFound({ from: node, target: rel }, state);
       }
     }
 
-    notifier.pageFetched({ data, url }, state);
+    if (node.target !== resp.url) {
+      for (let rel of extractRelations(data, namedNode(resp.url))) {
+        if (!node.expected.some((x) => x == rel.node)) {
+          notifier.relationFound({ from: node, target: rel }, state);
+        }
+      }
+    }
+
+    // TODO check this, is node.target correct?
+    notifier.pageFetched({ data, url: node.target }, state);
   }
 }
