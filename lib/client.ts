@@ -1,7 +1,7 @@
 import { Config, getConfig } from "./config";
 import { Member } from "./page";
 import rdfDereference, { RdfDereferencer } from "rdf-dereference";
-import { FileStateFactory, SimpleState, State } from "./state";
+import { FileStateFactory, SimpleState, State, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { DataFactory, Store } from "n3";
 import { Term } from "@rdfjs/types";
@@ -116,9 +116,6 @@ async function getShape(
 
 export class Client {
   private config: Config;
-  private membersState: State;
-  private fragmentState: State;
-
   private dereferencer: RdfDereferencer;
 
   private fetcher!: Fetcher;
@@ -128,17 +125,14 @@ export class Client {
   private streamId?: Term;
   private ordered: Ordered;
 
-  private modulatorFactory = new ModulatorFactory(
-    new FileStateFactory("mySave.json"),
-  );
+  private modulatorFactory;
 
   private pollCycle: (() => void)[] = [];
+  private stateFactory: StateFactory;
 
   constructor(
     config: Config,
     {
-      membersState,
-      fragmentState,
       dereferencer,
     }: {
       membersState?: State;
@@ -150,13 +144,16 @@ export class Client {
   ) {
     this.config = config;
     this.dereferencer = dereferencer ?? rdfDereference;
-    this.membersState =
-      membersState ?? new SimpleState(config.memberStateLocation);
-    this.fragmentState =
-      fragmentState ?? new SimpleState(config.fragmentStateLocation);
 
     this.streamId = stream;
     this.ordered = ordered;
+    this.stateFactory = new FileStateFactory(config.stateFile);
+    this.modulatorFactory = new ModulatorFactory(this.stateFactory);
+    process.on("SIGINT", () => {
+      console.log("Caught interrupt signal, saving");
+      this.stateFactory.write();
+      process.exit();
+    });
   }
 
   addPollCycle(cb: () => void) {
@@ -169,14 +166,10 @@ export class Client {
     factory: ModulatorFactory,
   ): Promise<void> {
     const logger = log.extend("init");
-    await this.membersState.init();
-    await this.fragmentState.init();
-
     // Fetch the url
     const root = await fetchPage(this.config.url, this.dereferencer);
     // Try to get a shape
-    // TODO
-    // Choose a view
+    // TODO Choose a view
     const viewQuads = root.data.getQuads(null, TREE.terms.view, null, null);
 
     let ldesId: Term = namedNode(this.config.url);
@@ -190,9 +183,18 @@ export class Client {
 
     const info = await getShape(ldesId, root.data, this.dereferencer);
 
+    const state = this.stateFactory.build<Set<string>>(
+      "members",
+      (set) => {
+        const arr = [...set.values()];
+        return JSON.stringify(arr);
+      },
+      (inp) => new Set(JSON.parse(inp)),
+      () => new Set(),
+    );
     this.memberManager = new Manager(
       this.streamId || viewQuads[0].subject,
-      this.membersState,
+      state.item,
       info,
     );
 
@@ -209,7 +211,10 @@ export class Client {
       pollCycle: () => {
         this.pollCycle.forEach((cb) => cb());
       },
-      close: () => close(),
+      close: () => {
+        this.stateFactory.write();
+        close();
+      },
     };
 
     this.strategy =
@@ -259,6 +264,7 @@ export class Client {
         return;
       },
       cancel: async () => {
+        this.stateFactory.write();
         console.log("Cancled");
         this.strategy.cancle();
       },
@@ -279,4 +285,3 @@ async function fetchPage(
   const data = new Store(page);
   return <FetchedPage>{ url, data };
 }
-

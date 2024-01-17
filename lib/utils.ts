@@ -81,6 +81,7 @@ export class ModulatorFactory {
     name: string,
     ranker: Ranker<Indexed<T>>,
     notifier: Notifier<ModulartorEvents<T>, {}>,
+    parse?: (item: any) => T,
   ): Modulator<T> {
     const state = this.factory.build<ModulatorInstanceState<T>>(
       name,
@@ -91,6 +92,17 @@ export class ModulatorFactory {
         inflight: [],
       }),
     );
+
+    if (parse) {
+      state.item.todo = state.item.todo.map(({ item, index }) => ({
+        index,
+        item: parse(item),
+      }));
+      state.item.inflight = state.item.inflight.map(({ item, index }) => ({
+        index,
+        item: parse(item),
+      }));
+    }
 
     const modulator = new ModulatorInstance(state, ranker, notifier, this);
     this.children.push(modulator);
@@ -114,6 +126,7 @@ export class ModulatorFactory {
 export interface Modulator<T> {
   push(item: T): void;
   finished(index: number): void;
+  length(): number;
 }
 
 type Indexed<T> = {
@@ -143,9 +156,21 @@ class ModulatorInstance<T> implements Modulator<T> {
     factory: ModulatorFactory,
   ) {
     this.state = state;
+    const readd = [...this.state.item.todo, ...this.state.item.inflight];
+    this.state.item.todo.push(...this.state.item.inflight);
+    while (this.state.item.inflight.pop()) {}
+    while (this.state.item.todo.pop()) {}
     this.ranker = ranker;
     this.notifier = notifier;
     this.factory = factory;
+    for (let item of readd) {
+      console.log("Readding");
+      this.push(item.item);
+    }
+  }
+
+  length(): number {
+    return this.state.item.todo.length;
   }
 
   push(item: T) {

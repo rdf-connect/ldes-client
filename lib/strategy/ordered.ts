@@ -34,7 +34,6 @@ export class OrderedStrategy {
   // With ordering descending LT relations are important
   private readonly launchedRelations: Heap<RelationChain>;
 
-  // TODO: RelationChain is not plain js object
   private modulator: Modulator<{ chain: RelationChain; expected: string[] }>;
 
   private fetchNotifier: Notifier<
@@ -137,6 +136,32 @@ export class OrderedStrategy {
             this.fetchNotifier,
           );
         },
+      },
+      (inp: any) => {
+        const { chain, expected } = inp;
+        const cmp =
+          this.ordered === "ascending"
+            ? (a: string, b: string) => {
+                if (a > b) return 1;
+                if (a < b) return -1;
+                return 0;
+              }
+            : (a: string, b: string) => {
+                if (a > b) return -1;
+                if (a < b) return 1;
+                return 0;
+              };
+
+        return {
+          chain: new RelationChain(
+            chain.source,
+            chain.target,
+            chain.relations,
+            undefined,
+            cmp,
+          ),
+          expected,
+        };
       },
     );
 
@@ -278,13 +303,6 @@ export class OrderedStrategy {
       if (found.inFlight != 0 || found.extracting != 0) {
         break;
       }
-
-      // if (found.closed) {
-      //   console.error(
-      //     "Found should never be closed before this moment, ",
-      //     head,
-      //   );
-      // }
 
       // Actually emit some members in order
       if (marker.important) {

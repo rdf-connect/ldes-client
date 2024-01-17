@@ -58,6 +58,8 @@ export interface StateFactory {
     deserialize: (item: string) => T | undefined,
     create: () => T,
   ): StateT<T>;
+
+  write(): void;
 }
 
 export class LocalStorateStateFactory {}
@@ -79,7 +81,7 @@ export class FileStateFactory implements StateFactory {
   }
 
   write() {
-    const out = {};
+    const out: { [label: string]: string } = {};
     for (let element of this.elements) {
       out[element.name] = element.serialize(element.state.item);
     }

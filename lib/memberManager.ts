@@ -1,7 +1,6 @@
 import { Term } from "@rdfjs/types";
 import { Member } from "./page";
 import { FetchedPage } from "./pageFetcher";
-import { State } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { TREE } from "@treecg/types";
 import Heap from "heap-js";
@@ -36,14 +35,14 @@ export class Manager {
 
   private currentPromises: Promise<void>[] = [];
 
-  private state: State;
+  private state: Set<string>;
   private extractor: CBDShapeExtractor;
   private shapeId?: Term;
 
   private timestampPath?: Term;
   private isVersionOfPath?: Term;
 
-  constructor(ldesId: Term, state: State, info: LDESInfo) {
+  constructor(ldesId: Term, state: Set<string>, info: LDESInfo) {
     const logger = log.extend("constructor");
     this.ldesId = ldesId;
     this.state = state;
@@ -74,13 +73,17 @@ export class Manager {
     log("this.resolve()");
   }
 
+  length(): number {
+    return this.state.size;
+  }
+
   private async extractMember(
     member: Term,
     data: Store,
   ): Promise<Member | undefined> {
     const quads = await this.extractor.extract(data, member, this.shapeId);
 
-    if (this.state.seen(member.value)) {
+    if (this.state.has(member.value)) {
       return;
     }
     this.state.add(member.value);
@@ -127,7 +130,7 @@ export class Manager {
     const promises: Promise<Member | undefined>[] = [];
 
     for (let member of members) {
-      if (!this.state.seen(member.value)) {
+      if (!this.state.has(member.value)) {
         const promise = this.extractMember(member, page.data).then((member) => {
           if (member) {
             notifier.extracted(member, state);

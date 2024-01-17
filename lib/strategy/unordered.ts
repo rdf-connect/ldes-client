@@ -67,8 +67,15 @@ export class UnorderedStrategy {
   }
 
   start(url: string) {
-    this.inFlight = 1;
-    this.modulator.push({ target: url, expected: [] });
+    console.log(this.inFlight);
+    this.inFlight = this.modulator.length();
+    if (this.inFlight < 1) {
+      this.inFlight = 1;
+      this.modulator.push({ target: url, expected: [] });
+      console.log("Nothing in flight, adding start url")
+    } else {
+      console.log("Things are already inflight, not adding start url")
+    }
   }
 
   cancle() {
