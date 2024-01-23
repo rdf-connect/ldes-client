@@ -1,27 +1,23 @@
-import { Config, getConfig } from "./config";
+import { Config } from "./config";
 import { Member } from "./page";
 import rdfDereference, { RdfDereferencer } from "rdf-dereference";
-import { SimpleState, State } from "./state";
+import { FileStateFactory, State, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { DataFactory, Store } from "n3";
 import { Term } from "@rdfjs/types";
-import { streamToArray } from "./utils";
-import { TREE } from "@treecg/types";
-import { FetchedPage, Fetcher } from "./pageFetcher";
+import { ModulatorFactory, Notifier, streamToArray } from "./utils";
+import { LDES, TREE } from "@treecg/types";
+import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
 import { Manager } from "./memberManager";
+import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
 
+import debug from "debug";
+const log = debug("client");
 const { namedNode } = DataFactory;
 
 type Controller = ReadableStreamDefaultController<Member>;
 
-export async function startClient() {
-  // Extract config from command line args
-  const config = await getConfig();
-
-  // Start channel from target
-
-  const client = replicateLDES(config);
-}
+export type Ordered = "ascending" | "descending" | "none";
 
 export function replicateLDES(
   config: Config,
@@ -30,55 +26,104 @@ export function replicateLDES(
     fragmentState?: State;
     dereferencer?: RdfDereferencer;
   } = {},
+  streamId?: Term,
+  ordered: Ordered = "none",
 ): Client {
-  return new Client(config, states);
+  return new Client(config, states, streamId, ordered);
 }
+
+export type LDESInfo = {
+  shape?: Term;
+  extractor: CBDShapeExtractor;
+  timestampPath?: Term;
+  isVersionOfPath?: Term;
+};
 
 async function getShape(
   ldesId: Term,
   store: Store,
   dereferencer: RdfDereferencer,
-): Promise<[CBDShapeExtractor, Term] | undefined> {
-  try {
-    const shapeIds = store.getObjects(ldesId, TREE.terms.shape, null);
-    if (shapeIds.length === 0) {
+): Promise<LDESInfo> {
+  const logger = log.extend("getShape");
+
+  let shapeIds = store.getObjects(ldesId, TREE.terms.shape, null);
+  let timestampPaths = store.getObjects(ldesId, LDES.terms.timestampPath, null);
+  let isVersionOfPaths = store.getObjects(
+    ldesId,
+    LDES.terms.versionOfPath,
+    null,
+  );
+  logger(
+    "Found %d shapes, %d timestampPaths, %d isVersionOfPaths",
+    shapeIds.length,
+    timestampPaths.length,
+    isVersionOfPaths.length,
+  );
+
+  if (
+    shapeIds.length === 0 ||
+    timestampPaths.length === 0 ||
+    isVersionOfPaths.length === 0
+  ) {
+    try {
+      logger("Maybe find more info at %s", ldesId.value);
       const resp = await dereferencer.dereference(ldesId.value);
       store = new Store(await streamToArray(resp.data));
-      shapeIds.push(...store.getObjects(ldesId, TREE.terms.shape, null));
-      if (shapeIds.length === 0) {
-        console.error("Could not determine the shape, no shape found");
-        return;
-      }
-    }
-
-    if (shapeIds.length > 1) {
-      console.error("Expected at most one shape id, found " + shapeIds.length);
-    }
-
-    return [new CBDShapeExtractor(store, dereferencer), shapeIds[0]];
-  } catch (ex: any) {
-    console.error("Could not determine the shape");
-    console.error(ex);
-    return;
+      shapeIds = store.getObjects(null, TREE.terms.shape, null);
+      timestampPaths = store.getObjects(null, LDES.terms.timestampPath, null);
+      isVersionOfPaths = store.getObjects(null, LDES.terms.versionOfPath, null);
+      logger(
+        "Found %d shapes, %d timestampPaths, %d isVersionOfPaths",
+        shapeIds.length,
+        timestampPaths.length,
+        isVersionOfPaths.length,
+      );
+    } catch (ex: any) {}
   }
+
+  if (shapeIds.length > 1) {
+    console.error("Expected at most one shape id, found " + shapeIds.length);
+  }
+
+  if (timestampPaths.length > 1) {
+    console.error(
+      "Expected at most one timestamp path, found " + timestampPaths.length,
+    );
+  }
+
+  if (isVersionOfPaths.length > 1) {
+    console.error(
+      "Expected at most one versionOf path, found " + isVersionOfPaths.length,
+    );
+  }
+
+  return {
+    extractor: new CBDShapeExtractor(store, dereferencer),
+    shape: shapeIds[0],
+    timestampPath: timestampPaths[0],
+    isVersionOfPath: isVersionOfPaths[0],
+  };
 }
 
 export class Client {
   private config: Config;
-  private membersState: State;
-  private fragmentState: State;
-
   private dereferencer: RdfDereferencer;
-  private cbdExtractor: CBDShapeExtractor;
 
-  private fetcher: Fetcher;
-  private memberManager: Manager;
+  private fetcher!: Fetcher;
+  private memberManager!: Manager;
+  private strategy!: OrderedStrategy | UnorderedStrategy;
+
+  private streamId?: Term;
+  private ordered: Ordered;
+
+  private modulatorFactory;
+
+  private pollCycle: (() => void)[] = [];
+  private stateFactory: StateFactory;
 
   constructor(
     config: Config,
     {
-      membersState,
-      fragmentState,
       dereferencer,
     }: {
       membersState?: State;
@@ -86,33 +131,36 @@ export class Client {
       dereferencer?: RdfDereferencer;
     } = {},
     stream?: Term,
+    ordered: Ordered = "none",
   ) {
     this.config = config;
     this.dereferencer = dereferencer ?? rdfDereference;
-    this.membersState =
-      membersState ?? new SimpleState(config.memberStateLocation);
-    this.fragmentState =
-      fragmentState ?? new SimpleState(config.fragmentStateLocation);
-    this.cbdExtractor = new CBDShapeExtractor(undefined, this.dereferencer);
 
-    this.fetcher = new Fetcher(this.dereferencer, this.fragmentState, config.fetcher);
-
-    this.memberManager = new Manager(
-      stream || namedNode(config.url),
-      this.membersState,
-      this.cbdExtractor,
-    );
+    this.streamId = stream;
+    this.ordered = ordered;
+    this.stateFactory = new FileStateFactory(config.stateFile);
+    this.modulatorFactory = new ModulatorFactory(this.stateFactory);
+    process.on("SIGINT", () => {
+      console.log("Caught interrupt signal, saving");
+      this.stateFactory.write();
+      process.exit();
+    });
   }
 
-  async init(cb: (member: Member) => void): Promise<void> {
-    await this.membersState.init();
-    await this.fragmentState.init();
+  addPollCycle(cb: () => void) {
+    this.pollCycle.push(cb);
+  }
 
+  async init(
+    emit: (member: Member) => void,
+    close: () => void,
+    factory: ModulatorFactory,
+  ): Promise<void> {
+    const logger = log.extend("init");
     // Fetch the url
-    const root = await fetchPage(this.config.url, this.dereferencer, fetch);
+    const root = await fetchPage(this.config.url, this.dereferencer);
     // Try to get a shape
-    // TODO
-    // Choose a view
+    // TODO Choose a view
     const viewQuads = root.data.getQuads(null, TREE.terms.view, null, null);
 
     let ldesId: Term = namedNode(this.config.url);
@@ -121,85 +169,108 @@ export class Client {
         "Did not find tree:view predicate, this is required to interpret the LDES",
       );
     } else {
-      ldesId = viewQuads[0].subject;
+      ldesId = viewQuads[0].object;
     }
 
-    this.memberManager.setOptions({
-      callback: cb,
-      ldesId,
-    });
+    const info = await getShape(ldesId, root.data, this.dereferencer);
 
-    const shapeOutput = await getShape(ldesId, root.data, this.dereferencer);
-    let shapeId;
-    if (shapeOutput) {
-      console.log("Found shape!", shapeOutput[1]);
-      this.cbdExtractor = shapeOutput[0];
-      shapeId = shapeOutput[1];
+    const state = this.stateFactory.build<Set<string>>(
+      "members",
+      (set) => {
+        const arr = [...set.values()];
+        return JSON.stringify(arr);
+      },
+      (inp) => new Set(JSON.parse(inp)),
+      () => new Set(),
+    );
+    this.memberManager = new Manager(
+      this.streamId || viewQuads[0].subject,
+      state.item,
+      info,
+    );
 
-      this.memberManager.setOptions({
-        shapeId,
-        extractor: this.cbdExtractor,
-      });
+    logger("timestampPath %o", !!info.timestampPath);
+
+    if (this.ordered !== "none" && !info.timestampPath) {
+      throw "Can only emit members in order, if LDES is configured with timestampPath";
     }
 
-    console.log("Found", viewQuads.length, "views, choosing", ldesId.value);
+    this.fetcher = new Fetcher(this.dereferencer);
 
-    // Fetch view but do not interpret
-    this.fetcher.start(viewQuads[0].object.value);
-  }
-
-  async pull(cb: (member: Member) => void, close: () => void, highWater = 10) {
-    let page = await this.fetcher.getPage();
-    if (!page) return close();
-
-    const submitMember = this.memberManager.reset();
-
-    // const newMembers: Promise<any>[] = [];
-    // Fetched Pages can be more smart
-    while (page && this.memberManager.queued < highWater) {
-      this.memberManager.extractMembers(page);
-      // This is an array that holds all promises that fetch a new page
-      // Please do not `pull` us again, before at least one is loaded
-      // This is incorrect though, please pull use again if at least one is done
-      // This might be one that was already started on the previous page
-      page = await this.fetcher.getPage();
-      if (!page) return close();
-    }
-
-    // Return this pull function when at least one fetch is completed
-    // await this.fetcher.ready();
-
-    console.log("Members queued", this.memberManager.queued);
-    if (this.memberManager.queued > 0) {
-      await submitMember;
-    } else {
-      await this.pull(cb, close, highWater);
-    }
-  }
-
-  stream(strategy?: { highWaterMark?: number }): ReadableStream<Member> {
-    const config = {
-      start: (controller: Controller) =>
-        this.init((member) => controller.enqueue(member)),
-      pull: (controller: Controller) =>
-        this.pull(
-          (member) => controller.enqueue(member),
-          () => controller.close(),
-          controller.desiredSize || 10,
-        ),
+    const notifier: Notifier<StrategyEvents, {}> = {
+      member: (m) => emit(m),
+      pollCycle: () => {
+        this.pollCycle.forEach((cb) => cb());
+      },
+      close: () => {
+        this.stateFactory.write();
+        close();
+      },
     };
-    return new ReadableStream(config, strategy);
+
+    this.strategy =
+      this.ordered !== "none"
+        ? new OrderedStrategy(
+            this.memberManager,
+            this.fetcher,
+            notifier,
+            factory,
+            this.ordered,
+            this.config.polling,
+          )
+        : new UnorderedStrategy(
+            this.memberManager,
+            this.fetcher,
+            notifier,
+            factory,
+            this.config.polling,
+          );
+
+    logger("Found %d views, choosing %s", viewQuads.length, ldesId.value);
+    this.strategy.start(ldesId.value);
+  }
+
+  stream(strategy?: {
+    highWaterMark?: number;
+    size?: (chunk: Member) => number;
+  }): ReadableStream<Member> {
+    const emitted = longPromise();
+    const config: UnderlyingDefaultSource = {
+      start: async (controller: Controller) => {
+        this.modulatorFactory.pause();
+        await this.init(
+          (member) => {
+            controller.enqueue(member);
+            resetPromise(emitted);
+          },
+          () => controller.close(),
+          this.modulatorFactory,
+        );
+      },
+      pull: async () => {
+        resetPromise(emitted);
+        this.modulatorFactory.unpause();
+        await emitted.waiting;
+        this.modulatorFactory.pause();
+        return;
+      },
+      cancel: async () => {
+        this.stateFactory.write();
+        console.log("Cancled");
+        this.strategy.cancle();
+      },
+    };
+
+    const out = new ReadableStream(config, strategy);
+    return out;
   }
 }
 
 async function fetchPage(
   location: string,
   dereferencer: RdfDereferencer,
-  myFetch: typeof fetch,
 ): Promise<FetchedPage> {
-  const resp = await dereferencer.dereference(location, {
-    fetch: myFetch,
-  });
+  const resp = await dereferencer.dereference(location, {});
   const url = resp.url;
   const page = await streamToArray(resp.data);
   const data = new Store(page);

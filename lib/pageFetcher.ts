@@ -1,12 +1,22 @@
 import { RdfDereferencer } from "rdf-dereference";
-import { streamToArray } from "./utils";
-import { State } from "./state";
+import { Notifier, streamToArray } from "./utils";
 import { DataFactory, Store } from "n3";
 import { extractRelations, Relation } from "./page";
+import debug from "debug";
+import { SimpleRelation } from "./relation";
 
-import { Comparator, Heap } from "heap-js";
-
+const log = debug("fetcher");
 const { namedNode } = DataFactory;
+
+/**
+ * target: url to fetch
+ * expected: relations that can be found, and should be ignored
+ *   examples are the originating url
+ */
+export type Node = {
+  target: string;
+  expected: string[];
+};
 
 export type FetchedPage = {
   url: string;
@@ -25,111 +35,98 @@ export const DefaultFetcherConfig: FetcherConfig = {
   maxFetched: 10,
 };
 
-type LongPromise = {
+export type LongPromise = {
   waiting: Promise<void>;
   callback: () => void;
 };
 
-function longPromise(): LongPromise {
+export function longPromise(): LongPromise {
   const out = {} as LongPromise;
   out.waiting = new Promise((res) => (out.callback = res));
   return out;
 }
 
-function resetPromise(promise: LongPromise) {
+export function resetPromise(promise: LongPromise) {
   const cb = promise.callback;
   promise.waiting = new Promise((res) => (promise.callback = res));
   cb();
 }
 
-type PageAndRelation = {
-  page: FetchedPage;
-  relation: Relation;
+export interface Helper {
+  extractRelation(relation: Relation): { rel: SimpleRelation; node: string };
+  handleFetchedPage(page: FetchedPage, marker?: any): void | Promise<void>;
+  close(): void | Promise<void>;
+}
+
+export type FetchEvent = {
+  relationFound: { from: Node; target: Relation };
+  pageFetched: FetchedPage;
+  // seen: {};
+  scheduleFetch: Node;
+};
+
+export type Cache = {
+  immutable?: boolean;
+  maxAge?: number;
 };
 
 export class Fetcher {
   private dereferencer: RdfDereferencer;
 
-  private readyPages: Heap<PageAndRelation>;
-  private inFlight = 0;
-
-  private state: State;
-
-  private heap: Heap<Relation>;
-  private readonly config: FetcherConfig;
-
-  private pageFetched: LongPromise;
-  private pageUsed: LongPromise;
-
-  constructor(
-    dereferencer: RdfDereferencer,
-    state: State,
-    config = DefaultFetcherConfig,
-    comp?: Comparator<Relation>,
-  ) {
+  constructor(dereferencer: RdfDereferencer) {
     this.dereferencer = dereferencer;
-    this.state = state;
-    this.heap = new Heap(comp);
-    const compPage = comp
-      ? (a: PageAndRelation, b: PageAndRelation) => comp(a.relation, b.relation)
-      : undefined;
-    this.readyPages = new Heap(compPage);
-    this.config = config;
-
-    this.pageFetched = longPromise();
-    this.pageUsed = longPromise();
   }
 
-  private fetched(relation: Relation, page: FetchedPage) {
-    this.readyPages.add({ relation, page });
-    resetPromise(this.pageFetched);
+  async fetch<S>(node: Node, state: S, notifier: Notifier<FetchEvent, S>) {
+    const logger = log.extend("fetch");
 
-    while (this.inFlight < this.config.concurrentRequests) {
-      const item = this.heap.pop();
-      if (item) {
-        if (!this.state.seen(item.node)) {
-          this.state.add(item.node);
-          this.inFlight += 1;
-          this._fetchPage(item);
+    const resp = await this.dereferencer.dereference(node.target);
+    const page = await streamToArray(resp.data);
+
+    const cache = {} as Cache;
+    if (resp.headers) {
+      const cacheControlCandidate = resp.headers.get("cache-control");
+      if (cacheControlCandidate) {
+        const controls = cacheControlCandidate
+          .split(",")
+          .map((x) => x.split("=", 2).map((x) => x.trim()));
+
+        for (let control of controls) {
+          if (control[0] == "max-age") {
+            cache.maxAge = parseInt(control[1]);
+          }
+
+          if (control[0] == "immutable") {
+            cache.immutable = true;
+          }
         }
       }
     }
-  }
 
-  start(url: string) {
-    this._fetchPage({ node: url, type: [] });
-  }
+    if (!cache.immutable) {
+      notifier.scheduleFetch(node, state);
+    }
 
-  private async _fetchPage(relation: Relation) {
-    const resp = await this.dereferencer.dereference(relation.node);
-    const url = resp.url;
-    const page = await streamToArray(resp.data);
+    logger("Cache for  %s %o", node.target, cache);
+
     const data = new Store(page);
+    logger("Got data %s (%d quads)", node.target, page.length);
 
-    this.heap.addAll(extractRelations(data, namedNode(relation.node)));
-
-    if (url !== relation.node) {
-      this.heap.addAll(extractRelations(data, namedNode(url)));
+    for (let rel of extractRelations(data, namedNode(node.target))) {
+      if (!node.expected.some((x) => x == rel.node)) {
+        notifier.relationFound({ from: node, target: rel }, state);
+      }
     }
 
-    while (this.readyPages.length >= this.config.maxFetched) {
-      await this.pageUsed.waiting;
+    if (node.target !== resp.url) {
+      for (let rel of extractRelations(data, namedNode(resp.url))) {
+        if (!node.expected.some((x) => x == rel.node)) {
+          notifier.relationFound({ from: node, target: rel }, state);
+        }
+      }
     }
 
-    this.inFlight -= 1;
-    this.fetched(relation, { data, url });
-  }
-
-  /// Get a page that is ready
-  async getPage(): Promise<FetchedPage> {
-    if (this.readyPages.length > 0) {
-      const out = this.readyPages.pop()!;
-      resetPromise(this.pageUsed);
-      return out.page;
-    }
-
-    await this.pageFetched.waiting;
-
-    return this.getPage();
+    // TODO check this, is node.target correct?
+    notifier.pageFetched({ data, url: node.target }, state);
   }
 }

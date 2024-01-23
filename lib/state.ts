@@ -1,3 +1,5 @@
+import { readFileSync, writeFileSync } from "fs";
+
 export interface ClientState {
   root: string; // Used to acquire shape
   inFlight: string[]; // fragments that are currently being checked
@@ -41,5 +43,85 @@ export class SimpleState implements State {
 
   async save(): Promise<void> {
     // Save state into location
+  }
+}
+export type FileStateFactoryItem<T> = {
+  name: string;
+  state: StateT<T>;
+  serialize: (item: T) => string;
+};
+
+export interface StateFactory {
+  build<T>(
+    name: string,
+    serialize: (item: T) => string,
+    deserialize: (item: string) => T | undefined,
+    create: () => T,
+  ): StateT<T>;
+
+  write(): void;
+}
+
+export class LocalStorateStateFactory {}
+
+export class FileStateFactory implements StateFactory {
+  private location: string;
+  private elements: FileStateFactoryItem<any>[];
+  private found: { [label: string]: string };
+
+  constructor(location: string) {
+    this.location = location;
+    this.elements = [];
+
+    try {
+      this.found = JSON.parse(readFileSync(location, { encoding: "utf8" }));
+    } catch (ex: any) {
+      this.found = {};
+    }
+  }
+
+  write() {
+    const out: { [label: string]: string } = {};
+    for (let element of this.elements) {
+      out[element.name] = element.serialize(element.state.item);
+    }
+
+    writeFileSync(this.location, JSON.stringify(out));
+  }
+
+  build<T>(
+    name: string,
+    serialize: (item: T) => string,
+    deserialize: (item: string) => T | undefined,
+    create: () => T,
+  ): StateT<T> {
+    const out = this.elements.find((x) => x.name == name);
+    if (out) return out.state;
+
+    const found: string | undefined = this.found[name];
+    const state = new StateT<any>(deserialize, create, found);
+    this.elements.push({
+      name,
+      serialize,
+      state,
+    });
+
+    return state;
+  }
+}
+
+export class StateT<T> {
+  item: T;
+  constructor(
+    deserialize: (item: string) => T | undefined,
+    create: () => T,
+    prev?: string,
+  ) {
+    const item = prev ? deserialize(prev) : create();
+    if (item) {
+      this.item = item;
+    } else {
+      this.item = create();
+    }
   }
 }

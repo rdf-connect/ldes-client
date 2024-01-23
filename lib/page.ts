@@ -8,11 +8,14 @@ import { State } from "./state";
 export interface Member {
   id: Term;
   quads: Quad[];
+  timestamp?: string | Date;
+  isVersionOf?: string;
 }
 
 export interface Relation {
+  source: string;
   node: string;
-  type: Term[];
+  type: Term;
   value?: Term[];
   path?: Term;
 }
@@ -29,6 +32,8 @@ export function extractMembers(
   state: State,
   cb: (member: Member) => void,
   shapeId?: Term,
+  timestampPath?: Term,
+  isVersionOfPath?: Term,
 ): Promise<void>[] {
   const members = store.getObjects(stream, TREE.terms.member, null);
 
@@ -39,10 +44,25 @@ export function extractMembers(
       <N3.Term>member,
       <N3.Term>shapeId,
     );
-    cb({ quads, id: member });
+    // Get timestamp
+    let timestamp: string | undefined;
+    if (timestampPath) {
+      timestamp = quads.find(
+        (x) => x.subject.equals(member) && x.predicate.equals(timestampPath),
+      )?.object.value;
+    }
+
+    let isVersionOf: string | undefined;
+    if (isVersionOfPath) {
+      isVersionOf = quads.find(
+        (x) => x.subject.equals(member) && x.predicate.equals(isVersionOfPath),
+      )?.object.value;
+    }
+    // Get isVersionof
+    cb({ quads, id: member, isVersionOf, timestamp });
   };
 
-  const out = [];
+  const out: Promise<void>[] = [];
   for (let member of members) {
     if (!state.seen(member.value)) {
       state.add(member.value);
@@ -55,6 +75,7 @@ export function extractMembers(
 
 export function extractRelations(store: Store, node: Term): Relation[] {
   const relationIds = store.getObjects(node, TREE.terms.relation, null);
+  const source = node.value;
 
   const out: Relation[] = [];
   for (let relationId of relationIds) {
@@ -63,8 +84,9 @@ export function extractRelations(store: Store, node: Term): Relation[] {
     const path = store.getObjects(relationId, TREE.terms.path, null)[0];
     const value = store.getObjects(relationId, TREE.terms.value, null);
     out.push({
+      source,
       node: node.value,
-      type: ty,
+      type: ty[0],
       path,
       value,
     });

@@ -17,13 +17,13 @@ const defaultMediatorConfig = {
 };
 
 export interface Config {
+  polling: boolean;
   follow: boolean;
   url: string;
+  stateFile: string;
   pollInterval: number;
   mediator: MediatorConfig;
-  fetcher: FetcherConfig,
-  memberStateLocation: string;
-  fragmentStateLocation: string;
+  fetcher: FetcherConfig;
   before?: Date;
   after?: Date;
   shape?: ShapeConfig;
@@ -39,10 +39,10 @@ export interface WithTarget {
 }
 
 const defaultConfig: Config = {
+  polling: false,
   follow: false,
+  stateFile: "save.json",
   url: "",
-  memberStateLocation: "members.json",
-  fragmentStateLocation: "fragments.json",
   pollInterval: 200,
   fetcher: DefaultFetcherConfig,
   mediator: defaultMediatorConfig,
