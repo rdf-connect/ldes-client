@@ -12,7 +12,7 @@ export type SimpleRelation = {
 export class RelationChain {
   source: string;
   relations: SimpleRelation[];
-  readonly target: string;
+  target: string;
   private cmp?: (a: any, b: any) => number;
 
   constructor(

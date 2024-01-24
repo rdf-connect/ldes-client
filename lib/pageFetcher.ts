@@ -83,6 +83,8 @@ export class Fetcher {
     const resp = await this.dereferencer.dereference(node.target);
     const page = await streamToArray(resp.data);
 
+    node.target = resp.url;
+
     const cache = {} as Cache;
     if (resp.headers) {
       const cacheControlCandidate = resp.headers.get("cache-control");
@@ -112,21 +114,22 @@ export class Fetcher {
     const data = new Store(page);
     logger("Got data %s (%d quads)", node.target, page.length);
 
-    for (let rel of extractRelations(data, namedNode(node.target))) {
+    for (let rel of extractRelations(data, namedNode(resp.url))) {
       if (!node.expected.some((x) => x == rel.node)) {
         notifier.relationFound({ from: node, target: rel }, state);
       }
     }
 
-    if (node.target !== resp.url) {
-      for (let rel of extractRelations(data, namedNode(resp.url))) {
-        if (!node.expected.some((x) => x == rel.node)) {
-          notifier.relationFound({ from: node, target: rel }, state);
-        }
-      }
-    }
+    //
+    // if (node.target !== resp.url) {
+    //   for (let rel of extractRelations(data, namedNode(resp.url))) {
+    //     if (!node.expected.some((x) => x == rel.node)) {
+    //       notifier.relationFound({ from: node, target: rel }, state);
+    //     }
+    //   }
+    // }
 
     // TODO check this, is node.target correct?
-    notifier.pageFetched({ data, url: node.target }, state);
+    notifier.pageFetched({ data, url: resp.url }, state);
   }
 }

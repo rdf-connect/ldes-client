@@ -105,6 +105,16 @@ async function getShape(
   };
 }
 
+type EventMap = Record<string, any>;
+
+type EventKey<T extends EventMap> = string & keyof T;
+type EventReceiver<T> = (params: T) => void;
+
+export type ClientEvents = {
+  fragment: void;
+  poll: void;
+};
+
 export class Client {
   private config: Config;
   private dereferencer: RdfDereferencer;
@@ -120,6 +130,10 @@ export class Client {
 
   private pollCycle: (() => void)[] = [];
   private stateFactory: StateFactory;
+
+  private listeners: {
+    [K in keyof ClientEvents]?: Array<(p: ClientEvents[K]) => void>;
+  } = {};
 
   constructor(
     config: Config,
@@ -140,10 +154,31 @@ export class Client {
     this.ordered = ordered;
     this.stateFactory = new FileStateFactory(config.stateFile);
     this.modulatorFactory = new ModulatorFactory(this.stateFactory);
-    process.on("SIGINT", () => {
-      console.log("Caught interrupt signal, saving");
-      this.stateFactory.write();
-      process.exit();
+
+    if (process) {
+      process.on("SIGINT", () => {
+        console.log("Caught interrupt signal, saving");
+        this.stateFactory.write();
+        process.exit();
+      });
+    }
+  }
+
+  on<K extends EventKey<ClientEvents>>(
+    key: K,
+    fn: EventReceiver<ClientEvents[K]>,
+  ) {
+    this.listeners[key] = (
+      this.listeners[key] || <Array<(p: ClientEvents[K]) => void>>[]
+    ).concat(fn);
+  }
+
+  private emit<K extends EventKey<ClientEvents>>(
+    key: K,
+    data: ClientEvents[K],
+  ) {
+    (this.listeners[key] || []).forEach(function (fn) {
+      fn(data);
     });
   }
 
@@ -198,8 +233,10 @@ export class Client {
     this.fetcher = new Fetcher(this.dereferencer);
 
     const notifier: Notifier<StrategyEvents, {}> = {
+      fragment: () => this.emit("fragment", undefined),
       member: (m) => emit(m),
       pollCycle: () => {
+        this.emit("poll", undefined);
         this.pollCycle.forEach((cb) => cb());
       },
       close: () => {
@@ -217,6 +254,7 @@ export class Client {
             factory,
             this.ordered,
             this.config.polling,
+            this.config.pollInterval,
           )
         : new UnorderedStrategy(
             this.memberManager,
@@ -224,6 +262,7 @@ export class Client {
             notifier,
             factory,
             this.config.polling,
+            this.config.pollInterval,
           );
 
     logger("Found %d views, choosing %s", viewQuads.length, ldesId.value);

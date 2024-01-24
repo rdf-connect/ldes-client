@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "main": "dist/lib/client.js",
   "bin": {
-    "ldes-client": "bin/cli.js"
+    "ldes-client": "dist/bin/cli.js"
   },
   "scripts": {
     "build": "tsc",
@@ -12,6 +12,7 @@
   },
   "directories": {
     "lib": "lib",
+    "bin": "bin",
     "test": "tests"
   },
   "author": "",
@@ -35,5 +36,11 @@
     "prettier": "^3.0.3",
     "ts-jest": "^29.1.1",
     "typescript": "^5.2.2"
-  }
+  },
+"browser": {
+  "fs": false,
+  "path": false,
+  "os": false
+}
+
 }

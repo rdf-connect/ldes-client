@@ -18,6 +18,7 @@ export class UnorderedStrategy {
 
   private cacheList: Node[] = [];
   private polling: boolean;
+  private pollInterval?: number;
 
   private cancled = false;
 
@@ -27,7 +28,9 @@ export class UnorderedStrategy {
     notifier: Notifier<StrategyEvents, {}>,
     modulatorFactory: ModulatorFactory,
     polling: boolean,
+    pollInterval?: number,
   ) {
+    this.pollInterval = pollInterval;
     this.notifier = notifier;
     this.manager = memberManager;
     this.fetcher = fetcher;
@@ -56,6 +59,7 @@ export class UnorderedStrategy {
       done: () => {
         this.inFlight -= 1;
         this.checkEnd();
+        this.notifier.fragment({}, {});
       },
       extracted: (mem) => this.notifier.member(mem, {}),
     };
@@ -67,14 +71,13 @@ export class UnorderedStrategy {
   }
 
   start(url: string) {
-    console.log(this.inFlight);
     this.inFlight = this.modulator.length();
     if (this.inFlight < 1) {
       this.inFlight = 1;
       this.modulator.push({ target: url, expected: [] });
-      console.log("Nothing in flight, adding start url")
+      console.log("Nothing in flight, adding start url");
     } else {
-      console.log("Things are already inflight, not adding start url")
+      console.log("Things are already inflight, not adding start url");
     }
   }
 
@@ -96,13 +99,12 @@ export class UnorderedStrategy {
 
           this.notifier.pollCycle({}, {});
           const cl = this.cacheList.slice();
-          console.log("CL", cl);
           this.cacheList = [];
           for (let cache of cl) {
             this.inFlight += 1;
             this.modulator.push(cache);
           }
-        }, 1000);
+        }, this.pollInterval || 1000);
       } else {
         console.log("Closing notifier");
         this.cancled = true;

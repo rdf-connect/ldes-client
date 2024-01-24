@@ -48,6 +48,7 @@ export class OrderedStrategy {
 
   private polling: boolean;
   private toPoll: Heap<{ chain: RelationChain; expected: string[] }>;
+  private pollInterval?: number;
 
   private cancled = false;
 
@@ -58,6 +59,7 @@ export class OrderedStrategy {
     factory: ModulatorFactory,
     ordered: Ordered,
     polling: boolean,
+    pollInterval?: number,
   ) {
     const logger = log.extend("constructor");
     this.ordered = ordered;
@@ -65,6 +67,7 @@ export class OrderedStrategy {
     this.fetcher = fetcher;
     this.notifier = notifier;
     this.polling = polling;
+    this.pollInterval = pollInterval;
 
     this.toPoll = new Heap((a, b) => a.chain.ordering(b.chain));
     this.launchedRelations = new Heap((a, b) => a.ordering(b));
@@ -78,19 +81,10 @@ export class OrderedStrategy {
     //         start member extraction
     // - relationFound: a relation has been found, put the extended chain in the queue
     this.fetchNotifier = {
-      scheduleFetch: ({ expected }, { chain }) => {
+      scheduleFetch: ({ target, expected }, { chain }) => {
+        chain.target = target;
         this.toPoll.push({ chain, expected });
       },
-      // seen: (_, relation) => {
-      //   this.modulator.finished();
-      //   this.launchedRelations.remove(relation, (a, b) => a.ordering(b) === 0);
-      //   logger("Already seen %s", relation.target);
-      //   // We put the same relation multiple times in launchedRelations, but only once with findOrDefault
-      //   // This keeps track of how many are in transit / member extracting
-      //   const found = this.findOrDefault(relation);
-      //   found.inFlight -= 1;
-      //   this.checkEmit();
-      // },
       pageFetched: (page, { chain, index }) => {
         logger("Page fetched %s", page.url);
         this.modulator.finished(index);
@@ -118,6 +112,7 @@ export class OrderedStrategy {
         logger("Member done %s", rel.target);
         const found = this.findOrDefault(rel);
         found.extracting -= 1;
+        this.notifier.fragment({}, {});
         this.checkEmit();
       },
       extracted: (member) => {
@@ -373,7 +368,7 @@ export class OrderedStrategy {
             this.findOrDefault(rel.chain).closed = false;
             this.modulator.push(rel);
           }
-        }, 1000);
+        }, this.pollInterval || 1000);
       } else {
         logger("Closing the notifier, polling is not set");
         this.cancled = true;

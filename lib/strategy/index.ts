@@ -29,7 +29,7 @@ export type PageAndRelation = {
 
 export type StrategyEvents = {
   member: Member;
+  fragment: {};
   pollCycle: {};
   close: {};
 };
-

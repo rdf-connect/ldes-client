@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "fs";
+import { storage } from "./storage";
 
 export interface ClientState {
   root: string; // Used to acquire shape
@@ -73,11 +73,11 @@ export class FileStateFactory implements StateFactory {
     this.location = location;
     this.elements = [];
 
+    this.found = {};
     try {
-      this.found = JSON.parse(readFileSync(location, { encoding: "utf8" }));
-    } catch (ex: any) {
-      this.found = {};
-    }
+      const item = storage.getItem(location);
+      this.found = JSON.parse(item);
+    } catch (ex: any) {}
   }
 
   write() {
@@ -86,7 +86,7 @@ export class FileStateFactory implements StateFactory {
       out[element.name] = element.serialize(element.state.item);
     }
 
-    writeFileSync(this.location, JSON.stringify(out));
+    storage.setItem(this.location, JSON.stringify(out));
   }
 
   build<T>(
