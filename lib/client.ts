@@ -1,7 +1,7 @@
 import { Config } from "./config";
 import { Member } from "./page";
 import rdfDereference, { RdfDereferencer } from "rdf-dereference";
-import { FileStateFactory, State, StateFactory } from "./state";
+import { FileStateFactory, NoStateFactory, State, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { DataFactory, Store } from "n3";
 import { Term } from "@rdfjs/types";
@@ -152,7 +152,7 @@ export class Client {
 
     this.streamId = stream;
     this.ordered = ordered;
-    this.stateFactory = new FileStateFactory(config.stateFile);
+    this.stateFactory = config.stateFile ? new FileStateFactory(config.stateFile) : new NoStateFactory();
     this.modulatorFactory = new ModulatorFactory(this.stateFactory);
 
     if (process) {

@@ -5,17 +5,18 @@ import { Command, Option } from "commander";
 
 const program = new Command();
 let paramURL: string = "";
-let paramFollow: boolean;
+let paramFollow: boolean = false;
 let paramPollInterval: number;
 let ordered: Ordered = "none";
-
-let polling = false;
+let quiet: boolean = false;
+let save: string | undefined;
 
 program
   .arguments("<url>")
   .option("-f, --follow", "follow the LDES, the client stays in sync")
+  .option("-q", "Be quiet")
   .addOption(
-    new Option("--ordered <ordered>", "emit members in order")
+    new Option("-o --ordered <ordered>", "emit members in order")
       .choices(["ascending", "descending", "none"])
       .default("none"),
   )
@@ -23,21 +24,16 @@ program
     "-s, --save <path>",
     "filepath to the save state file to use, used both to resume and to update",
   )
-  .addOption(
-    new Option("--polling <boolean>", "Enable polling")
-      .choices(["true", "false"])
-      .default("false"),
-  )
   .option("--pollInterval <number>", "Specify poll interval")
   .option("--shape <shapefile>", "Specify a shapefile")
+  .option("--save <shapefile>", "Specify save location")
   .action((url: string, program) => {
+    save = program.save;
     paramURL = url;
     paramFollow = program.follow;
     paramPollInterval = program.pollInterval;
     ordered = program.ordered;
-    polling = program.polling == "true";
-    // console.log(paramURL)
-    // console.log(program.follow, paramPollInterval)
+    quiet = program.q;
   });
 
 program.parse(process.argv);
@@ -45,8 +41,9 @@ program.parse(process.argv);
 async function main() {
   const client = replicateLDES(
     intoConfig({
-      polling,
+      polling: paramFollow,
       url: paramURL,
+      stateFile: save,
       follow: paramFollow,
       pollInterval: paramPollInterval,
       fetcher: { maxFetched: 2, concurrentRequests: 10 },
@@ -63,10 +60,11 @@ async function main() {
   while (el) {
     if (el.value) {
       seen.add(el.value.id);
-      if (seen.size % 100 == 1) {
-        console.log("Got member", seen.size, "quads", el.value.quads.length);
+      if (!quiet) {
+        if (seen.size % 100 == 1) {
+          console.log("Got member", seen.size, "quads", el.value.quads.length);
+        }
       }
-      // console.log("Found", seen.size, "members");
     }
 
     if (el.done) {

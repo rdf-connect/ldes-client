@@ -20,7 +20,7 @@ export interface Config {
   polling: boolean;
   follow: boolean;
   url: string;
-  stateFile: string;
+  stateFile?: string;
   pollInterval: number;
   mediator: MediatorConfig;
   fetcher: FetcherConfig;
@@ -41,7 +41,6 @@ export interface WithTarget {
 const defaultConfig: Config = {
   polling: false,
   follow: false,
-  stateFile: "save.json",
   url: "",
   pollInterval: 200,
   fetcher: DefaultFetcherConfig,

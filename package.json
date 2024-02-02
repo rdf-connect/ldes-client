@@ -1,22 +1,22 @@
 {
   "name": "ldes-client",
   "description": "This package provides common tooling to work with LDESes.",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "main": "dist/lib/client.js",
   "bin": {
     "ldes-client": "dist/bin/cli.js"
   },
   "scripts": {
     "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "bun test"
   },
   "directories": {
     "lib": "lib",
     "bin": "bin",
     "test": "tests"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Arthur Vercruysse",
+  "license": "MIT",
   "dependencies": {
     "@treecg/types": "^0.4.5",
     "@types/debug": "^4.1.10",
@@ -37,10 +37,9 @@
     "ts-jest": "^29.1.1",
     "typescript": "^5.2.2"
   },
-"browser": {
-  "fs": false,
-  "path": false,
-  "os": false
-}
-
+  "browser": {
+    "fs": false,
+    "path": false,
+    "os": false
+  }
 }

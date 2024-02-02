@@ -62,7 +62,18 @@ export interface StateFactory {
   write(): void;
 }
 
-export class LocalStorateStateFactory {}
+export class NoStateFactory implements StateFactory {
+  build<T>(
+    _name: string,
+    _serialize: (item: T) => string,
+    deserialize: (item: string) => T | undefined,
+    create: () => T,
+  ): StateT<T> {
+    return new StateT<any>(deserialize, create);
+  }
+  write(): void {
+  }
+}
 
 export class FileStateFactory implements StateFactory {
   private location: string;
