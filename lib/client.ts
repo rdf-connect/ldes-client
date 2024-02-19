@@ -10,6 +10,9 @@ import { LDES, TREE } from "@treecg/types";
 import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
 import { Manager } from "./memberManager";
 import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
+export { intoConfig } from "./config";
+export type { Member, Page, Relation } from "./page";
+export type { Config, MediatorConfig, ShapeConfig } from "./config";
 
 import debug from "debug";
 const log = debug("client");
@@ -98,7 +101,9 @@ async function getShape(
   }
 
   return {
-    extractor: new CBDShapeExtractor(store, dereferencer, {cbdDefaultGraph: true}),
+    extractor: new CBDShapeExtractor(store, dereferencer, {
+      cbdDefaultGraph: true,
+    }),
     shape: shapeIds[0],
     timestampPath: timestampPaths[0],
     isVersionOfPath: isVersionOfPaths[0],
@@ -152,7 +157,9 @@ export class Client {
 
     this.streamId = stream;
     this.ordered = ordered;
-    this.stateFactory = config.stateFile ? new FileStateFactory(config.stateFile) : new NoStateFactory();
+    this.stateFactory = config.stateFile
+      ? new FileStateFactory(config.stateFile)
+      : new NoStateFactory();
     this.modulatorFactory = new ModulatorFactory(this.stateFactory);
 
     if (process) {
@@ -230,7 +237,7 @@ export class Client {
       throw "Can only emit members in order, if LDES is configured with timestampPath";
     }
 
-    this.fetcher = new Fetcher(this.dereferencer);
+    this.fetcher = new Fetcher(this.dereferencer, this.config.loose);
 
     const notifier: Notifier<StrategyEvents, {}> = {
       fragment: () => this.emit("fragment", undefined),

@@ -73,8 +73,14 @@ export function extractMembers(
   return out;
 }
 
-export function extractRelations(store: Store, node: Term): Relation[] {
-  const relationIds = store.getObjects(node, TREE.terms.relation, null);
+export function extractRelations(
+  store: Store,
+  node: Term,
+  loose: boolean,
+): Relation[] {
+  const relationIds = loose
+    ? store.getObjects(null, TREE.terms.relation, null)
+    : store.getObjects(node, TREE.terms.relation, null);
   const source = node.value;
 
   const out: Relation[] = [];

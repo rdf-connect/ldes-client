@@ -17,7 +17,7 @@ const defaultMediatorConfig = {
 };
 
 export interface Config {
-  loose: boolean,
+  loose: boolean;
   polling: boolean;
   follow: boolean;
   url: string;

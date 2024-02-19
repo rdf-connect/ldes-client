@@ -20,7 +20,7 @@ program
   .arguments("<url>")
   .option("-f, --follow", "follow the LDES, the client stays in sync")
   .option("-q", "Be quiet")
-  .option("-v", "Be verbose")
+  .option("-v --verbose", "Be verbose")
   .addOption(
     new Option("-o --ordered <ordered>", "emit members in order")
       .choices(["ascending", "descending", "none"])
@@ -35,6 +35,7 @@ program
   .option("--save <shapefile>", "Specify save location")
   .option("--loose", "Use loose implementation, might work on more ldeses")
   .action((url: string, program) => {
+    console.log(program);
     save = program.save;
     paramURL = url;
     paramFollow = program.follow;
