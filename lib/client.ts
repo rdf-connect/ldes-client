@@ -98,7 +98,7 @@ async function getShape(
   }
 
   return {
-    extractor: new CBDShapeExtractor(store, dereferencer),
+    extractor: new CBDShapeExtractor(store, dereferencer, {cbdDefaultGraph: true}),
     shape: shapeIds[0],
     timestampPath: timestampPaths[0],
     isVersionOfPath: isVersionOfPaths[0],

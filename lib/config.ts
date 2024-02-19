@@ -17,6 +17,7 @@ const defaultMediatorConfig = {
 };
 
 export interface Config {
+  loose: boolean,
   polling: boolean;
   follow: boolean;
   url: string;
@@ -39,6 +40,7 @@ export interface WithTarget {
 }
 
 const defaultConfig: Config = {
+  loose: false,
   polling: false,
   follow: false,
   url: "",

@@ -1,7 +1,10 @@
+#!/usr/bin/env node
+
 import * as process from "process";
 import { Ordered, replicateLDES } from "../lib/client";
 import { intoConfig } from "../lib/config";
 import { Command, Option } from "commander";
+import { Writer } from "n3";
 
 const program = new Command();
 let paramURL: string = "";
@@ -9,12 +12,15 @@ let paramFollow: boolean = false;
 let paramPollInterval: number;
 let ordered: Ordered = "none";
 let quiet: boolean = false;
+let verbose: boolean = false;
 let save: string | undefined;
+let loose: boolean = false;
 
 program
   .arguments("<url>")
   .option("-f, --follow", "follow the LDES, the client stays in sync")
   .option("-q", "Be quiet")
+  .option("-v", "Be verbose")
   .addOption(
     new Option("-o --ordered <ordered>", "emit members in order")
       .choices(["ascending", "descending", "none"])
@@ -27,6 +33,7 @@ program
   .option("--pollInterval <number>", "Specify poll interval")
   .option("--shape <shapefile>", "Specify a shapefile")
   .option("--save <shapefile>", "Specify save location")
+  .option("--loose", "Use loose implementation, might work on more ldeses")
   .action((url: string, program) => {
     save = program.save;
     paramURL = url;
@@ -34,6 +41,8 @@ program
     paramPollInterval = program.pollInterval;
     ordered = program.ordered;
     quiet = program.q;
+    verbose = program.verbose;
+    loose = program.loose;
   });
 
 program.parse(process.argv);
@@ -41,6 +50,7 @@ program.parse(process.argv);
 async function main() {
   const client = replicateLDES(
     intoConfig({
+      loose,
       polling: paramFollow,
       url: paramURL,
       stateFile: save,
@@ -61,22 +71,30 @@ async function main() {
     if (el.value) {
       seen.add(el.value.id);
       if (!quiet) {
+        if(verbose) {
+          console.log(new Writer().quadsToString(el.value.quads));
+        }
+
         if (seen.size % 100 == 1) {
-          console.log("Got member", seen.size, "quads", el.value.quads.length);
+          console.error(
+            "Got member",
+            seen.size,
+            "with",
+            el.value.quads.length,
+            "quads",
+          );
         }
       }
     }
 
     if (el.done) {
-      console.log("Break");
+      console.error("Break");
       break;
     }
 
-    // await new Promise((res) => setTimeout(res, 100));
-
     el = await reader.read();
   }
-  console.log("Found", seen.size, "members");
+  console.error("Found", seen.size, "members");
 }
 
 main().catch(console.error);
