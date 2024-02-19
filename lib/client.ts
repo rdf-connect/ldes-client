@@ -42,20 +42,24 @@ export type LDESInfo = {
   isVersionOfPath?: Term;
 };
 
-async function getShape(
+async function getInfo(
   ldesId: Term,
   store: Store,
   dereferencer: RdfDereferencer,
+  noShape: boolean,
 ): Promise<LDESInfo> {
   const logger = log.extend("getShape");
 
-  let shapeIds = store.getObjects(ldesId, TREE.terms.shape, null);
+  let shapeIds = noShape
+    ? []
+    : store.getObjects(ldesId, TREE.terms.shape, null);
   let timestampPaths = store.getObjects(ldesId, LDES.terms.timestampPath, null);
   let isVersionOfPaths = store.getObjects(
     ldesId,
     LDES.terms.versionOfPath,
     null,
   );
+
   logger(
     "Found %d shapes, %d timestampPaths, %d isVersionOfPaths",
     shapeIds.length,
@@ -64,13 +68,16 @@ async function getShape(
   );
 
   if (
-    shapeIds.length === 0 ||
-    timestampPaths.length === 0 ||
-    isVersionOfPaths.length === 0
+    !noShape &&
+    (shapeIds.length === 0 ||
+      timestampPaths.length === 0 ||
+      isVersionOfPaths.length === 0)
   ) {
     try {
       logger("Maybe find more info at %s", ldesId.value);
-      const resp = await dereferencer.dereference(ldesId.value);
+      const resp = await dereferencer.dereference(ldesId.value, {
+        localFiles: true,
+      });
       store = new Store(await streamToArray(resp.data));
       shapeIds = store.getObjects(null, TREE.terms.shape, null);
       timestampPaths = store.getObjects(null, LDES.terms.timestampPath, null);
@@ -206,15 +213,23 @@ export class Client {
     const viewQuads = root.data.getQuads(null, TREE.terms.view, null, null);
 
     let ldesId: Term = namedNode(this.config.url);
-    if (viewQuads.length === 0) {
-      console.error(
-        "Did not find tree:view predicate, this is required to interpret the LDES",
-      );
-    } else {
-      ldesId = viewQuads[0].object;
+    if (!this.config.urlIsView) {
+      if (viewQuads.length === 0) {
+        console.error(
+          "Did not find tree:view predicate, this is required to interpret the LDES",
+        );
+      } else {
+        ldesId = viewQuads[0].object;
+      }
     }
 
-    const info = await getShape(ldesId, root.data, this.dereferencer);
+    const info = await getInfo(
+      ldesId,
+      root.data,
+      this.dereferencer,
+      this.config.noShape,
+    );
+    console.log("Info", info);
 
     const state = this.stateFactory.build<Set<string>>(
       "members",
@@ -316,7 +331,7 @@ async function fetchPage(
   location: string,
   dereferencer: RdfDereferencer,
 ): Promise<FetchedPage> {
-  const resp = await dereferencer.dereference(location, {});
+  const resp = await dereferencer.dereference(location, { localFiles: true });
   const url = resp.url;
   const page = await streamToArray(resp.data);
   const data = new Store(page);

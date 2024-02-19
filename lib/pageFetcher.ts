@@ -82,7 +82,9 @@ export class Fetcher {
   async fetch<S>(node: Node, state: S, notifier: Notifier<FetchEvent, S>) {
     const logger = log.extend("fetch");
 
-    const resp = await this.dereferencer.dereference(node.target);
+    const resp = await this.dereferencer.dereference(node.target, {
+      localFiles: true,
+    });
     const page = await streamToArray(resp.data);
 
     node.target = resp.url;

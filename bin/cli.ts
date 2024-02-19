@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 import * as process from "process";
 import { Ordered, replicateLDES } from "../lib/client";
 import { intoConfig } from "../lib/config";
@@ -10,6 +9,8 @@ const program = new Command();
 let paramURL: string = "";
 let paramFollow: boolean = false;
 let paramPollInterval: number;
+let urlIsView = false;
+let noShape = false;
 let ordered: Ordered = "none";
 let quiet: boolean = false;
 let verbose: boolean = false;
@@ -32,10 +33,16 @@ program
   )
   .option("--pollInterval <number>", "Specify poll interval")
   .option("--shape <shapefile>", "Specify a shapefile")
+  .option("--no-shape", "Don't extract members with a shape")
   .option("--save <shapefile>", "Specify save location")
-  .option("--loose", "Use loose implementation, might work on more ldeses")
+  .option("-l --loose", "Use loose implementation, might work on more ldeses")
+  .option(
+    "--url-is-view",
+    "The url is the view url, don't try to find the correct view",
+  )
   .action((url: string, program) => {
-    console.log(program);
+    urlIsView = program.urlIsView;
+    noShape = !program.shape;
     save = program.save;
     paramURL = url;
     paramFollow = program.follow;
@@ -52,12 +59,14 @@ async function main() {
   const client = replicateLDES(
     intoConfig({
       loose,
+      noShape,
       polling: paramFollow,
       url: paramURL,
       stateFile: save,
       follow: paramFollow,
       pollInterval: paramPollInterval,
       fetcher: { maxFetched: 2, concurrentRequests: 10 },
+      urlIsView: urlIsView,
     }),
     undefined,
     undefined,
@@ -72,7 +81,7 @@ async function main() {
     if (el.value) {
       seen.add(el.value.id);
       if (!quiet) {
-        if(verbose) {
+        if (verbose) {
           console.log(new Writer().quadsToString(el.value.quads));
         }
 

@@ -21,6 +21,8 @@ export interface Config {
   polling: boolean;
   follow: boolean;
   url: string;
+  urlIsView: boolean;
+  noShape: boolean;
   stateFile?: string;
   pollInterval: number;
   mediator: MediatorConfig;
@@ -40,6 +42,8 @@ export interface WithTarget {
 }
 
 const defaultConfig: Config = {
+  urlIsView: false,
+  noShape: false,
   loose: false,
   polling: false,
   follow: false,
