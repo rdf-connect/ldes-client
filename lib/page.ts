@@ -1,7 +1,6 @@
 import { Quad, Term } from "@rdfjs/types";
 import { RDF, TREE } from "@treecg/types";
 import { CBDShapeExtractor } from "extract-cbd-shape";
-import { Store } from "n3";
 import * as N3 from "n3";
 import { State } from "./state";
 import { RdfStore } from "rdf-stores";

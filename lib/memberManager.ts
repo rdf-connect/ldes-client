@@ -6,7 +6,6 @@ import { TREE } from "@treecg/types";
 import Heap from "heap-js";
 import { LDESInfo } from "./client";
 import debug from "debug";
-import { Store } from "n3";
 import { Notifier } from "./utils";
 import { RdfStore } from "rdf-stores";
 

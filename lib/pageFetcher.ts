@@ -1,6 +1,6 @@
 import { RdfDereferencer } from "rdf-dereference";
-import { Notifier, streamToArray } from "./utils";
-import { DataFactory, Store } from "n3";
+import { Notifier } from "./utils";
+import { DataFactory } from "n3";
 import { extractRelations, Relation } from "./page";
 import debug from "debug";
 import { SimpleRelation } from "./relation";
