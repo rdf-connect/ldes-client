@@ -3,7 +3,8 @@ import { Member } from "./page";
 import rdfDereference, { RdfDereferencer } from "rdf-dereference";
 import { FileStateFactory, NoStateFactory, State, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
-import { DataFactory, Store } from "n3";
+import { DataFactory } from "n3";
+import { RdfStore } from "rdf-stores";
 import { Term } from "@rdfjs/types";
 import { ModulatorFactory, Notifier, streamToArray } from "./utils";
 import { LDES, TREE } from "@treecg/types";
@@ -21,6 +22,18 @@ const { namedNode } = DataFactory;
 type Controller = ReadableStreamDefaultController<Member>;
 
 export type Ordered = "ascending" | "descending" | "none";
+
+const getSubjects = function (store: RdfStore, predicate: Term|null, object: Term|null, graph?:Term|null) {
+  return store.getQuads(null, predicate, object, graph).map((quad) => {
+    return quad.subject;
+  });
+}
+
+const getObjects = function (store: RdfStore, subject:Term|null, predicate: Term|null, graph?:Term|null) {
+  return store.getQuads(subject, predicate, null, graph).map((quad) => {
+    return quad.object;
+  });
+}
 
 export function replicateLDES(
   config: Config,
@@ -44,7 +57,7 @@ export type LDESInfo = {
 
 async function getInfo(
   ldesId: Term,
-  store: Store,
+  store: RdfStore,
   dereferencer: RdfDereferencer,
   noShape: boolean,
 ): Promise<LDESInfo> {
@@ -52,12 +65,11 @@ async function getInfo(
 
   let shapeIds = noShape
     ? []
-    : store.getObjects(ldesId, TREE.terms.shape, null);
-  let timestampPaths = store.getObjects(ldesId, LDES.terms.timestampPath, null);
-  let isVersionOfPaths = store.getObjects(
+    : getObjects(store, ldesId, TREE.terms.shape);
+  let timestampPaths = getObjects(store,ldesId, LDES.terms.timestampPath);
+  let isVersionOfPaths = getObjects(store,
     ldesId,
     LDES.terms.versionOfPath,
-    null,
   );
 
   logger(
@@ -78,10 +90,13 @@ async function getInfo(
       const resp = await dereferencer.dereference(ldesId.value, {
         localFiles: true,
       });
-      store = new Store(await streamToArray(resp.data));
-      shapeIds = store.getObjects(null, TREE.terms.shape, null);
-      timestampPaths = store.getObjects(null, LDES.terms.timestampPath, null);
-      isVersionOfPaths = store.getObjects(null, LDES.terms.versionOfPath, null);
+      store = RdfStore.createDefault();
+      await new Promise((resolve, reject) => {
+        store.import(resp.data).on("end", resolve).on("error", reject);
+      });
+      shapeIds = getObjects(store, null, TREE.terms.shape);
+      timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
+      isVersionOfPaths = getObjects(store,null, LDES.terms.versionOfPath);
       logger(
         "Found %d shapes, %d timestampPaths, %d isVersionOfPaths",
         shapeIds.length,
@@ -333,7 +348,9 @@ async function fetchPage(
 ): Promise<FetchedPage> {
   const resp = await dereferencer.dereference(location, { localFiles: true });
   const url = resp.url;
-  const page = await streamToArray(resp.data);
-  const data = new Store(page);
+  const data = RdfStore.createDefault();
+  await new Promise((resolve, reject) => {
+    data.import(resp.data).on("end", resolve).on("error", reject);
+  });
   return <FetchedPage>{ url, data };
 }

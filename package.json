@@ -22,10 +22,11 @@
     "@types/debug": "^4.1.10",
     "commander": "^11.1.0",
     "debug": "^4.3.4",
-    "extract-cbd-shape": "^0.0.2",
+    "extract-cbd-shape": "^0.1.0",
     "heap-js": "^2.3.0",
     "n3": "^1.17.1",
-    "rdf-dereference": "^2.2.0"
+    "rdf-dereference": "^2.2.0",
+    "rdf-stores": "^1.0.0"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",

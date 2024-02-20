@@ -4,7 +4,7 @@ import { DataFactory, Store } from "n3";
 import { extractRelations, Relation } from "./page";
 import debug from "debug";
 import { SimpleRelation } from "./relation";
-
+import { RdfStore } from "rdf-stores";
 const log = debug("fetcher");
 const { namedNode } = DataFactory;
 
@@ -20,7 +20,7 @@ export type Node = {
 
 export type FetchedPage = {
   url: string;
-  data: Store;
+  data: RdfStore;
 };
 
 // At most concurrentRequests + maxFetched pages will be stored in memory
@@ -85,7 +85,6 @@ export class Fetcher {
     const resp = await this.dereferencer.dereference(node.target, {
       localFiles: true,
     });
-    const page = await streamToArray(resp.data);
 
     node.target = resp.url;
 
@@ -115,8 +114,15 @@ export class Fetcher {
 
     logger("Cache for  %s %o", node.target, cache);
 
-    const data = new Store(page);
-    logger("Got data %s (%d quads)", node.target, page.length);
+    const data = RdfStore.createDefault();
+    let quadCount = 0;
+    await new Promise((resolve, reject) => {
+      resp.data.on("data", (quad) => {
+        data.addQuad(quad);
+        quadCount ++;
+      }).on("end", resolve).on("error", reject);
+    });
+    logger("Got data %s (%d quads)", node.target, quadCount);
 
     for (let rel of extractRelations(data, namedNode(resp.url), this.loose)) {
       if (!node.expected.some((x) => x == rel.node)) {

@@ -8,6 +8,7 @@ import { LDESInfo } from "./client";
 import debug from "debug";
 import { Store } from "n3";
 import { Notifier } from "./utils";
+import { RdfStore } from "rdf-stores";
 
 const log = debug("manager");
 
@@ -26,7 +27,11 @@ export type MemberEvents = {
   extracted: Member;
   done: Member[];
 };
-
+const getObjects = function (store: RdfStore, subject:Term|null, predicate: Term|null, graph?:Term|null) {
+  return store.getQuads(subject, predicate, null, graph).map((quad) => {
+    return quad.object;
+  });
+}
 export class Manager {
   private members: Heap<Member>;
   public queued: number = 0;
@@ -79,7 +84,7 @@ export class Manager {
 
   private async extractMember(
     member: Term,
-    data: Store,
+    data: RdfStore,
   ): Promise<Member | undefined> {
     const quads = await this.extractor.extract(data, member, this.shapeId);
 
@@ -123,7 +128,7 @@ export class Manager {
     notifier: Notifier<MemberEvents, S>,
   ) {
     const logger = log.extend("extract");
-    const members = page.data.getObjects(this.ldesId, TREE.terms.member, null);
+    const members = getObjects(page.data, this.ldesId, TREE.terms.member, null);
 
     logger("%d members", members.length);
 
