@@ -108,9 +108,7 @@ async function getInfo(
   }
 
   return {
-    extractor: new CBDShapeExtractor(store, dereferencer, {
-      cbdDefaultGraph: true,
-    }),
+    extractor: new CBDShapeExtractor(store, dereferencer),
     shape: shapeIds[0],
     timestampPath: timestampPaths[0],
     isVersionOfPath: isVersionOfPaths[0],
@@ -229,7 +227,6 @@ export class Client {
       this.dereferencer,
       this.config.noShape,
     );
-    console.log("Info", info);
 
     const state = this.stateFactory.build<Set<string>>(
       "members",
@@ -256,7 +253,10 @@ export class Client {
 
     const notifier: Notifier<StrategyEvents, {}> = {
       fragment: () => this.emit("fragment", undefined),
-      member: (m) => emit(m),
+      member: (m) => {
+        emit(m)
+      }
+      ,
       pollCycle: () => {
         this.emit("poll", undefined);
         this.pollCycle.forEach((cb) => cb());
