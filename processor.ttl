@@ -1,0 +1,125 @@
+@prefix js: <https://w3id.org/conn/js#>.
+@prefix fno: <https://w3id.org/function/ontology#>.
+@prefix fnom: <https://w3id.org/function/vocabulary/mapping#>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+@prefix : <https://w3id.org/conn#>.
+@prefix sh: <http://www.w3.org/ns/shacl#>.
+@prefix owl: <http://www.w3.org/2002/07/owl#>.
+@prefix dc: <http://purl.org/dc/terms/>.
+
+js:LdesClient a js:JsProcess;
+  dc:title "ldes client";
+  dc:description "";
+  js:file <./dist/lib/client.js>;
+  js:function "processor";
+  js:location <./>;
+  js:mapping [
+    a fno:Mapping;
+    fno:parameterMapping [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "Data output channel";
+      fnom:implementationParameterPosition "0"^^xsd:int;
+    ], [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "LDES Url";
+      fnom:implementationParameterPosition "1"^^xsd:int;
+    ], [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "Ordered parameter";
+      fnom:implementationParameterPosition "2"^^xsd:int;
+    ], [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "Follow";
+      fnom:implementationParameterPosition "3"^^xsd:int;
+    ], [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "Poll interval";
+      fnom:implementationParameterPosition "4"^^xsd:int;
+    ], [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "Shape";
+      fnom:implementationParameterPosition "5"^^xsd:int;
+    ], [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "No Shape";
+      fnom:implementationParameterPosition "6"^^xsd:int;
+    ], [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "Save Path";
+      fnom:implementationParameterPosition "7"^^xsd:int;
+    ], [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "Loose";
+      fnom:implementationParameterPosition "8"^^xsd:int;
+    ], [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "UrlIsView";
+      fnom:implementationParameterPosition "9"^^xsd:int;
+    ], [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "verbose";
+      fnom:implementationParameterPosition "10"^^xsd:int;
+    ];
+  ].
+
+[ ] a sh:NodeShape;
+  sh:targetClass js:LdesClient;
+  sh:property [
+    sh:class :WriterChannel;
+    sh:path js:output;
+    sh:name "Data output channel";
+    sh:maxCount 1;
+    sh:minCount 1;
+  ], [
+    sh:datatype xsd:string;
+    sh:path js:url;
+    sh:name "LDES Url";
+    sh:maxCount 1;
+    sh:minCount 1;
+  ], [
+    sh:datatype xsd:string;
+    sh:path js:ordered;
+    sh:name "Ordered parameter";
+    sh:maxCount 1;
+  ], [
+    sh:datatype xsd:boolean;
+    sh:path js:follow;
+    sh:name "Follow";
+    sh:maxCount 1;
+  ], [
+    sh:datatype xsd:integer;
+    sh:path js:interval;
+    sh:name "Poll interval";
+    sh:maxCount 1;
+  ], [
+    sh:datatype xsd:string;
+    sh:path js:shapeFile;
+    sh:name "Shape";
+    sh:maxCount 1;
+  ], [
+    sh:datatype xsd:boolean;
+    sh:path js:noShape;
+    sh:name "No Shape";
+    sh:maxCount 1;
+  ], [
+    sh:datatype xsd:string;
+    sh:path js:savePath;
+    sh:name "Save Path";
+    sh:maxCount 1;
+  ], [
+    sh:datatype xsd:boolean;
+    sh:path js:loose;
+    sh:name "Loose";
+    sh:maxCount 1;
+  ], [
+    sh:datatype xsd:boolean;
+    sh:path js:urlIsView;
+    sh:name "UrlIsView";
+    sh:maxCount 1;
+  ], [
+    sh:datatype xsd:boolean;
+    sh:path js:verbose;
+    sh:name "verbose";
+    sh:maxCount 1;
+  ].
+

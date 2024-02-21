@@ -1,20 +1,23 @@
 {
-    "compilerOptions": {
-    "lib": ["es2023", "dom"],
-    "module": "node16",
+  "compilerOptions": {
+    "lib": [
+      "es2023",
+      "dom"
+    ],
+    "module": "commonjs",
     "target": "es2022",
-
     "strict": true,
-    "esModuleInterop": true,
+    // "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node16",
-      "outDir": "dist",
-      "declaration": true
-    },
-    "exclude": [
-      "node_modules",
-      "dist",
-      "tests"
-    ]
-  }
+    "moduleResolution": "node",
+    "outDir": "dist",
+    "declaration": true
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "tests",
+    "web"
+  ]
+}

@@ -1,0 +1,5 @@
+@prefix sh: <http://www.w3.org/ns/shacl#>.
+<> a sh:NodeShape;
+  sh:property [ sh:path <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ];
+  sh:closed true.
+
