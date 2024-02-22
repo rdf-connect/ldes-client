@@ -52,8 +52,24 @@ async function getInfo(
   dereferencer: RdfDereferencer,
   noShape: boolean,
   shapeConfig?: ShapeConfig,
+  shapeFile?: string,
 ): Promise<LDESInfo> {
   const logger = log.extend("getShape");
+
+  if (shapeFile) {
+    const shapeId = shapeFile.startsWith("http")
+      ? shapeFile
+      : "file://" + shapeFile;
+
+    const resp = await rdfDereference.dereference(shapeFile, {
+      localFiles: true,
+    });
+    const quads = await streamToArray(resp.data);
+    shapeConfig = {
+      quads: quads,
+      shapeId: namedNode(shapeId),
+    };
+  }
 
   let shapeIds = noShape
     ? []
@@ -235,6 +251,7 @@ export class Client {
       this.dereferencer,
       this.config.noShape,
       this.config.shape,
+      this.config.shapeFile,
     );
 
     const state = this.stateFactory.build<Set<string>>(
@@ -360,23 +377,11 @@ export async function processor(
   urlIsView?: boolean,
   verbose?: boolean,
 ) {
-  let shapeConfig: ShapeConfig | undefined;
-  if (shape) {
-    const shapeId = shape.startsWith("http") ? shape : "file://" + shape;
-
-    const resp = await rdfDereference.dereference(shape, { localFiles: true });
-    const quads = await streamToArray(resp.data);
-    shapeConfig = {
-      quads: quads,
-      shapeId: namedNode(shapeId),
-    };
-  }
-
   const client = replicateLDES(
     intoConfig({
       loose,
       noShape,
-      shape: shapeConfig,
+      shapeFile: shape,
       polling: follow,
       url: url,
       stateFile: save,
