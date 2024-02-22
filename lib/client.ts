@@ -7,8 +7,8 @@ import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
 const df = new DataFactory();
 import { Writer as NWriter } from "n3";
-import { Term } from "@rdfjs/types";
-import { ModulatorFactory, Notifier } from "./utils";
+import { Quad_Object, Term } from "@rdfjs/types";
+import { ModulatorFactory, Notifier, streamToArray } from "./utils";
 import { LDES, SDS, TREE } from "@treecg/types";
 import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
 import { Manager } from "./memberManager";
@@ -139,9 +139,15 @@ async function getInfo(
     );
   }
 
+  let shapeConfigStore = RdfStore.createDefault();
+  if (shapeConfig) {
+    for (let quad of shapeConfig.quads) {
+      shapeConfigStore.addQuad(quad);
+    }
+  }
   return {
     extractor: new CBDShapeExtractor(
-      shapeConfig ? new Store(shapeConfig.quads) : store,
+      shapeConfig ?  shapeConfigStore: store,
       dereferencer,
     ),
     shape: shapeConfig ? shapeConfig.shapeId : shapeIds[0],
