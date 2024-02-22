@@ -11,6 +11,7 @@ let paramFollow: boolean = false;
 let paramPollInterval: number;
 let urlIsView = false;
 let noShape = false;
+let shapeFile: string | undefined;
 let ordered: Ordered = "none";
 let quiet: boolean = false;
 let verbose: boolean = false;
@@ -25,14 +26,20 @@ program
       .default("none"),
   )
   .option("-f, --follow", "follow the LDES, the client stays in sync")
-  .option("--pollInterval <number>", "specify poll interval")
-  .option("--shape <shapefile>", "specify a shapefile")
-  .option("--no-shape", "don't extract members with a shape (only use cbd and named graphs)")
+  .option("--poll-interval <number>", "specify poll interval")
+  .option("--shape-file <shapefile>", "specify a shapefile")
+  .option(
+    "--no-shape",
+    "don't extract members with a shape (only use cbd and named graphs)",
+  )
   .option(
     "-s, --save <path>",
     "filepath to the save state file to use, used both to resume and to update",
   )
-  .option("-l --loose", "use loose implementation, might work on more ldes streams")
+  .option(
+    "-l --loose",
+    "use loose implementation, might work on more ldes streams",
+  )
   .option(
     "--url-is-view",
     "the url is the view url, don't try to find the correct view",
@@ -44,6 +51,7 @@ program
     noShape = !program.shape;
     save = program.save;
     paramURL = url;
+    shapeFile = program.shapeFile;
     paramFollow = program.follow;
     paramPollInterval = program.pollInterval;
     ordered = program.ordered;
@@ -66,6 +74,7 @@ async function main() {
       pollInterval: paramPollInterval,
       fetcher: { maxFetched: 2, concurrentRequests: 10 },
       urlIsView: urlIsView,
+      shapeFile,
     }),
     undefined,
     undefined,

@@ -30,6 +30,7 @@ export interface Config {
   before?: Date;
   after?: Date;
   shape?: ShapeConfig;
+  shapeFile?: string;
 
   // Add flag to indicate in order (default true)
   // Make sure that slower pages to first emit the first members
