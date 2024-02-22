@@ -1,12 +1,12 @@
 import { RdfDereferencer } from "rdf-dereference";
 import { Notifier } from "./utils";
-import { DataFactory } from "n3";
 import { extractRelations, Relation } from "./page";
 import debug from "debug";
 import { SimpleRelation } from "./relation";
 import { RdfStore } from "rdf-stores";
+import { DataFactory } from "rdf-data-factory";
 const log = debug("fetcher");
-const { namedNode } = DataFactory;
+const { namedNode } = new DataFactory();
 
 /**
  * target: url to fetch
@@ -117,10 +117,13 @@ export class Fetcher {
     const data = RdfStore.createDefault();
     let quadCount = 0;
     await new Promise((resolve, reject) => {
-      resp.data.on("data", (quad) => {
-        data.addQuad(quad);
-        quadCount ++;
-      }).on("end", resolve).on("error", reject);
+      resp.data
+        .on("data", (quad) => {
+          data.addQuad(quad);
+          quadCount++;
+        })
+        .on("end", resolve)
+        .on("error", reject);
     });
     logger("Got data %s (%d quads)", node.target, quadCount);
 

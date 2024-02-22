@@ -1,10 +1,22 @@
-import { Stream } from "@rdfjs/types";
+import { Stream, Term } from "@rdfjs/types";
 import { BaseQuad } from "n3";
 import { StateFactory, StateT } from "./state";
+import { RdfStore } from "rdf-stores";
 
 export type Notifier<Events, S> = {
   [K in keyof Events]: (event: Events[K], state: S) => void;
 };
+
+export function getObjects(
+  store: RdfStore,
+  subject: Term | null,
+  predicate: Term | null,
+  graph?: Term | null,
+) {
+  return store.getQuads(subject, predicate, null, graph).map((quad) => {
+    return quad.object;
+  });
+}
 
 export function readableToArray<T>(stream: ReadableStream<T>): Promise<T[]> {
   const out: T[] = [];

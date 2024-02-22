@@ -1,21 +1,15 @@
 import { Quad, Term } from "@rdfjs/types";
 import { RDF, TREE } from "@treecg/types";
 import { CBDShapeExtractor } from "extract-cbd-shape";
-import * as N3 from "n3";
 import { State } from "./state";
 import { RdfStore } from "rdf-stores";
+import { getObjects } from "./utils";
 
 export interface Member {
   id: Term;
   quads: Quad[];
   timestamp?: string | Date;
   isVersionOf?: string;
-}
-
-const getObjects = function (store: RdfStore, subject:Term|null, predicate: Term|null, graph?:Term|null) {
-  return store.getQuads(subject, predicate, null, graph).map((quad) => {
-    return quad.object;
-  });
 }
 
 export interface Relation {
@@ -45,11 +39,7 @@ export function extractMembers(
 
   const extractMember = async (member: Term) => {
     state.add(member.value);
-    const quads = await extractor.extract(
-      store,
-      <N3.Term>member,
-      <N3.Term>shapeId,
-    );
+    const quads = await extractor.extract(store, member, shapeId);
     // Get timestamp
     let timestamp: string | undefined;
     if (timestampPath) {

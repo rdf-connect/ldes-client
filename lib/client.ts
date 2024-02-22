@@ -5,35 +5,27 @@ import { FileStateFactory, NoStateFactory, State, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
-const df = new DataFactory();
 import { Writer as NWriter } from "n3";
 import { Quad_Object, Term } from "@rdfjs/types";
-import { ModulatorFactory, Notifier, streamToArray } from "./utils";
+import { getObjects, ModulatorFactory, Notifier, streamToArray } from "./utils";
 import { LDES, SDS, TREE } from "@treecg/types";
 import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
 import { Manager } from "./memberManager";
 import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
-
-// import * as JsRunner from "@ajuvercr/js-runner";
+import debug from "debug";
 import type { Writer } from "@ajuvercr/js-runner";
+
 export { intoConfig } from "./config";
 export type { Member, Page, Relation } from "./page";
 export type { Config, MediatorConfig, ShapeConfig } from "./config";
 
-// type B = JsRunner;
-import debug from "debug";
+const df = new DataFactory();
 const log = debug("client");
 const { namedNode, blankNode, quad } = df;
 
 type Controller = ReadableStreamDefaultController<Member>;
 
 export type Ordered = "ascending" | "descending" | "none";
-
-const getObjects = function (store: RdfStore, subject:Term|null, predicate: Term|null, graph?:Term|null) {
-  return store.getQuads(subject, predicate, null, graph).map((quad) => {
-    return quad.object;
-  });
-}
 
 export function replicateLDES(
   config: Config,
@@ -80,14 +72,9 @@ async function getInfo(
     };
   }
 
-  let shapeIds = noShape
-    ? []
-    : getObjects(store, ldesId, TREE.terms.shape);
-  let timestampPaths = getObjects(store,ldesId, LDES.terms.timestampPath);
-  let isVersionOfPaths = getObjects(store,
-    ldesId,
-    LDES.terms.versionOfPath,
-  );
+  let shapeIds = noShape ? [] : getObjects(store, ldesId, TREE.terms.shape);
+  let timestampPaths = getObjects(store, ldesId, LDES.terms.timestampPath);
+  let isVersionOfPaths = getObjects(store, ldesId, LDES.terms.versionOfPath);
 
   logger(
     "Found %d shapes, %d timestampPaths, %d isVersionOfPaths",
@@ -113,7 +100,7 @@ async function getInfo(
       });
       shapeIds = getObjects(store, null, TREE.terms.shape);
       timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
-      isVersionOfPaths = getObjects(store,null, LDES.terms.versionOfPath);
+      isVersionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
       logger(
         "Found %d shapes, %d timestampPaths, %d isVersionOfPaths",
         shapeIds.length,
@@ -145,9 +132,10 @@ async function getInfo(
       shapeConfigStore.addQuad(quad);
     }
   }
+
   return {
     extractor: new CBDShapeExtractor(
-      shapeConfig ?  shapeConfigStore: store,
+      shapeConfig ? shapeConfigStore : store,
       dereferencer,
     ),
     shape: shapeConfig ? shapeConfig.shapeId : shapeIds[0],
