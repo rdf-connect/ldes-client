@@ -3,24 +3,25 @@ import { Member } from "./page";
 import rdfDereference, { RdfDereferencer } from "rdf-dereference";
 import { FileStateFactory, NoStateFactory, State, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
-import { DataFactory, Quad_Object, Store, Writer as NWriter } from "n3";
-import { Term } from "@rdfjs/types";
-import { ModulatorFactory, Notifier, streamToArray } from "./utils";
+import { RdfStore } from "rdf-stores";
+import { DataFactory } from "rdf-data-factory";
+import { Writer as NWriter } from "n3";
+import { Quad_Object, Term } from "@rdfjs/types";
+import { getObjects, ModulatorFactory, Notifier, streamToArray } from "./utils";
 import { LDES, SDS, TREE } from "@treecg/types";
 import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
 import { Manager } from "./memberManager";
 import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
-
-// import * as JsRunner from "@ajuvercr/js-runner";
+import debug from "debug";
 import type { Writer } from "@ajuvercr/js-runner";
+
 export { intoConfig } from "./config";
 export type { Member, Page, Relation } from "./page";
 export type { Config, MediatorConfig, ShapeConfig } from "./config";
 
-// type B = JsRunner;
-import debug from "debug";
+const df = new DataFactory();
 const log = debug("client");
-const { namedNode, blankNode, quad } = DataFactory;
+const { namedNode, blankNode, quad } = df;
 
 type Controller = ReadableStreamDefaultController<Member>;
 
@@ -48,7 +49,7 @@ export type LDESInfo = {
 
 async function getInfo(
   ldesId: Term,
-  store: Store,
+  store: RdfStore,
   dereferencer: RdfDereferencer,
   noShape: boolean,
   shapeConfig?: ShapeConfig,
@@ -71,15 +72,9 @@ async function getInfo(
     };
   }
 
-  let shapeIds = noShape
-    ? []
-    : store.getObjects(ldesId, TREE.terms.shape, null);
-  let timestampPaths = store.getObjects(ldesId, LDES.terms.timestampPath, null);
-  let isVersionOfPaths = store.getObjects(
-    ldesId,
-    LDES.terms.versionOfPath,
-    null,
-  );
+  let shapeIds = noShape ? [] : getObjects(store, ldesId, TREE.terms.shape);
+  let timestampPaths = getObjects(store, ldesId, LDES.terms.timestampPath);
+  let isVersionOfPaths = getObjects(store, ldesId, LDES.terms.versionOfPath);
 
   logger(
     "Found %d shapes, %d timestampPaths, %d isVersionOfPaths",
@@ -99,10 +94,13 @@ async function getInfo(
       const resp = await dereferencer.dereference(ldesId.value, {
         localFiles: true,
       });
-      store = new Store(await streamToArray(resp.data));
-      shapeIds = store.getObjects(null, TREE.terms.shape, null);
-      timestampPaths = store.getObjects(null, LDES.terms.timestampPath, null);
-      isVersionOfPaths = store.getObjects(null, LDES.terms.versionOfPath, null);
+      store = RdfStore.createDefault();
+      await new Promise((resolve, reject) => {
+        store.import(resp.data).on("end", resolve).on("error", reject);
+      });
+      shapeIds = getObjects(store, null, TREE.terms.shape);
+      timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
+      isVersionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
       logger(
         "Found %d shapes, %d timestampPaths, %d isVersionOfPaths",
         shapeIds.length,
@@ -128,9 +126,16 @@ async function getInfo(
     );
   }
 
+  let shapeConfigStore = RdfStore.createDefault();
+  if (shapeConfig) {
+    for (let quad of shapeConfig.quads) {
+      shapeConfigStore.addQuad(quad);
+    }
+  }
+
   return {
     extractor: new CBDShapeExtractor(
-      shapeConfig ? new Store(shapeConfig.quads) : store,
+      shapeConfig ? shapeConfigStore : store,
       dereferencer,
     ),
     shape: shapeConfig ? shapeConfig.shapeId : shapeIds[0],
@@ -359,8 +364,10 @@ async function fetchPage(
 ): Promise<FetchedPage> {
   const resp = await dereferencer.dereference(location, { localFiles: true });
   const url = resp.url;
-  const page = await streamToArray(resp.data);
-  const data = new Store(page);
+  const data = RdfStore.createDefault();
+  await new Promise((resolve, reject) => {
+    data.import(resp.data).on("end", resolve).on("error", reject);
+  });
   return <FetchedPage>{ url, data };
 }
 

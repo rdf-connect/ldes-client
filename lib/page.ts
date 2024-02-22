@@ -1,9 +1,9 @@
 import { Quad, Term } from "@rdfjs/types";
 import { RDF, TREE } from "@treecg/types";
 import { CBDShapeExtractor } from "extract-cbd-shape";
-import { Store } from "n3";
-import * as N3 from "n3";
 import { State } from "./state";
+import { RdfStore } from "rdf-stores";
+import { getObjects } from "./utils";
 
 export interface Member {
   id: Term;
@@ -26,7 +26,7 @@ export interface Page {
 }
 
 export function extractMembers(
-  store: Store,
+  store: RdfStore,
   stream: Term,
   extractor: CBDShapeExtractor,
   state: State,
@@ -35,15 +35,11 @@ export function extractMembers(
   timestampPath?: Term,
   isVersionOfPath?: Term,
 ): Promise<void>[] {
-  const members = store.getObjects(stream, TREE.terms.member, null);
+  const members = getObjects(store, stream, TREE.terms.member, null);
 
   const extractMember = async (member: Term) => {
     state.add(member.value);
-    const quads = await extractor.extract(
-      store,
-      <N3.Term>member,
-      <N3.Term>shapeId,
-    );
+    const quads = await extractor.extract(store, member, shapeId);
     // Get timestamp
     let timestamp: string | undefined;
     if (timestampPath) {
@@ -74,21 +70,21 @@ export function extractMembers(
 }
 
 export function extractRelations(
-  store: Store,
+  store: RdfStore,
   node: Term,
   loose: boolean,
 ): Relation[] {
   const relationIds = loose
-    ? store.getObjects(null, TREE.terms.relation, null)
-    : store.getObjects(node, TREE.terms.relation, null);
+    ? getObjects(store, null, TREE.terms.relation, null)
+    : getObjects(store, node, TREE.terms.relation, null);
   const source = node.value;
 
   const out: Relation[] = [];
   for (let relationId of relationIds) {
-    const node = store.getObjects(relationId, TREE.terms.node, null)[0];
-    const ty = store.getObjects(relationId, RDF.terms.type, null);
-    const path = store.getObjects(relationId, TREE.terms.path, null)[0];
-    const value = store.getObjects(relationId, TREE.terms.value, null);
+    const node = getObjects(store, relationId, TREE.terms.node, null)[0];
+    const ty = getObjects(store, relationId, RDF.terms.type, null);
+    const path = getObjects(store, relationId, TREE.terms.path, null)[0];
+    const value = getObjects(store, relationId, TREE.terms.value, null);
     out.push({
       source,
       node: node.value,
