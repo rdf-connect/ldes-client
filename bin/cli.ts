@@ -19,27 +19,26 @@ let loose: boolean = false;
 
 program
   .arguments("<url>")
-  .option("-f, --follow", "follow the LDES, the client stays in sync")
-  .option("-q", "Be quiet")
-  .option("-v --verbose", "Be verbose")
   .addOption(
     new Option("-o --ordered <ordered>", "emit members in order")
       .choices(["ascending", "descending", "none"])
       .default("none"),
   )
+  .option("-f, --follow", "follow the LDES, the client stays in sync")
+  .option("--pollInterval <number>", "specify poll interval")
+  .option("--shape <shapefile>", "specify a shapefile")
+  .option("--no-shape", "don't extract members with a shape (only use cbd and named graphs)")
   .option(
     "-s, --save <path>",
     "filepath to the save state file to use, used both to resume and to update",
   )
-  .option("--pollInterval <number>", "Specify poll interval")
-  .option("--shape <shapefile>", "Specify a shapefile")
-  .option("--no-shape", "Don't extract members with a shape")
-  .option("--save <shapefile>", "Specify save location")
-  .option("-l --loose", "Use loose implementation, might work on more ldeses")
+  .option("-l --loose", "use loose implementation, might work on more ldes streams")
   .option(
     "--url-is-view",
-    "The url is the view url, don't try to find the correct view",
+    "the url is the view url, don't try to find the correct view",
   )
+  .option("-q --quiet", "be quiet")
+  .option("-v --verbose", "be verbose")
   .action((url: string, program) => {
     urlIsView = program.urlIsView;
     noShape = !program.shape;
@@ -48,7 +47,7 @@ program
     paramFollow = program.follow;
     paramPollInterval = program.pollInterval;
     ordered = program.ordered;
-    quiet = program.q;
+    quiet = program.quiet;
     verbose = program.verbose;
     loose = program.loose;
   });
@@ -74,12 +73,17 @@ async function main() {
     // intoConfig({ url: "http://marineregions.org/feed" }),
   );
 
+  if (verbose) {
+    client.on("fragment", () => console.error("Fragment!"));
+  }
+
   const reader = client.stream({ highWaterMark: 10 }).getReader();
   let el = await reader.read();
   const seen = new Set();
   while (el) {
     if (el.value) {
       seen.add(el.value.id);
+
       if (!quiet) {
         if (verbose) {
           console.log(new Writer().quadsToString(el.value.quads));
@@ -98,13 +102,15 @@ async function main() {
     }
 
     if (el.done) {
-      console.error("Break");
       break;
     }
 
     el = await reader.read();
   }
-  console.error("Found", seen.size, "members");
+
+  if (!quiet) {
+    console.error("Found", seen.size, "members");
+  }
 }
 
 main().catch(console.error);

@@ -1,33 +1,33 @@
-import { Config } from "./config";
+import { Config, intoConfig, ShapeConfig } from "./config";
 import { Member } from "./page";
 import rdfDereference, { RdfDereferencer } from "rdf-dereference";
 import { FileStateFactory, NoStateFactory, State, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
-import { DataFactory } from "n3";
 import { RdfStore } from "rdf-stores";
+import { DataFactory } from "rdf-data-factory";
+const df = new DataFactory();
+import { Writer as NWriter } from "n3";
 import { Term } from "@rdfjs/types";
-import { ModulatorFactory, Notifier, streamToArray } from "./utils";
-import { LDES, TREE } from "@treecg/types";
+import { ModulatorFactory, Notifier } from "./utils";
+import { LDES, SDS, TREE } from "@treecg/types";
 import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
 import { Manager } from "./memberManager";
 import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
+
+// import * as JsRunner from "@ajuvercr/js-runner";
+import type { Writer } from "@ajuvercr/js-runner";
 export { intoConfig } from "./config";
 export type { Member, Page, Relation } from "./page";
 export type { Config, MediatorConfig, ShapeConfig } from "./config";
 
+// type B = JsRunner;
 import debug from "debug";
 const log = debug("client");
-const { namedNode } = DataFactory;
+const { namedNode, blankNode, quad } = df;
 
 type Controller = ReadableStreamDefaultController<Member>;
 
 export type Ordered = "ascending" | "descending" | "none";
-
-const getSubjects = function (store: RdfStore, predicate: Term|null, object: Term|null, graph?:Term|null) {
-  return store.getQuads(null, predicate, object, graph).map((quad) => {
-    return quad.subject;
-  });
-}
 
 const getObjects = function (store: RdfStore, subject:Term|null, predicate: Term|null, graph?:Term|null) {
   return store.getQuads(subject, predicate, null, graph).map((quad) => {
@@ -60,6 +60,7 @@ async function getInfo(
   store: RdfStore,
   dereferencer: RdfDereferencer,
   noShape: boolean,
+  shapeConfig?: ShapeConfig,
 ): Promise<LDESInfo> {
   const logger = log.extend("getShape");
 
@@ -123,10 +124,11 @@ async function getInfo(
   }
 
   return {
-    extractor: new CBDShapeExtractor(store, dereferencer, {
-      cbdDefaultGraph: true,
-    }),
-    shape: shapeIds[0],
+    extractor: new CBDShapeExtractor(
+      shapeConfig ? new Store(shapeConfig.quads) : store,
+      dereferencer,
+    ),
+    shape: shapeConfig ? shapeConfig.shapeId : shapeIds[0],
     timestampPath: timestampPaths[0],
     isVersionOfPath: isVersionOfPaths[0],
   };
@@ -150,7 +152,7 @@ export class Client {
   private memberManager!: Manager;
   private strategy!: OrderedStrategy | UnorderedStrategy;
 
-  private streamId?: Term;
+  public streamId?: Term;
   private ordered: Ordered;
 
   private modulatorFactory;
@@ -243,8 +245,8 @@ export class Client {
       root.data,
       this.dereferencer,
       this.config.noShape,
+      this.config.shape,
     );
-    console.log("Info", info);
 
     const state = this.stateFactory.build<Set<string>>(
       "members",
@@ -255,6 +257,7 @@ export class Client {
       (inp) => new Set(JSON.parse(inp)),
       () => new Set(),
     );
+    this.streamId = this.streamId || viewQuads[0].subject;
     this.memberManager = new Manager(
       this.streamId || viewQuads[0].subject,
       state.item,
@@ -271,7 +274,9 @@ export class Client {
 
     const notifier: Notifier<StrategyEvents, {}> = {
       fragment: () => this.emit("fragment", undefined),
-      member: (m) => emit(m),
+      member: (m) => {
+        emit(m);
+      },
       pollCycle: () => {
         this.emit("poll", undefined);
         this.pollCycle.forEach((cb) => cb());
@@ -353,4 +358,94 @@ async function fetchPage(
     data.import(resp.data).on("end", resolve).on("error", reject);
   });
   return <FetchedPage>{ url, data };
+}
+
+export async function processor(
+  writer: Writer<string>,
+  url: string,
+  ordered?: string,
+  follow?: boolean,
+  pollInterval?: number,
+  shape?: string,
+  noShape?: boolean,
+  save?: string,
+  loose?: boolean,
+  urlIsView?: boolean,
+  verbose?: boolean,
+) {
+  let shapeConfig: ShapeConfig | undefined;
+  if (shape) {
+    const shapeId = shape.startsWith("http") ? shape : "file://" + shape;
+
+    const resp = await rdfDereference.dereference(shape, { localFiles: true });
+    const quads = await streamToArray(resp.data);
+    shapeConfig = {
+      quads: quads,
+      shapeId: namedNode(shapeId),
+    };
+  }
+
+  const client = replicateLDES(
+    intoConfig({
+      loose,
+      noShape,
+      shape: shapeConfig,
+      polling: follow,
+      url: url,
+      stateFile: save,
+      follow,
+      pollInterval: pollInterval,
+      fetcher: { maxFetched: 2, concurrentRequests: 10 },
+      urlIsView,
+    }),
+    undefined,
+    undefined,
+    <Ordered>ordered || "none",
+  );
+
+  if (verbose) {
+    client.on("fragment", () => console.error("Fragment!"));
+  }
+
+  return async () => {
+    const reader = client.stream({ highWaterMark: 10 }).getReader();
+    let el = await reader.read();
+    const seen = new Set();
+    while (el) {
+      if (el.value) {
+        seen.add(el.value.id);
+
+        if (verbose) {
+          if (seen.size % 100 == 1) {
+            console.error(
+              "Got member",
+              seen.size,
+              "with",
+              el.value.quads.length,
+              "quads",
+            );
+          }
+        }
+
+        const blank = blankNode();
+        const quads = el.value.quads.slice();
+        quads.push(
+          quad(blank, SDS.terms.stream, <Quad_Object>client.streamId!),
+          quad(blank, SDS.terms.payload, <Quad_Object>el.value.id!),
+        );
+
+        await writer.push(new NWriter().quadsToString(quads));
+      }
+
+      if (el.done) {
+        break;
+      }
+
+      el = await reader.read();
+    }
+
+    if (verbose) {
+      console.error("Found", seen.size, "members");
+    }
+  };
 }
