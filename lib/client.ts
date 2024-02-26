@@ -51,28 +51,28 @@ async function getInfo(
   ldesId: Term,
   store: RdfStore,
   dereferencer: RdfDereferencer,
-  noShape: boolean,
-  shapeConfig?: ShapeConfig,
-  shapeFile?: string,
+  config: Config,
 ): Promise<LDESInfo> {
   const logger = log.extend("getShape");
 
-  if (shapeFile) {
-    const shapeId = shapeFile.startsWith("http")
-      ? shapeFile
-      : "file://" + shapeFile;
+  if (config.shapeFile) {
+    const shapeId = config.shapeFile.startsWith("http")
+      ? config.shapeFile
+      : "file://" + config.shapeFile;
 
-    const resp = await rdfDereference.dereference(shapeFile, {
+    const resp = await rdfDereference.dereference(config.shapeFile, {
       localFiles: true,
     });
     const quads = await streamToArray(resp.data);
-    shapeConfig = {
+    config.shape = {
       quads: quads,
       shapeId: namedNode(shapeId),
     };
   }
 
-  let shapeIds = noShape ? [] : getObjects(store, ldesId, TREE.terms.shape);
+  let shapeIds = config.noShape
+    ? []
+    : getObjects(store, ldesId, TREE.terms.shape);
   let timestampPaths = getObjects(store, ldesId, LDES.terms.timestampPath);
   let isVersionOfPaths = getObjects(store, ldesId, LDES.terms.versionOfPath);
 
@@ -84,7 +84,7 @@ async function getInfo(
   );
 
   if (
-    !noShape &&
+    !config.noShape &&
     (shapeIds.length === 0 ||
       timestampPaths.length === 0 ||
       isVersionOfPaths.length === 0)
@@ -127,18 +127,21 @@ async function getInfo(
   }
 
   let shapeConfigStore = RdfStore.createDefault();
-  if (shapeConfig) {
-    for (let quad of shapeConfig.quads) {
+  if (config.shape) {
+    for (let quad of config.shape.quads) {
       shapeConfigStore.addQuad(quad);
     }
   }
 
   return {
     extractor: new CBDShapeExtractor(
-      shapeConfig ? shapeConfigStore : store,
+      config.shape ? shapeConfigStore : store,
       dereferencer,
+      {
+        cbdDefaultGraph: config.onlyDefaultGraph,
+      },
     ),
-    shape: shapeConfig ? shapeConfig.shapeId : shapeIds[0],
+    shape: config.shape ? config.shape.shapeId : shapeIds[0],
     timestampPath: timestampPaths[0],
     isVersionOfPath: isVersionOfPaths[0],
   };
@@ -254,9 +257,7 @@ export class Client {
       ldesId,
       root.data,
       this.dereferencer,
-      this.config.noShape,
-      this.config.shape,
-      this.config.shapeFile,
+      this.config,
     );
 
     const state = this.stateFactory.build<Set<string>>(

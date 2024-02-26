@@ -16,6 +16,7 @@ let ordered: Ordered = "none";
 let quiet: boolean = false;
 let verbose: boolean = false;
 let save: string | undefined;
+let onlyDefaultGraph: boolean = false;
 let loose: boolean = false;
 
 program
@@ -31,6 +32,10 @@ program
   .option(
     "--no-shape",
     "don't extract members with a shape (only use cbd and named graphs)",
+  )
+  .option(
+    "--only-default-graph",
+    "extract members only from the default graph and the member graph",
   )
   .option(
     "-s, --save <path>",
@@ -58,6 +63,7 @@ program
     quiet = program.quiet;
     verbose = program.verbose;
     loose = program.loose;
+    onlyDefaultGraph = program.onlyDefaultGraph;
   });
 
 program.parse(process.argv);
@@ -75,6 +81,7 @@ async function main() {
       fetcher: { maxFetched: 2, concurrentRequests: 10 },
       urlIsView: urlIsView,
       shapeFile,
+      onlyDefaultGraph,
     }),
     undefined,
     undefined,

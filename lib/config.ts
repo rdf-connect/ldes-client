@@ -31,6 +31,7 @@ export interface Config {
   after?: Date;
   shape?: ShapeConfig;
   shapeFile?: string;
+  onlyDefaultGraph?: boolean;
 
   // Add flag to indicate in order (default true)
   // Make sure that slower pages to first emit the first members
