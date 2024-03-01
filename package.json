@@ -25,6 +25,7 @@
     "@ajuvercr/js-runner": "^0.1.15",
     "@treecg/types": "^0.4.5",
     "@types/debug": "^4.1.10",
+    "benchmark": "^2.1.4",
     "commander": "^11.1.0",
     "debug": "^4.3.4",
     "extract-cbd-shape": "^0.1.0",
