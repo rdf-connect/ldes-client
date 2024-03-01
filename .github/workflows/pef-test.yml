@@ -1,4 +1,4 @@
-name: Benchmark for extraction algorithm
+name: Benchmark for ldes client
 on:
   push:
     branches:
@@ -24,7 +24,7 @@ jobs:
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
         with:
-            name: Extraction algorithm Benchmark for inband data
+            name: Benchmark for ldes client
             tool: 'benchmarkjs'
             output-file-path: output.txt
             github-token: ${{ secrets.GITHUB_TOKEN }}
