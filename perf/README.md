@@ -17,3 +17,6 @@ Client config:
 ###  2. From an existing state, catch up with a feed
 
 Pre-configures a state on different existing LDESes, and tests performance of catching up with the feed.
+
+### 3. Performance result
+Locates at: [https://treecg.github.io/ldes-client/](https://treecg.github.io/ldes-client/)
