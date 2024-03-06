@@ -16,6 +16,7 @@ suite
 
 // Add benchmarks
 suite
+  //TODO: add tests
   .add("descending tree, emits ordered", async function() {
     let client = await replicateLDES(
       intoConfig({
