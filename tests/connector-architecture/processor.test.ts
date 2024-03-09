@@ -54,7 +54,7 @@ describe("Tests for js:LdesClient processor", async () => {
         expect(argss[0].length).toBe(13);
 
         const [[
-            output, url, before, after, ordered, follow, pollInterval, shapeFile, 
+            output, url, before, after, ordered, follow, pollInterval, shapeFiles, 
             noShape, savePath, loose, urlIsView, verbose
         ]] = argss;
         
@@ -65,7 +65,7 @@ describe("Tests for js:LdesClient processor", async () => {
         expect(ordered).toBe("ascending");
         expect(follow).toBeTruthy();
         expect(pollInterval).toBe(5);
-        expect(shapeFile).toBe("/path/to/shape.ttl");
+        expect(shapeFiles[0]).toBe("/path/to/shape.ttl");
         expect(noShape).toBeFalsy();
         expect(savePath).toBe("/state/save.json");
         expect(loose).toBeFalsy();

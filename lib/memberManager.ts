@@ -1,8 +1,8 @@
-import { Term } from "@rdfjs/types";
+import { Term, Quad } from "@rdfjs/types";
 import { Member } from "./page";
 import { FetchedPage } from "./pageFetcher";
 import { CBDShapeExtractor } from "extract-cbd-shape";
-import { TREE } from "@treecg/types";
+import { RDF, TREE } from "@treecg/types";
 import Heap from "heap-js";
 import { LDESInfo } from "./client";
 import debug from "debug";
@@ -26,7 +26,7 @@ export type MemberEvents = {
   extracted: Member;
   done: Member[];
 };
-const getObjects = function (store: RdfStore, subject:Term|null, predicate: Term|null, graph?:Term|null) {
+const getObjects = function (store: RdfStore, subject: Term | null, predicate: Term | null, graph?: Term | null) {
   return store.getQuads(subject, predicate, null, graph).map((quad) => {
     return quad.object;
   });
@@ -41,7 +41,7 @@ export class Manager {
 
   private state: Set<string>;
   private extractor: CBDShapeExtractor;
-  private shapeId?: Term;
+  private shapeMap?: Map<string, Term>;
 
   private timestampPath?: Term;
   private isVersionOfPath?: Term;
@@ -53,7 +53,7 @@ export class Manager {
     this.extractor = info.extractor;
     this.timestampPath = info.timestampPath;
     this.isVersionOfPath = info.isVersionOfPath;
-    this.shapeId = info.shape;
+    this.shapeMap = info.shapeMap;
 
     logger("new %s %o", ldesId.value, info);
 
@@ -85,39 +85,68 @@ export class Manager {
     member: Term,
     data: RdfStore,
   ): Promise<Member | undefined> {
-    const quads = await this.extractor.extract(data, member, this.shapeId);
+
+    let quads: Quad[] = [];
+
+    if (this.shapeMap) {
+      if (this.shapeMap.size === 1) {
+        // Use the only shape available
+        quads = await this.extractor.extract(data, member, Array.from(this.shapeMap.values())[0]);
+      } else if (this.shapeMap.size > 1) {
+        // Find what is the proper shape for this member based on its rdf:type
+        const memberType = getObjects(data, member, RDF.terms.type)[0];
+        if (memberType) {
+          const shapeId = this.shapeMap.get(memberType.value);
+          if (shapeId) {
+            quads = await this.extractor.extract(data, member, shapeId);
+          }
+        } else {
+          // There is no rdf:type defined for this member. Fallback to CBD extraction
+          quads = await this.extractor.extract(data, member);
+        }
+      } else {
+        // Do a simple CBD extraction
+        quads = await this.extractor.extract(data, member);
+      }
+    } else {
+      // Do a simple CBD extraction
+      quads = await this.extractor.extract(data, member);
+    }
 
     if (this.state.has(member.value)) {
       return;
     }
-    this.state.add(member.value);
 
-    // Get timestamp
-    let timestamp: Date | string | undefined;
-    if (this.timestampPath) {
-      const ts = quads.find(
-        (x) =>
-          x.subject.equals(member) && x.predicate.equals(this.timestampPath),
-      )?.object.value;
-      if (ts) {
-        try {
-          timestamp = new Date(ts);
-        } catch (ex: any) {
-          timestamp = ts;
+    if (quads.length > 0) {
+      this.state.add(member.value);
+
+      // Get timestamp
+      let timestamp: Date | string | undefined;
+      if (this.timestampPath) {
+        const ts = quads.find(
+          (x) =>
+            x.subject.equals(member) && x.predicate.equals(this.timestampPath),
+        )?.object.value;
+        if (ts) {
+          try {
+            timestamp = new Date(ts);
+          } catch (ex: any) {
+            timestamp = ts;
+          }
         }
       }
-    }
 
-    let isVersionOf: string | undefined;
-    if (this.isVersionOfPath) {
-      isVersionOf = quads.find(
-        (x) =>
-          x.subject.equals(member) && x.predicate.equals(this.isVersionOfPath),
-      )?.object.value;
-    }
+      let isVersionOf: string | undefined;
+      if (this.isVersionOfPath) {
+        isVersionOf = quads.find(
+          (x) =>
+            x.subject.equals(member) && x.predicate.equals(this.isVersionOfPath),
+        )?.object.value;
+      }
 
-    this.members.push({ id: member, quads, timestamp, isVersionOf });
-    return { id: member, quads, timestamp, isVersionOf };
+      this.members.push({ id: member, quads, timestamp, isVersionOf });
+      return { id: member, quads, timestamp, isVersionOf };
+    }
   }
 
   // Extract members found in this page, this does not yet emit the members
