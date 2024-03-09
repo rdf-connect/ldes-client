@@ -11,7 +11,7 @@ export { OrderedStrategy } from "./ordered";
  */
 export const GTRs = [
   TREE.terms.GreaterThanRelation,
-  TREE.terms.GreaterThanOrEqualRelation,
+  TREE.terms.GreaterThanOrEqualToRelation,
 ];
 
 /**

@@ -41,7 +41,7 @@ export class UnorderedStrategy {
     //         so one fetch request is terminated, inFlight -= 1
     // - pageFetched: a complete page is fetched and the relations have been extracted
     //         start member extraction
-    // - relationFound: a relation has been found, inFlight += 1 and put it in the queueu
+    // - relationFound: a relation has been found, inFlight += 1 and put it in the queue
     this.fetchNotifier = {
       scheduleFetch: (node: Node) => {
         this.cacheList.push(node);
@@ -54,7 +54,9 @@ export class UnorderedStrategy {
       },
     };
 
-    // Callbacks for the member extractor - done: all members have been extracted, we are finally done with a page inFlight -= 1 - extracted: a member has been found, yeet it
+    // Callbacks for the member extractor 
+    // - done: all members have been extracted, we are finally done with a page inFlight -= 1 
+    // - extracted: a member has been found, yeet it
     this.memberNotifier = {
       done: () => {
         this.inFlight -= 1;

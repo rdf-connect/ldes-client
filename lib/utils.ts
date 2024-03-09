@@ -132,7 +132,7 @@ export class ModulatorFactory {
 }
 
 /**
- * Modulator is a stucture that only buffers elements and only handles elements
+ * Modulator is a structure that only buffers elements and only handles elements
  * when the factory is not paused and when not too many items are active at once.
  */
 export interface Modulator<T> {

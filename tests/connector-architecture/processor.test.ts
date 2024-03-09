@@ -25,6 +25,8 @@ describe("Tests for js:LdesClient processor", async () => {
             [ ] a js:LdesClient;
                 js:output <jw>;
                 js:url <https://era.ilabt.imec.be/rinf/ldes>;
+                js:before "2025-01-01T00:00:00.000Z"^^xsd:dateTime;
+                js:after "2023-12-31T23:59:59.000Z"^^xsd:dateTime;
                 js:ordered "ascending";
                 js:follow true;
                 js:interval 5;
@@ -49,15 +51,17 @@ describe("Tests for js:LdesClient processor", async () => {
 
         const argss = extractSteps(env, quads, config);
         expect(argss.length).toBe(1);
-        expect(argss[0].length).toBe(11);
+        expect(argss[0].length).toBe(13);
 
         const [[
-            output, url, ordered, follow, pollInterval, shapeFile, 
+            output, url, before, after, ordered, follow, pollInterval, shapeFile, 
             noShape, savePath, loose, urlIsView, verbose
         ]] = argss;
         
         testWriter(output);
         expect(url).toBe("https://era.ilabt.imec.be/rinf/ldes");
+        expect(before.toISOString()).toBe("2025-01-01T00:00:00.000Z");
+        expect(after.toISOString()).toBe("2023-12-31T23:59:59.000Z");
         expect(ordered).toBe("ascending");
         expect(follow).toBeTruthy();
         expect(pollInterval).toBe(5);

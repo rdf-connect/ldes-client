@@ -4,8 +4,7 @@ import rdfDereference, { RdfDereferencer } from "rdf-dereference";
 import { FileStateFactory, NoStateFactory, State, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { RdfStore } from "rdf-stores";
-import { DataFactory } from "rdf-data-factory";
-import { Writer as NWriter } from "n3";
+import { DataFactory, Writer as NWriter } from "n3";
 import { Quad_Object, Term } from "@rdfjs/types";
 import { getObjects, ModulatorFactory, Notifier, streamToArray } from "./utils";
 import { LDES, SDS, TREE } from "@treecg/types";
@@ -19,9 +18,8 @@ export { intoConfig } from "./config";
 export type { Member, Page, Relation } from "./page";
 export type { Config, MediatorConfig, ShapeConfig } from "./config";
 
-const df = new DataFactory();
 const log = debug("client");
-const { namedNode, blankNode, quad } = df;
+const { namedNode, blankNode, quad } = DataFactory;
 
 type Controller = ReadableStreamDefaultController<Member>;
 
@@ -282,11 +280,22 @@ export class Client {
       throw "Can only emit members in order, if LDES is configured with timestampPath";
     }
 
-    this.fetcher = new Fetcher(this.dereferencer, this.config.loose);
+    this.fetcher = new Fetcher(this.dereferencer, this.config.loose, this.config.after, this.config.before);
 
     const notifier: Notifier<StrategyEvents, {}> = {
       fragment: () => this.emit("fragment", undefined),
       member: (m) => {
+        // Check if member is within date constraints (if any)
+        if (this.config.before) {
+          if (m.timestamp && m.timestamp instanceof Date && m.timestamp > this.config.before) {
+            return;
+          }
+        }
+        if (this.config.after) {
+          if (m.timestamp && m.timestamp instanceof Date && m.timestamp < this.config.after) {
+            return;
+          }
+        }
         emit(m);
       },
       pollCycle: () => {
@@ -375,6 +384,8 @@ async function fetchPage(
 export async function processor(
   writer: Writer<string>,
   url: string,
+  before?: Date,
+  after?: Date,
   ordered?: string,
   follow?: boolean,
   pollInterval?: number,
@@ -392,6 +403,8 @@ export async function processor(
       shapeFile: shape,
       polling: follow,
       url: url,
+      after,
+      before,
       stateFile: save,
       follow,
       pollInterval: pollInterval,
