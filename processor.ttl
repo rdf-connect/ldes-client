@@ -113,7 +113,7 @@ js:LdesClient a js:JsProcess;
     sh:datatype xsd:string;
     sh:path js:shapeFile;
     sh:name "Shape";
-    sh:maxCount 1;
+    sh:minCount 0;
   ], [
     sh:datatype xsd:boolean;
     sh:path js:noShape;

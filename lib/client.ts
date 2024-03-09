@@ -6,8 +6,8 @@ import { CBDShapeExtractor } from "extract-cbd-shape";
 import { RdfStore } from "rdf-stores";
 import { DataFactory, Writer as NWriter } from "n3";
 import { Quad_Object, Term } from "@rdfjs/types";
-import { getObjects, ModulatorFactory, Notifier, streamToArray } from "./utils";
-import { LDES, SDS, TREE } from "@treecg/types";
+import { extractMainNodeShape, getObjects, ModulatorFactory, Notifier, streamToArray } from "./utils";
+import { LDES, SDS, SHACL, TREE } from "@treecg/types";
 import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
 import { Manager } from "./memberManager";
 import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
@@ -39,7 +39,7 @@ export function replicateLDES(
 }
 
 export type LDESInfo = {
-  shape?: Term;
+  shapeMap?: Map<string, Term>;
   extractor: CBDShapeExtractor;
   timestampPath?: Term;
   isVersionOfPath?: Term;
@@ -53,19 +53,39 @@ async function getInfo(
 ): Promise<LDESInfo> {
   const logger = log.extend("getShape");
 
-  if (config.shapeFile) {
-    const shapeId = config.shapeFile.startsWith("http")
-      ? config.shapeFile
-      : "file://" + config.shapeFile;
+  const shapeConfigStore = RdfStore.createDefault();
+  if (config.shapeFiles && config.shapeFiles.length > 0) {
+    config.shapes = [];
 
-    const resp = await rdfDereference.dereference(config.shapeFile, {
-      localFiles: true,
-    });
-    const quads = await streamToArray(resp.data);
-    config.shape = {
-      quads: quads,
-      shapeId: namedNode(shapeId),
-    };
+    for (const shapeFile of config.shapeFiles) {
+      const tempShapeStore = RdfStore.createDefault();
+      const shapeId = shapeFile.startsWith("http")
+        ? shapeFile
+        : "file://" + shapeFile;
+
+      const resp = await rdfDereference.dereference(shapeFile, {
+        localFiles: true,
+      });
+      const quads = await streamToArray(resp.data);
+      // Add retrieved quads to local stores
+      quads.forEach(q => {
+        tempShapeStore.addQuad(q);
+        shapeConfigStore.addQuad(q);
+      });
+
+      if (shapeId.startsWith("file://")) {
+        // We have to find the actual IRI/Blank Node of the main shape within the file
+        config.shapes.push({
+          quads,
+          shapeId: extractMainNodeShape(tempShapeStore)
+        });
+      } else {
+        config.shapes.push({
+          quads: quads,
+          shapeId: namedNode(shapeId),
+        });
+      }
+    }
   }
 
   let shapeIds = config.noShape
@@ -105,11 +125,7 @@ async function getInfo(
         timestampPaths.length,
         isVersionOfPaths.length,
       );
-    } catch (ex: any) {}
-  }
-
-  if (shapeIds.length > 1) {
-    console.error("Expected at most one shape id, found " + shapeIds.length);
+    } catch (ex: any) { }
   }
 
   if (timestampPaths.length > 1) {
@@ -124,22 +140,38 @@ async function getInfo(
     );
   }
 
-  let shapeConfigStore = RdfStore.createDefault();
-  if (config.shape) {
-    for (let quad of config.shape.quads) {
-      shapeConfigStore.addQuad(quad);
+  // Create a map of shapes and member types
+  const shapeMap = new Map<string, Term>();
+
+  if (config.shapes) {
+    for (const shape of config.shapes) {
+      const memberType = getObjects(shapeConfigStore, shape.shapeId, SHACL.terms.targetClass)[0];
+      if (memberType) {
+        shapeMap.set(memberType.value, shape.shapeId);
+      } else {
+        console.error("Ignoring SHACL shape without a declared sh:targetClass: ", shape.shapeId);
+      }
+    }
+  } else {
+    for (const shapeId of shapeIds) {
+      const memberType = getObjects(store, shapeId, SHACL.terms.targetClass)[0];
+      if (memberType) {
+        shapeMap.set(memberType.value, shapeId);
+      } else {
+        console.error("Ignoring SHACL shape without a declared sh:targetClass: ", shapeId);
+      }
     }
   }
 
   return {
     extractor: new CBDShapeExtractor(
-      config.shape ? shapeConfigStore : store,
+      config.shapes && config.shapes.length > 0 ? shapeConfigStore : store,
       dereferencer,
       {
         cbdDefaultGraph: config.onlyDefaultGraph,
       },
     ),
-    shape: config.shape ? config.shape.shapeId : shapeIds[0],
+    shapeMap: config.noShape ? undefined : shapeMap,
     timestampPath: timestampPaths[0],
     isVersionOfPath: isVersionOfPaths[0],
   };
@@ -311,22 +343,22 @@ export class Client {
     this.strategy =
       this.ordered !== "none"
         ? new OrderedStrategy(
-            this.memberManager,
-            this.fetcher,
-            notifier,
-            factory,
-            this.ordered,
-            this.config.polling,
-            this.config.pollInterval,
-          )
+          this.memberManager,
+          this.fetcher,
+          notifier,
+          factory,
+          this.ordered,
+          this.config.polling,
+          this.config.pollInterval,
+        )
         : new UnorderedStrategy(
-            this.memberManager,
-            this.fetcher,
-            notifier,
-            factory,
-            this.config.polling,
-            this.config.pollInterval,
-          );
+          this.memberManager,
+          this.fetcher,
+          notifier,
+          factory,
+          this.config.polling,
+          this.config.pollInterval,
+        );
 
     logger("Found %d views, choosing %s", viewQuads.length, ldesId.value);
     this.strategy.start(ldesId.value);
@@ -389,7 +421,7 @@ export async function processor(
   ordered?: string,
   follow?: boolean,
   pollInterval?: number,
-  shape?: string,
+  shapes?: string[],
   noShape?: boolean,
   save?: string,
   loose?: boolean,
@@ -400,7 +432,7 @@ export async function processor(
     intoConfig({
       loose,
       noShape,
-      shapeFile: shape,
+      shapeFiles: shapes,
       polling: follow,
       url: url,
       after,
