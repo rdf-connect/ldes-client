@@ -163,19 +163,25 @@ export class OrderedStrategy {
     if (ordered == "ascending") {
       this.members = new Heap((a, b) => {
         if (a.id.equals(b.id)) return 0;
-        if (a.timestamp == b.timestamp) return 0;
+        if (a.timestamp! < b.timestamp!) return -1;
+        if (a.timestamp! > b.timestamp!) return 1;
+        if (a.isLastOfTransaction! && !b.isLastOfTransaction) return 1;
+        if (!a.isLastOfTransaction! && b.isLastOfTransaction!) return -1;
+        if (a.timestamp == b.timestamp)  return 0;
         if (!a && b) return 1;
         if (a && !b) return -1;
-        if (a.timestamp! < b.timestamp!) return -1;
         return 1;
       });
     } else {
       this.members = new Heap((a, b) => {
         if (a.id.equals(b.id)) return 0;
+        if (a.timestamp! < b.timestamp!) return 1;
+        if (a.timestamp! > b.timestamp!) return -1;
+        if (a.isLastOfTransaction! && !b.isLastOfTransaction) return -1;
+        if (!a.isLastOfTransaction! && b.isLastOfTransaction!) return 1;
         if (a.timestamp == b.timestamp) return 0;
         if (!a && b) return -1;
         if (a && !b) return 1;
-        if (a.timestamp! < b.timestamp!) return 1;
         return -1;
       });
     }

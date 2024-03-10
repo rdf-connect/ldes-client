@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "bun test"
+    "test": "bun test --timeout 30000"
   },
   "files": [
     "dist/**/*",

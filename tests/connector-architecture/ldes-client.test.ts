@@ -3,7 +3,7 @@ import { SimpleStream } from "@ajuvercr/js-runner";
 import { Parser } from "n3";
 import { RdfStore } from "rdf-stores";
 import { processor } from "../../lib/client";
-import { DC, RDF, SDS } from "@treecg/types";
+import { DC, LDES, RDF, SDS } from "@treecg/types";
 
 describe("Functional tests for the js:LdesClient Connector Architecture function", () => {
 
@@ -95,7 +95,6 @@ describe("Functional tests for the js:LdesClient Connector Architecture function
 
         let count = 0;
         const timestamps: number[] = [];
-
         outputStream.data(record => {
             expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
             expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
@@ -258,5 +257,94 @@ describe("Functional tests for the js:LdesClient Connector Architecture function
         expect(count).toBeGreaterThan(0);
         // Check we only saw expected classes
         expect(observedClasses.size).toBe(5);
+    });
+
+    test("Fetching a remote LDES in ascending order, with before filter and checking for transaction end flag", async () => {
+        const outputStream = new SimpleStream<string>();
+
+        let count = 0;
+        const timestamps: number[] = [];
+        const records: string[] = [];
+
+        outputStream.data(record => {
+            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+
+            // Extract timestamp property (dc:modified in this LDES)
+            const store = RdfStore.createDefault();
+            new Parser().parse(record).forEach(q => store.addQuad(q));
+            const timestampQ = store.getQuads(null, DC.terms.modified)[0];
+            expect(timestampQ).toBeDefined();
+            // Check that member is within date constraints
+            expect(new Date(timestampQ.object.value).getTime()).toBeGreaterThan(new Date("2024-03-08T15:00:00.000Z").getTime());
+            // Keep track of timestamp for checking order
+            timestamps.push(new Date(timestampQ.object.value).getTime());
+            records.push(record);
+            count++;
+        });
+
+        // Setup client
+        const exec = await processor(
+            outputStream,
+            "https://era.ilabt.imec.be/rinf/ldes",
+            undefined,
+            new Date("2024-03-08T15:00:00.000Z"),
+            "ascending",
+            false
+        );
+
+        // Run client
+        await exec();
+        // Check we got some members
+        expect(count).toBeGreaterThan(0);
+        // Check result was ordered
+        const isSorted = timestamps.every((v, i) => (i === 0 || v >= timestamps[i - 1]));
+        expect(isSorted).toBeTruthy();
+        expect(records[records.length - 1].includes("isLastOfTransaction")).toBeTruthy();
+    });
+
+    test("Fetching a remote LDES in descending order, with before filter and checking for transaction end flag", async () => {
+        const outputStream = new SimpleStream<string>();
+
+        let count = 0;
+        const timestamps: number[] = [];
+        const records: string[] = [];
+
+        outputStream.data(record => {
+            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+
+            // Extract timestamp property (dc:modified in this LDES)
+            const store = RdfStore.createDefault();
+            new Parser().parse(record).forEach(q => store.addQuad(q));
+            const timestampQ = store.getQuads(null, DC.terms.modified)[0];
+            expect(timestampQ).toBeDefined();
+            // Check that member is within date constraints
+            expect(new Date(timestampQ.object.value).getTime()).toBeGreaterThan(new Date("2024-03-08T15:00:00.000Z").getTime());
+            // Keep track of timestamp for checking order
+            timestamps.push(new Date(timestampQ.object.value).getTime());
+            // Keep track of all records to check for transaction order
+            records.push(record);
+            count++;
+        });
+
+        // Setup client
+        const exec = await processor(
+            outputStream,
+            "https://era.ilabt.imec.be/rinf/ldes",
+            undefined,
+            new Date("2024-03-08T15:00:00.000Z"),
+            "descending",
+            false
+        );
+
+        // Run client
+        await exec();
+        // Check we got some members
+        expect(count).toBeGreaterThan(0);
+        // Check result was ordered
+        const isSorted = timestamps.every((v, i) => (i === 0 || v <= timestamps[i - 1]));
+        expect(isSorted).toBeTruthy();
+        expect(records[0].includes("isLastOfTransaction")).toBeTruthy();
     });
 });

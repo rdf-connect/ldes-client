@@ -2,12 +2,15 @@ import { Term, Quad } from "@rdfjs/types";
 import { Member } from "./page";
 import { FetchedPage } from "./pageFetcher";
 import { CBDShapeExtractor } from "extract-cbd-shape";
-import { RDF, TREE } from "@treecg/types";
+import { LDES, RDF, TREE } from "@treecg/types";
 import Heap from "heap-js";
 import { LDESInfo } from "./client";
 import debug from "debug";
 import { Notifier } from "./utils";
 import { RdfStore } from "rdf-stores";
+import { DataFactory } from "n3";
+
+const { namedNode } = DataFactory;
 
 const log = debug("manager");
 
@@ -144,8 +147,14 @@ export class Manager {
         )?.object.value;
       }
 
+      const isLastOfTransaction = quads.find(
+        (x) => 
+          x.subject.equals(member) && x.predicate.equals(namedNode(LDES.custom("isLastOfTransaction")))
+      )?.object.value === "true";
+
+
       this.members.push({ id: member, quads, timestamp, isVersionOf });
-      return { id: member, quads, timestamp, isVersionOf };
+      return { id: member, quads, timestamp, isVersionOf, isLastOfTransaction };
     }
   }
 

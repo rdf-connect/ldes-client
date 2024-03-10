@@ -113,7 +113,7 @@ export type ModulartorEvents<T> = {
 };
 
 /**
- * Factory that creates Modulator's
+ * Factory that creates Modulators
  * This is a factory to keep track whether or not the Modulator should be paused or not.
  */
 export class ModulatorFactory {

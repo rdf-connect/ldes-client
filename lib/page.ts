@@ -10,6 +10,7 @@ export interface Member {
   quads: Quad[];
   timestamp?: string | Date;
   isVersionOf?: string;
+  isLastOfTransaction?: boolean
 }
 
 export interface Relation {
