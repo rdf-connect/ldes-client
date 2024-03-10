@@ -116,11 +116,10 @@ export class Manager {
       quads = await this.extractor.extract(data, member);
     }
 
-    if (this.state.has(member.value)) {
-      return;
-    }
-
     if (quads.length > 0) {
+      if (this.state.has(member.value)) {
+        return;
+      }
       this.state.add(member.value);
 
       // Get timestamp
@@ -139,22 +138,30 @@ export class Manager {
         }
       }
 
-      let isVersionOf: string | undefined;
+      // Get canonical identifier of this member
+      let isVersionOf: Term | undefined;
       if (this.isVersionOfPath) {
         isVersionOf = quads.find(
           (x) =>
             x.subject.equals(member) && x.predicate.equals(this.isVersionOfPath),
-        )?.object.value;
+        )?.object;
       }
 
+      // This needs to be revised based on what is set on the spec
       const isLastOfTransaction = quads.find(
-        (x) => 
+        (x) =>
           x.subject.equals(member) && x.predicate.equals(namedNode(LDES.custom("isLastOfTransaction")))
       )?.object.value === "true";
 
 
-      this.members.push({ id: member, quads, timestamp, isVersionOf });
-      return { id: member, quads, timestamp, isVersionOf, isLastOfTransaction };
+      this.members.push({ id: member, quads, timestamp, isVersionOf: isVersionOf ? isVersionOf.value : undefined });
+      return {
+        id: member,
+        quads,
+        timestamp,
+        isVersionOf: isVersionOf ? isVersionOf.value : undefined,
+        isLastOfTransaction
+      };
     }
   }
 

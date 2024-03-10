@@ -32,8 +32,9 @@ export interface Config {
   shapes?: ShapeConfig[];
   shapeFiles?: string[];
   onlyDefaultGraph?: boolean;
+  materialize?: boolean;
+  lastVersionOnly?: boolean;
 
-  // Add flag to indicate in order (default true)
   // Make sure that slower pages to first emit the first members
   //
   // Maybe we can go faster if we only emit the latests timestamp path members (maybe per version id)

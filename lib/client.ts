@@ -6,7 +6,7 @@ import { CBDShapeExtractor } from "extract-cbd-shape";
 import { RdfStore } from "rdf-stores";
 import { DataFactory, Writer as NWriter } from "n3";
 import { Quad_Object, Term } from "@rdfjs/types";
-import { extractMainNodeShape, getObjects, ModulatorFactory, Notifier, streamToArray } from "./utils";
+import { extractMainNodeShape, getObjects, maybeVersionMaterialize, ModulatorFactory, Notifier, streamToArray } from "./utils";
 import { LDES, SDS, SHACL, TREE } from "@treecg/types";
 import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
 import { Manager } from "./memberManager";
@@ -299,11 +299,22 @@ export class Client {
       (inp) => new Set(JSON.parse(inp)),
       () => new Set(),
     );
+    const versionState = this.config.lastVersionOnly
+      ? this.stateFactory.build<Map<string, Date>>(
+        "versions",
+        (map) => {
+          const arr = [...map.entries()];
+          return JSON.stringify(arr);
+        },
+        (inp) => new Map(JSON.parse(inp)),
+        () => new Map(),
+      )
+      : undefined;
     this.streamId = this.streamId || viewQuads[0].subject;
     this.memberManager = new Manager(
       this.streamId || viewQuads[0].subject,
       state.item,
-      info,
+      info
     );
 
     logger("timestampPath %o", !!info.timestampPath);
@@ -328,7 +339,27 @@ export class Client {
             return;
           }
         }
-        emit(m);
+
+        // Check if this is a newer version of this member (if we are extracting the last version only)
+        if (m.isVersionOf && m.timestamp && versionState) {
+          const versions = versionState.item;
+          
+          if (versions.has(m.isVersionOf)) {
+            const registeredDate = <Date>versions.get(m.isVersionOf);
+            if (<Date>m.timestamp > registeredDate) {
+              // We got a newer version
+              versions.set(m.isVersionOf, <Date>m.timestamp);
+            } else {
+              // This is an older version, so we ignore it
+              return;
+            }
+          } else {
+            versions.set(m.isVersionOf, <Date>m.timestamp);
+          }
+        }
+
+        // Check if versioned member is to be materialized
+        emit(maybeVersionMaterialize(m, this.config.materialize === true, info));
       },
       pollCycle: () => {
         this.emit("poll", undefined);
@@ -339,6 +370,9 @@ export class Client {
         close();
       },
     };
+
+    // Opt for descending order strategy if last version only is true, to start at the end.
+    if (this.config.lastVersionOnly) this.ordered = "descending";
 
     this.strategy =
       this.ordered !== "none"
@@ -426,6 +460,8 @@ export async function processor(
   save?: string,
   loose?: boolean,
   urlIsView?: boolean,
+  materialize?: boolean,
+  lastVersionOnly?: boolean,
   verbose?: boolean,
 ) {
   const client = replicateLDES(
@@ -442,6 +478,8 @@ export async function processor(
       pollInterval: pollInterval,
       fetcher: { maxFetched: 2, concurrentRequests: 10 },
       urlIsView,
+      materialize,
+      lastVersionOnly
     }),
     undefined,
     undefined,

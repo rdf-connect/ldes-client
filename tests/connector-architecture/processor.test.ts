@@ -35,6 +35,8 @@ describe("Tests for js:LdesClient processor", async () => {
                 js:savePath </state/save.json>;
                 js:loose false;
                 js:urlIsView false;
+                js:materialize true;
+                js:lastVersionOnly false;
                 js:verbose true.
         `;
 
@@ -51,11 +53,11 @@ describe("Tests for js:LdesClient processor", async () => {
 
         const argss = extractSteps(env, quads, config);
         expect(argss.length).toBe(1);
-        expect(argss[0].length).toBe(13);
+        expect(argss[0].length).toBe(15);
 
         const [[
             output, url, before, after, ordered, follow, pollInterval, shapeFiles, 
-            noShape, savePath, loose, urlIsView, verbose
+            noShape, savePath, loose, urlIsView, materialize, lastVersionOnly, verbose
         ]] = argss;
         
         testWriter(output);
@@ -69,7 +71,10 @@ describe("Tests for js:LdesClient processor", async () => {
         expect(noShape).toBeFalsy();
         expect(savePath).toBe("/state/save.json");
         expect(loose).toBeFalsy();
+        expect(materialize).toBeTruthy();
+        expect(lastVersionOnly).toBeFalsy();
         expect(urlIsView).toBeFalsy();
+
         expect(verbose).toBeTruthy();
 
         await checkProc(env.file, env.func);

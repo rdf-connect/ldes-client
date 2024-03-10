@@ -1,9 +1,11 @@
 import { describe, test, expect } from "@jest/globals";
 import { SimpleStream } from "@ajuvercr/js-runner";
-import { Parser } from "n3";
+import { Parser, DataFactory } from "n3";
 import { RdfStore } from "rdf-stores";
 import { processor } from "../../lib/client";
 import { DC, LDES, RDF, SDS } from "@treecg/types";
+
+const { namedNode } = DataFactory;
 
 describe("Functional tests for the js:LdesClient Connector Architecture function", () => {
 
@@ -346,5 +348,147 @@ describe("Functional tests for the js:LdesClient Connector Architecture function
         const isSorted = timestamps.every((v, i) => (i === 0 || v <= timestamps[i - 1]));
         expect(isSorted).toBeTruthy();
         expect(records[0].includes("isLastOfTransaction")).toBeTruthy();
+    });
+
+    test("Fetching a remote LDES unordered, with before and after filter and version materialized members", async () => {
+        const outputStream = new SimpleStream<string>();
+
+        let count = 0;
+        outputStream.data(record => {
+            const store = RdfStore.createDefault();
+            new Parser().parse(record).forEach(q => store.addQuad(q));
+
+            // Check the version property is not present
+            expect(store.getQuads(null, namedNode(DC.custom("isVersionOf"))).length).toBe(0);
+
+            count++;
+        });
+
+        // Setup client
+        const exec = await processor(
+            outputStream,
+            "https://era.ilabt.imec.be/rinf/ldes",
+            new Date("2024-03-08T11:43:00.000Z"),
+            new Date("2024-03-08T11:39:00.000Z"),
+            "none",
+            false,
+            undefined,
+            undefined,
+            false,
+            undefined,
+            false,
+            false,
+            true,
+            false,
+            false
+        );
+
+        // Run client
+        await exec();
+        // Check we got some members
+        expect(count).toBeGreaterThan(0);
+    });
+
+    test("Fetching a remote LDES with before and after filter and asking for only the last version of every member", async () => {
+        const outputStream = new SimpleStream<string>();
+
+        let count = 0;
+        const memberIds = new Set<string>();
+
+        outputStream.data(record => {
+            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+
+            // Extract canonical member ID and timestamp
+            const store = RdfStore.createDefault();
+            new Parser().parse(record).forEach(q => store.addQuad(q));
+            
+            const canonicalId = store.getQuads(null, namedNode(DC.custom("isVersionOf")))[0].object.value;
+            const timestampQ = store.getQuads(null, DC.terms.modified)[0];
+
+            // Check that member is within date constraints
+            expect(new Date(timestampQ.object.value).getTime())
+                .toBeGreaterThan(new Date("2024-03-08T13:00:00.000Z").getTime());
+            expect(memberIds.has(canonicalId)).toBeFalsy();
+
+            memberIds.add(canonicalId);
+            count++;
+        });
+
+        // Setup client
+        const exec = await processor(
+            outputStream,
+            "https://era.ilabt.imec.be/rinf/ldes",
+            new Date("2024-03-08T16:00:00.000Z"),
+            new Date("2024-03-08T13:00:00.000Z"),
+            "none",
+            false,
+            undefined,
+            undefined,
+            false,
+            undefined,
+            false,
+            false,
+            false,
+            true // This is lastVersionOnly
+        );
+
+        // Run client
+        await exec();
+        // Check we got some members
+        expect(count).toBeGreaterThan(0);
+    });
+
+    test("Fetching a remote LDES with before and after filter, asking for only the last version of every member and versioned materialized", async () => {
+        const outputStream = new SimpleStream<string>();
+
+        let count = 0;
+        const memberIds = new Set<string>();
+
+        outputStream.data(record => {
+            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+
+            // Extract member ID and timestamp
+            const store = RdfStore.createDefault();
+            new Parser().parse(record).forEach(q => store.addQuad(q));
+            
+            const memberId = store.getQuads(null, SDS.terms.payload)[0].object.value;
+            const timestampQ = store.getQuads(null, DC.terms.modified)[0];
+
+            // Check the version property is not present
+            expect(store.getQuads(null, namedNode(DC.custom("isVersionOf"))).length).toBe(0);
+
+            // Check that member is within date constraints
+            expect(new Date(timestampQ.object.value).getTime())
+                .toBeGreaterThan(new Date("2024-03-08T13:00:00.000Z").getTime());
+            expect(memberIds.has(memberId)).toBeFalsy();
+
+            memberIds.add(memberId);
+            count++;
+        });
+
+        // Setup client
+        const exec = await processor(
+            outputStream,
+            "https://era.ilabt.imec.be/rinf/ldes",
+            new Date("2024-03-08T16:00:00.000Z"),
+            new Date("2024-03-08T13:00:00.000Z"),
+            "none",
+            false,
+            undefined,
+            undefined,
+            false,
+            undefined,
+            false,
+            false,
+            true, // This is materialized
+            true // This is lastVersionOnly
+        );
+
+        // Run client
+        await exec();
+        // Check we got some members
+        expect(count).toBeGreaterThan(0);
     });
 });

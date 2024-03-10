@@ -1,8 +1,12 @@
-import { NamedNode, Quad_Subject, Stream, Term } from "@rdfjs/types";
-import { BaseQuad } from "n3";
+import { NamedNode, Quad_Predicate, Quad_Subject, Stream, Term } from "@rdfjs/types";
+import { BaseQuad, DataFactory, Writer } from "n3";
 import { StateFactory, StateT } from "./state";
 import { RdfStore } from "rdf-stores";
 import { RDF, SHACL } from "@treecg/types";
+import { Member } from "./page";
+import { LDESInfo } from "./client";
+
+const { quad } = DataFactory;
 
 export type Notifier<Events, S> = {
   [K in keyof Events]: (event: Events[K], state: S) => void;
@@ -96,6 +100,42 @@ export function extractMainNodeShape(store: RdfStore): NamedNode {
   } else {
      throw new Error("No SHACL Node Shapes found in given shape graph");
   }
+}
+
+/**
+ * Version materialization function that sets the declared ldes:versionOfPath property value
+ * as the member's subject IRI
+ */
+export function maybeVersionMaterialize(member: Member, materialize: boolean, ldesInfo: LDESInfo): Member {
+  if (materialize && ldesInfo.isVersionOfPath) {
+    // Create RDF store with member quads
+    const memberStore = RdfStore.createDefault();
+    member.quads.forEach(q => memberStore.addQuad(q));
+    // Get materialized subject IRI
+    const newSubject = getObjects(memberStore, member.id, ldesInfo.isVersionOfPath)[0];
+    if (newSubject) {
+      // Remove version property
+      memberStore.removeQuad(quad(
+        <Quad_Subject>member.id, 
+        <Quad_Predicate>ldesInfo.isVersionOfPath, 
+        newSubject
+      ));
+      // Updated all quads with materialized subject
+      for (const q of memberStore.getQuads(member.id)) {
+        //q.subject = <Quad_Subject>newSubject;
+        const newQ = quad(<Quad_Subject>newSubject, q.predicate, q.object, q.graph);
+        memberStore.removeQuad(q);
+        memberStore.addQuad(newQ);
+      }
+      // Update member object
+      member.id = newSubject;
+      member.quads = memberStore.getQuads();
+    } else {
+      console.error(`No version property found in Member (${member.id}) as specified by ldes:isVersionOfPath`);
+    }
+  }
+
+  return member;
 }
 
 /**

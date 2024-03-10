@@ -20,6 +20,8 @@ let verbose: boolean = false;
 let save: string | undefined;
 let onlyDefaultGraph: boolean = false;
 let loose: boolean = false;
+let materialize: boolean = false;
+let lastVersionOnly: boolean = false;
 
 program
   .arguments("<url>")
@@ -53,6 +55,8 @@ program
     "--url-is-view",
     "the url is the view url, don't try to find the correct view",
   )
+  .option("--materialize-version", "materialize versioned members")
+  .option("--last-version-only", "emit only the last available version of every member")
   .option("-q --quiet", "be quiet")
   .option("-v --verbose", "be verbose")
   .action((url: string, program) => {
@@ -68,6 +72,8 @@ program
     verbose = program.verbose;
     loose = program.loose;
     onlyDefaultGraph = program.onlyDefaultGraph;
+    materialize = program.materializeVersion;
+    lastVersionOnly = program.lastVersionOnly;
     if (program.after) {
       if (!isNaN(new Date(program.after).getTime())) {
         after = new Date(program.after);
@@ -103,7 +109,9 @@ async function main() {
       shapeFiles,
       onlyDefaultGraph,
       after,
-      before
+      before,
+      materialize,
+      lastVersionOnly
     }),
     undefined,
     undefined,

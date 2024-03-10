@@ -65,8 +65,16 @@ js:LdesClient a js:JsProcess;
       fnom:implementationParameterPosition "11"^^xsd:int;
     ], [
       a fnom:PositionParameterMapping;
-      fnom:functionParameter "verbose";
+      fnom:functionParameter "Materialize";
       fnom:implementationParameterPosition "12"^^xsd:int;
+    ], [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "LastVersionOnly";
+      fnom:implementationParameterPosition "13"^^xsd:int;
+    ], [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "verbose";
+      fnom:implementationParameterPosition "14"^^xsd:int;
     ];
   ].
 
@@ -133,6 +141,16 @@ js:LdesClient a js:JsProcess;
     sh:datatype xsd:boolean;
     sh:path js:urlIsView;
     sh:name "UrlIsView";
+    sh:maxCount 1;
+  ], [
+    sh:datatype xsd:boolean;
+    sh:path js:materialize;
+    sh:name "Materialize";
+    sh:maxCount 1;
+  ], [
+    sh:datatype xsd:boolean;
+    sh:path js:lastVersionOnly;
+    sh:name "LastVersionOnly";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
