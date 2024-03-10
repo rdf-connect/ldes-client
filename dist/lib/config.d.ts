@@ -24,6 +24,8 @@ export interface Config {
     shapes?: ShapeConfig[];
     shapeFiles?: string[];
     onlyDefaultGraph?: boolean;
+    materialize?: boolean;
+    lastVersionOnly?: boolean;
 }
 export interface WithTarget {
     target: Object;

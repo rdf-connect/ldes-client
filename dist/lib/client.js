@@ -181,6 +181,12 @@ class Client {
             const arr = [...set.values()];
             return JSON.stringify(arr);
         }, (inp) => new Set(JSON.parse(inp)), () => new Set());
+        const versionState = this.config.lastVersionOnly
+            ? this.stateFactory.build("versions", (map) => {
+                const arr = [...map.entries()];
+                return JSON.stringify(arr);
+            }, (inp) => new Map(JSON.parse(inp)), () => new Map())
+            : undefined;
         this.streamId = this.streamId || viewQuads[0].subject;
         this.memberManager = new memberManager_1.Manager(this.streamId || viewQuads[0].subject, state.item, info);
         logger("timestampPath %o", !!info.timestampPath);
@@ -202,7 +208,26 @@ class Client {
                         return;
                     }
                 }
-                emit(m);
+                // Check if this is a newer version of this member (if we are extracting the last version only)
+                if (m.isVersionOf && m.timestamp && versionState) {
+                    const versions = versionState.item;
+                    if (versions.has(m.isVersionOf)) {
+                        const registeredDate = versions.get(m.isVersionOf);
+                        if (m.timestamp > registeredDate) {
+                            // We got a newer version
+                            versions.set(m.isVersionOf, m.timestamp);
+                        }
+                        else {
+                            // This is an older version, so we ignore it
+                            return;
+                        }
+                    }
+                    else {
+                        versions.set(m.isVersionOf, m.timestamp);
+                    }
+                }
+                // Check if versioned member is to be materialized
+                emit((0, utils_1.maybeVersionMaterialize)(m, this.config.materialize === true, info));
             },
             pollCycle: () => {
                 this.emit("poll", undefined);
@@ -213,6 +238,9 @@ class Client {
                 close();
             },
         };
+        // Opt for descending order strategy if last version only is true, to start at the end.
+        if (this.config.lastVersionOnly)
+            this.ordered = "descending";
         this.strategy =
             this.ordered !== "none"
                 ? new strategy_1.OrderedStrategy(this.memberManager, this.fetcher, notifier, factory, this.ordered, this.config.polling, this.config.pollInterval)
@@ -257,7 +285,7 @@ async function fetchPage(location, dereferencer) {
     });
     return { url, data };
 }
-async function processor(writer, url, before, after, ordered, follow, pollInterval, shapes, noShape, save, loose, urlIsView, verbose) {
+async function processor(writer, url, before, after, ordered, follow, pollInterval, shapes, noShape, save, loose, urlIsView, materialize, lastVersionOnly, verbose) {
     const client = replicateLDES((0, config_1.intoConfig)({
         loose,
         noShape,
@@ -271,6 +299,8 @@ async function processor(writer, url, before, after, ordered, follow, pollInterv
         pollInterval: pollInterval,
         fetcher: { maxFetched: 2, concurrentRequests: 10 },
         urlIsView,
+        materialize,
+        lastVersionOnly
     }), undefined, undefined, ordered || "none");
     if (verbose) {
         client.on("fragment", () => console.error("Fragment!"));

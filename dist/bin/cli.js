@@ -21,6 +21,8 @@ let verbose = false;
 let save;
 let onlyDefaultGraph = false;
 let loose = false;
+let materialize = false;
+let lastVersionOnly = false;
 program
     .arguments("<url>")
     .addOption(new commander_1.Option("-o --ordered <ordered>", "emit members in order")
@@ -36,6 +38,8 @@ program
     .option("-s, --save <path>", "filepath to the save state file to use, used both to resume and to update")
     .option("-l --loose", "use loose implementation, might work on more ldes streams")
     .option("--url-is-view", "the url is the view url, don't try to find the correct view")
+    .option("--materialize-version", "materialize versioned members")
+    .option("--last-version-only", "emit only the last available version of every member")
     .option("-q --quiet", "be quiet")
     .option("-v --verbose", "be verbose")
     .action((url, program) => {
@@ -51,6 +55,8 @@ program
     verbose = program.verbose;
     loose = program.loose;
     onlyDefaultGraph = program.onlyDefaultGraph;
+    materialize = program.materializeVersion;
+    lastVersionOnly = program.lastVersionOnly;
     if (program.after) {
         if (!isNaN(new Date(program.after).getTime())) {
             after = new Date(program.after);
@@ -85,7 +91,9 @@ async function main() {
         shapeFiles,
         onlyDefaultGraph,
         after,
-        before
+        before,
+        materialize,
+        lastVersionOnly
     }), undefined, undefined, ordered);
     if (verbose) {
         client.on("fragment", () => console.error("Fragment!"));

@@ -88,10 +88,10 @@ class Manager {
             // Do a simple CBD extraction
             quads = await this.extractor.extract(data, member);
         }
-        if (this.state.has(member.value)) {
-            return;
-        }
         if (quads.length > 0) {
+            if (this.state.has(member.value)) {
+                return;
+            }
             this.state.add(member.value);
             // Get timestamp
             let timestamp;
@@ -106,13 +106,21 @@ class Manager {
                     }
                 }
             }
+            // Get canonical identifier of this member
             let isVersionOf;
             if (this.isVersionOfPath) {
-                isVersionOf = quads.find((x) => x.subject.equals(member) && x.predicate.equals(this.isVersionOfPath))?.object.value;
+                isVersionOf = quads.find((x) => x.subject.equals(member) && x.predicate.equals(this.isVersionOfPath))?.object;
             }
+            // This needs to be revised based on what is set on the spec
             const isLastOfTransaction = quads.find((x) => x.subject.equals(member) && x.predicate.equals(namedNode(types_1.LDES.custom("isLastOfTransaction"))))?.object.value === "true";
-            this.members.push({ id: member, quads, timestamp, isVersionOf });
-            return { id: member, quads, timestamp, isVersionOf, isLastOfTransaction };
+            this.members.push({ id: member, quads, timestamp, isVersionOf: isVersionOf ? isVersionOf.value : undefined });
+            return {
+                id: member,
+                quads,
+                timestamp,
+                isVersionOf: isVersionOf ? isVersionOf.value : undefined,
+                isLastOfTransaction
+            };
         }
     }
     // Extract members found in this page, this does not yet emit the members

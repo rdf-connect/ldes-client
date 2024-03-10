@@ -1,7 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ModulatorFactory = exports.extractMainNodeShape = exports.streamToArray = exports.readableToArray = exports.getObjects = exports.getSubjects = void 0;
+exports.ModulatorFactory = exports.maybeVersionMaterialize = exports.extractMainNodeShape = exports.streamToArray = exports.readableToArray = exports.getObjects = exports.getSubjects = void 0;
+const n3_1 = require("n3");
+const rdf_stores_1 = require("rdf-stores");
 const types_1 = require("@treecg/types");
+const { quad } = n3_1.DataFactory;
 function getSubjects(store, predicate, object, graph) {
     return store.getQuads(null, predicate, object, graph).map((quad) => {
         return quad.subject;
@@ -82,6 +85,38 @@ function extractMainNodeShape(store) {
     }
 }
 exports.extractMainNodeShape = extractMainNodeShape;
+/**
+ * Version materialization function that sets the declared ldes:versionOfPath property value
+ * as the member's subject IRI
+ */
+function maybeVersionMaterialize(member, materialize, ldesInfo) {
+    if (materialize && ldesInfo.isVersionOfPath) {
+        // Create RDF store with member quads
+        const memberStore = rdf_stores_1.RdfStore.createDefault();
+        member.quads.forEach(q => memberStore.addQuad(q));
+        // Get materialized subject IRI
+        const newSubject = getObjects(memberStore, member.id, ldesInfo.isVersionOfPath)[0];
+        if (newSubject) {
+            // Remove version property
+            memberStore.removeQuad(quad(member.id, ldesInfo.isVersionOfPath, newSubject));
+            // Updated all quads with materialized subject
+            for (const q of memberStore.getQuads(member.id)) {
+                //q.subject = <Quad_Subject>newSubject;
+                const newQ = quad(newSubject, q.predicate, q.object, q.graph);
+                memberStore.removeQuad(q);
+                memberStore.addQuad(newQ);
+            }
+            // Update member object
+            member.id = newSubject;
+            member.quads = memberStore.getQuads();
+        }
+        else {
+            console.error(`No version property found in Member (${member.id}) as specified by ldes:isVersionOfPath`);
+        }
+    }
+    return member;
+}
+exports.maybeVersionMaterialize = maybeVersionMaterialize;
 /**
  * Factory that creates Modulators
  * This is a factory to keep track whether or not the Modulator should be paused or not.

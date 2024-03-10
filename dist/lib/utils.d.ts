@@ -2,6 +2,8 @@ import { NamedNode, Quad_Subject, Stream, Term } from "@rdfjs/types";
 import { BaseQuad } from "n3";
 import { StateFactory, StateT } from "./state";
 import { RdfStore } from "rdf-stores";
+import { Member } from "./page";
+import { LDESInfo } from "./client";
 export type Notifier<Events, S> = {
     [K in keyof Events]: (event: Events[K], state: S) => void;
 };
@@ -20,6 +22,11 @@ export declare function streamToArray<T extends BaseQuad>(stream: Stream<T>): Pr
  * If more than one is found an exception is thrown.
  */
 export declare function extractMainNodeShape(store: RdfStore): NamedNode;
+/**
+ * Version materialization function that sets the declared ldes:versionOfPath property value
+ * as the member's subject IRI
+ */
+export declare function maybeVersionMaterialize(member: Member, materialize: boolean, ldesInfo: LDESInfo): Member;
 /**
  * Generic interface that represents a structure that ranks elements.
  * Most common is a Prority Queue (heap like) the pops elements in order.

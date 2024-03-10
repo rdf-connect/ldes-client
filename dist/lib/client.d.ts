@@ -54,4 +54,4 @@ export declare class Client {
         size?: (chunk: Member) => number;
     }): ReadableStream<Member>;
 }
-export declare function processor(writer: Writer<string>, url: string, before?: Date, after?: Date, ordered?: string, follow?: boolean, pollInterval?: number, shapes?: string[], noShape?: boolean, save?: string, loose?: boolean, urlIsView?: boolean, verbose?: boolean): Promise<() => Promise<void>>;
+export declare function processor(writer: Writer<string>, url: string, before?: Date, after?: Date, ordered?: string, follow?: boolean, pollInterval?: number, shapes?: string[], noShape?: boolean, save?: string, loose?: boolean, urlIsView?: boolean, materialize?: boolean, lastVersionOnly?: boolean, verbose?: boolean): Promise<() => Promise<void>>;
