@@ -117,20 +117,20 @@ async function main() {
 
   const reader = client.stream({ highWaterMark: 10 }).getReader();
   let el = await reader.read();
-  const seen = new Set();
+  let count = 0;
   while (el) {
     if (el.value) {
-      seen.add(el.value.id);
+      count += 1;
 
       if (!quiet) {
         if (verbose) {
           console.log(new Writer().quadsToString(el.value.quads));
         }
 
-        if (seen.size % 100 == 1) {
+        if (count % 100 == 1) {
           console.error(
             "Got member",
-            seen.size,
+            count,
             "with",
             el.value.quads.length,
             "quads",
@@ -147,7 +147,7 @@ async function main() {
   }
 
   if (!quiet) {
-    console.error("Found", seen.size, "members");
+    console.error("Found", count, "members");
   }
 }
 

@@ -1,12 +1,11 @@
-import { Term, Quad } from "@rdfjs/types";
+import { Quad, Term } from "@rdfjs/types";
 import { Member } from "./page";
 import { FetchedPage } from "./pageFetcher";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { RDF, TREE } from "@treecg/types";
-import Heap from "heap-js";
 import { LDESInfo } from "./client";
 import debug from "debug";
-import { Notifier } from "./utils";
+import { getObjects, Notifier } from "./utils";
 import { RdfStore } from "rdf-stores";
 
 const log = debug("manager");
@@ -26,13 +25,8 @@ export type MemberEvents = {
   extracted: Member;
   done: Member[];
 };
-const getObjects = function (store: RdfStore, subject: Term | null, predicate: Term | null, graph?: Term | null) {
-  return store.getQuads(subject, predicate, null, graph).map((quad) => {
-    return quad.object;
-  });
-}
+
 export class Manager {
-  private members: Heap<Member>;
   public queued: number = 0;
   private resolve?: () => void;
   private ldesId: Term;
@@ -56,15 +50,6 @@ export class Manager {
     this.shapeMap = info.shapeMap;
 
     logger("new %s %o", ldesId.value, info);
-
-    this.members = new Heap((a, b) => {
-      if (a.id.equals(b.id)) return 0;
-      if (a.timestamp == b.timestamp) return 0;
-      if (!a && b) return 1;
-      if (a && !b) return -1;
-      if (a.timestamp! < b.timestamp!) return -1;
-      return 1;
-    });
   }
 
   async close() {
@@ -85,13 +70,16 @@ export class Manager {
     member: Term,
     data: RdfStore,
   ): Promise<Member | undefined> {
-
     let quads: Quad[] = [];
 
     if (this.shapeMap) {
       if (this.shapeMap.size === 1) {
         // Use the only shape available
-        quads = await this.extractor.extract(data, member, Array.from(this.shapeMap.values())[0]);
+        quads = await this.extractor.extract(
+          data,
+          member,
+          Array.from(this.shapeMap.values())[0],
+        );
       } else if (this.shapeMap.size > 1) {
         // Find what is the proper shape for this member based on its rdf:type
         const memberType = getObjects(data, member, RDF.terms.type)[0];
@@ -140,11 +128,12 @@ export class Manager {
       if (this.isVersionOfPath) {
         isVersionOf = quads.find(
           (x) =>
-            x.subject.equals(member) && x.predicate.equals(this.isVersionOfPath),
+            x.subject.equals(member) &&
+            x.predicate.equals(this.isVersionOfPath),
         )?.object.value;
       }
 
-      this.members.push({ id: member, quads, timestamp, isVersionOf });
+      // HEAD
       return { id: member, quads, timestamp, isVersionOf };
     }
   }
