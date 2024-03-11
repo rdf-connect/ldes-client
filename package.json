@@ -22,14 +22,14 @@
   "author": "Arthur Vercruysse",
   "license": "MIT",
   "dependencies": {
-    "@ajuvercr/js-runner": "^0.1.15",
-    "@treecg/types": "^0.4.5",
+    "@ajuvercr/js-runner": "^0.1.17",
+    "@treecg/types": "^0.4.6",
     "@types/debug": "^4.1.10",
     "commander": "^11.1.0",
     "debug": "^4.3.4",
     "extract-cbd-shape": "^0.1.0",
     "heap-js": "^2.3.0",
-    "n3": "^1.17.1",
+    "n3": "^1.17.2",
     "rdf-data-factory": "^1.1.2",
     "rdf-dereference": "^2.2.0",
     "rdf-stores": "^1.0.0"

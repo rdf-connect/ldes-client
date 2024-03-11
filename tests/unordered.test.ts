@@ -57,7 +57,6 @@ describe("Simple Tree", () => {
 
   test("ascending tree, emits ordered", async () => {
     const tree = simpleTree(1);
-
     const base = tree.base() + tree.root();
     const mock = tree.mock();
     global.fetch = mock;
@@ -179,7 +178,7 @@ describe("more complex tree", () => {
       .fragment(tree.root())
       .relation(
         first,
-        TREE.GreaterThanOrEqualRelation,
+        TREE.GreaterThanOrEqualToRelation,
         "http://example.com/value",
         "3",
       );

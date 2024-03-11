@@ -8,10 +8,12 @@ import { Writer } from "n3";
 const program = new Command();
 let paramURL: string = "";
 let paramFollow: boolean = false;
+let after: Date | undefined;
+let before: Date | undefined;
 let paramPollInterval: number;
 let urlIsView = false;
 let noShape = false;
-let shapeFile: string | undefined;
+let shapeFiles: string[] | undefined;
 let ordered: Ordered = "none";
 let quiet: boolean = false;
 let verbose: boolean = false;
@@ -27,8 +29,10 @@ program
       .default("none"),
   )
   .option("-f, --follow", "follow the LDES, the client stays in sync")
+  .option("--after <after>", "follow only relations including members after a certain point in time")
+  .option("--before <before>", "follow only relations including members before a certain point in time")
   .option("--poll-interval <number>", "specify poll interval")
-  .option("--shape-file <shapefile>", "specify a shapefile")
+  .option("--shape-files [shapeFiles...]", "specify a shapefile")
   .option(
     "--no-shape",
     "don't extract members with a shape (only use cbd and named graphs)",
@@ -56,7 +60,7 @@ program
     noShape = !program.shape;
     save = program.save;
     paramURL = url;
-    shapeFile = program.shapeFile;
+    shapeFiles = program.shapeFiles;
     paramFollow = program.follow;
     paramPollInterval = program.pollInterval;
     ordered = program.ordered;
@@ -64,6 +68,22 @@ program
     verbose = program.verbose;
     loose = program.loose;
     onlyDefaultGraph = program.onlyDefaultGraph;
+    if (program.after) {
+      if (!isNaN(new Date(program.after).getTime())) {
+        after = new Date(program.after);
+      } else {
+        console.error(`--after ${program.after} is not a valid date`);
+        process.exit();
+      }
+    }
+    if (program.before) {
+      if (!isNaN(new Date(program.before).getTime())) {
+        before = new Date(program.before);
+      } else {
+        console.error(`--before ${program.before} is not a valid date`);
+        process.exit();
+      }
+    }
   });
 
 program.parse(process.argv);
@@ -80,8 +100,10 @@ async function main() {
       pollInterval: paramPollInterval,
       fetcher: { maxFetched: 2, concurrentRequests: 10 },
       urlIsView: urlIsView,
-      shapeFile,
+      shapeFiles,
       onlyDefaultGraph,
+      after,
+      before
     }),
     undefined,
     undefined,

@@ -29,8 +29,8 @@ export interface Config {
   fetcher: FetcherConfig;
   before?: Date;
   after?: Date;
-  shape?: ShapeConfig;
-  shapeFile?: string;
+  shapes?: ShapeConfig[];
+  shapeFiles?: string[];
   onlyDefaultGraph?: boolean;
 
   // Add flag to indicate in order (default true)

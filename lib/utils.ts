@@ -1,11 +1,23 @@
-import { Stream, Term } from "@rdfjs/types";
+import { NamedNode, Quad_Subject, Stream, Term } from "@rdfjs/types";
 import { BaseQuad } from "n3";
 import { StateFactory, StateT } from "./state";
 import { RdfStore } from "rdf-stores";
+import { RDF, SHACL } from "@treecg/types";
 
 export type Notifier<Events, S> = {
   [K in keyof Events]: (event: Events[K], state: S) => void;
 };
+
+export function getSubjects(
+  store: RdfStore,
+  predicate: Term | null,
+  object: Term | null,
+  graph?: Term | null,
+) {
+  return store.getQuads(null, predicate, object, graph).map((quad) => {
+    return quad.subject;
+  });
+}
 
 export function getObjects(
   store: RdfStore,
@@ -52,6 +64,38 @@ export function streamToArray<T extends BaseQuad>(
       rej(ex);
     });
   });
+}
+
+/**
+ * Find the main sh:NodeShape subject of a given Shape Graph.
+ * We determine this by assuming that the main node shape
+ * is not referenced by any other shape description.
+ * If more than one is found an exception is thrown.
+ */
+export function extractMainNodeShape(store: RdfStore): NamedNode {
+  const nodeShapes = getSubjects(store, RDF.terms.type, SHACL.terms.NodeShape, null);
+  let mainNodeShape = null;
+
+  if (nodeShapes && nodeShapes.length > 0) {
+     for (const ns of nodeShapes) {
+        const isNotReferenced = getSubjects(store, null, ns, null).length === 0;
+
+        if (isNotReferenced) {
+           if (!mainNodeShape) {
+              mainNodeShape = ns;
+           } else {
+              throw new Error("There are multiple main node shapes in a given shape graph. Unrelated shapes must be given as separate shape graphs");
+           }
+        }
+     }
+     if (mainNodeShape) {
+        return <NamedNode>mainNodeShape;
+     } else {
+        throw new Error("No main SHACL Node Shapes found in given shape graph");
+     }
+  } else {
+     throw new Error("No SHACL Node Shapes found in given shape graph");
+  }
 }
 
 /**
@@ -132,7 +176,7 @@ export class ModulatorFactory {
 }
 
 /**
- * Modulator is a stucture that only buffers elements and only handles elements
+ * Modulator is a structure that only buffers elements and only handles elements
  * when the factory is not paused and when not too many items are active at once.
  */
 export interface Modulator<T> {

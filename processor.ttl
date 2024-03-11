@@ -25,40 +25,48 @@ js:LdesClient a js:JsProcess;
       fnom:implementationParameterPosition "1"^^xsd:int;
     ], [
       a fnom:PositionParameterMapping;
-      fnom:functionParameter "Ordered parameter";
+      fnom:functionParameter "Before parameter";
       fnom:implementationParameterPosition "2"^^xsd:int;
     ], [
       a fnom:PositionParameterMapping;
-      fnom:functionParameter "Follow";
+      fnom:functionParameter "After parameter";
       fnom:implementationParameterPosition "3"^^xsd:int;
     ], [
       a fnom:PositionParameterMapping;
-      fnom:functionParameter "Poll interval";
+      fnom:functionParameter "Ordered parameter";
       fnom:implementationParameterPosition "4"^^xsd:int;
     ], [
       a fnom:PositionParameterMapping;
-      fnom:functionParameter "Shape";
+      fnom:functionParameter "Follow";
       fnom:implementationParameterPosition "5"^^xsd:int;
     ], [
       a fnom:PositionParameterMapping;
-      fnom:functionParameter "No Shape";
+      fnom:functionParameter "Poll interval";
       fnom:implementationParameterPosition "6"^^xsd:int;
     ], [
       a fnom:PositionParameterMapping;
-      fnom:functionParameter "Save Path";
+      fnom:functionParameter "Shape";
       fnom:implementationParameterPosition "7"^^xsd:int;
     ], [
       a fnom:PositionParameterMapping;
-      fnom:functionParameter "Loose";
+      fnom:functionParameter "No Shape";
       fnom:implementationParameterPosition "8"^^xsd:int;
     ], [
       a fnom:PositionParameterMapping;
-      fnom:functionParameter "UrlIsView";
+      fnom:functionParameter "Save Path";
       fnom:implementationParameterPosition "9"^^xsd:int;
     ], [
       a fnom:PositionParameterMapping;
-      fnom:functionParameter "verbose";
+      fnom:functionParameter "Loose";
       fnom:implementationParameterPosition "10"^^xsd:int;
+    ], [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "UrlIsView";
+      fnom:implementationParameterPosition "11"^^xsd:int;
+    ], [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "verbose";
+      fnom:implementationParameterPosition "12"^^xsd:int;
     ];
   ].
 
@@ -76,6 +84,16 @@ js:LdesClient a js:JsProcess;
     sh:name "LDES Url";
     sh:maxCount 1;
     sh:minCount 1;
+  ], [
+    sh:datatype xsd:dateTime;
+    sh:path js:before;
+    sh:name "Before parameter";
+    sh:maxCount 1;
+  ], [
+    sh:datatype xsd:dateTime;
+    sh:path js:after;
+    sh:name "After parameter";
+    sh:maxCount 1;
   ], [
     sh:datatype xsd:string;
     sh:path js:ordered;
@@ -95,7 +113,7 @@ js:LdesClient a js:JsProcess;
     sh:datatype xsd:string;
     sh:path js:shapeFile;
     sh:name "Shape";
-    sh:maxCount 1;
+    sh:minCount 0;
   ], [
     sh:datatype xsd:boolean;
     sh:path js:noShape;

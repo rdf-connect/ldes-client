@@ -1,0 +1,19 @@
+@prefix sh: <http://www.w3.org/ns/shacl#>.
+@prefix era: <http://data.europa.eu/949/>.
+@prefix gsp: <http://www.opengis.net/ont/geosparql#>.
+
+[ ] a sh:NodeShape;
+    sh:targetClass era:OperationalPoint;
+    sh:property [
+        sh:path gsp:hasGeometry;
+        sh:node [
+            a sh:NodeShape;
+            sh:targetClass gsp:Geometry
+        ]
+    ], [
+        sh:path era:lineReference;
+        sh:node [
+            a sh:NodeShape;
+            sh:targetClass era:LineReference
+        ]
+    ].
