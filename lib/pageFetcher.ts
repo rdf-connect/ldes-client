@@ -73,12 +73,20 @@ export type Cache = {
 export class Fetcher {
   private dereferencer: RdfDereferencer;
   private loose: boolean;
+  private fetch_f?: typeof fetch;
   private after?: Date;
   private before?: Date;
 
-  constructor(dereferencer: RdfDereferencer, loose: boolean, after?: Date, before?: Date) {
+  constructor(
+    dereferencer: RdfDereferencer,
+    loose: boolean,
+    fetch_f?: typeof fetch,
+    after?: Date,
+    before?: Date,
+  ) {
     this.dereferencer = dereferencer;
     this.loose = loose;
+    this.fetch_f = fetch_f;
     if (after) this.after = after;
     if (before) this.before = before;
   }
@@ -88,6 +96,7 @@ export class Fetcher {
 
     const resp = await this.dereferencer.dereference(node.target, {
       localFiles: true,
+      fetch: this.fetch_f,
     });
 
     node.target = resp.url;
@@ -131,7 +140,13 @@ export class Fetcher {
     });
     logger("Got data %s (%d quads)", node.target, quadCount);
 
-    for (let rel of extractRelations(data, namedNode(resp.url), this.loose, this.after, this.before)) {
+    for (let rel of extractRelations(
+      data,
+      namedNode(resp.url),
+      this.loose,
+      this.after,
+      this.before,
+    )) {
       if (!node.expected.some((x) => x == rel.node)) {
         notifier.relationFound({ from: node, target: rel }, state);
       }

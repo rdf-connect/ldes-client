@@ -32,7 +32,7 @@ export interface Config {
   shapes?: ShapeConfig[];
   shapeFiles?: string[];
   onlyDefaultGraph?: boolean;
-
+  fetch?: typeof fetch;
   // Add flag to indicate in order (default true)
   // Make sure that slower pages to first emit the first members
   //

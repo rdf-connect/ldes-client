@@ -29,8 +29,14 @@ program
       .default("none"),
   )
   .option("-f, --follow", "follow the LDES, the client stays in sync")
-  .option("--after <after>", "follow only relations including members after a certain point in time")
-  .option("--before <before>", "follow only relations including members before a certain point in time")
+  .option(
+    "--after <after>",
+    "follow only relations including members after a certain point in time",
+  )
+  .option(
+    "--before <before>",
+    "follow only relations including members before a certain point in time",
+  )
   .option("--poll-interval <number>", "specify poll interval")
   .option("--shape-files [shapeFiles...]", "specify a shapefile")
   .option(
@@ -88,6 +94,11 @@ program
 
 program.parse(process.argv);
 
+const f = global.fetch;
+global.fetch = (req, options) => {
+  console.log("Global fetch", req);
+  return f(req, options);
+};
 async function main() {
   const client = replicateLDES(
     intoConfig({
@@ -103,7 +114,8 @@ async function main() {
       shapeFiles,
       onlyDefaultGraph,
       after,
-      before
+      before,
+      // fetch: <typeof fetch>fetch_f,
     }),
     undefined,
     undefined,
