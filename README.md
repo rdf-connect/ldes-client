@@ -69,6 +69,27 @@ When a page is ready to be interpretted, the `helper` is asked to interpret the 
 A special value called `marker` is derived from the value of the incoming chain if the chain was important.
 For example, when emitting members in order, the member manager can always extract the members that are found, but can only emit them when a marker is issued and only the members that are smaller than that marker.
 
+**Fault tolerance**
+
+The fetcher tries to be tault tolerant. HTTP codes that indicate that the server is overloaded or something else is going wrong are caught and retried.
+This is the default behaviour when the provided config does not provide a fetch function.
+
+Caught HTTP codes:
+
+- 408: Request timeout
+- 425: Too Early
+- 429: Too Many requests
+- 500: Internal Server Error
+- 502: Bad Gateway
+- 503: Service Unavailable
+- 504: Gateway Timeout
+
+```typescript
+// Provide your own codes with a custom retry function
+config.fetch = retry_fetch(fetch, [408, 425, 429, 500, 502, 503, 504], 500, 5);
+```
+
+
 ### Member Manager
 
 The member manager _just_ extract members and emits them when they are ready.
