@@ -1,7 +1,7 @@
 {
   "name": "ldes-client",
   "description": "This package provides common tooling to work with LDESes.",
-  "version": "0.0.8",
+  "version": "0.0.9-alpha.3",
   "main": "dist/lib/client.js",
   "bin": {
     "ldes-client": "dist/bin/cli.js"
@@ -27,12 +27,13 @@
     "@types/debug": "^4.1.10",
     "commander": "^11.1.0",
     "debug": "^4.3.4",
-    "extract-cbd-shape": "^0.1.0",
+    "extract-cbd-shape": "^0.1.1",
     "heap-js": "^2.3.0",
     "n3": "^1.17.2",
     "rdf-data-factory": "^1.1.2",
     "rdf-dereference": "^2.2.0",
-    "rdf-stores": "^1.0.0"
+    "rdf-stores": "^1.0.0",
+    "throttled-queue": "^2.1.4"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",

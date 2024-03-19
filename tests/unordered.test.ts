@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "@jest/globals";
 import { read, Tree } from "./helper";
 
-import { replicateLDES } from "../lib/client";
+import { replicateLDES, retry_fetch } from "../lib/client";
 import { intoConfig } from "../lib/config";
 import { Parser } from "n3";
 import { TREE } from "@treecg/types";
@@ -338,7 +338,7 @@ describe("more complex tree", () => {
 
     let added = false;
 
-    client.addPollCycle(() => {
+    client.on("poll", () => {
       console.log("Poll cycle!");
       if (!added) {
         tree.fragment(tree.root()).addMember("b", 7);
@@ -389,7 +389,7 @@ describe("more complex tree", () => {
 
     let added = false;
 
-    client.addPollCycle(() => {
+    client.on("poll", () => {
       console.log("Poll cycle!");
       if (!added) {
         tree.fragment(tree.root()).addMember("b", 7);
@@ -413,5 +413,72 @@ describe("more complex tree", () => {
     expect(second.value?.timestamp).toEqual(new Date("7"));
 
     await reader.cancel();
+  });
+
+  test("Exponential backoff works", async () => {
+    const tree = new Tree<number>(
+      (x, numb) =>
+        new Parser().parse(`<${x}> <http://example.com/value> ${numb}.`),
+      "http://example.com/value",
+    );
+    tree.fragment(tree.root()).addMember("a", 5);
+    const frag = tree.newFragment();
+    tree.fragment(tree.root()).relation(frag, "https://w3id.org/tree#relation");
+    tree.fragment(frag).setFailcount(2).addMember("b", 7);
+
+    const base = tree.base() + tree.root();
+    const mock = tree.mock();
+    global.fetch = mock;
+
+    const client = replicateLDES(
+      intoConfig({
+        url: base,
+        fetcher: { maxFetched: 2, concurrentRequests: 10 },
+      }),
+      undefined,
+      undefined,
+      "none",
+    );
+
+    const members = await read(client.stream());
+    expect(members.length).toBe(2);
+  });
+
+  test("Exponential backoff works, handle max retries", async () => {
+    const tree = new Tree<number>(
+      (x, numb) =>
+        new Parser().parse(`<${x}> <http://example.com/value> ${numb}.`),
+      "http://example.com/value",
+    );
+    tree.fragment(tree.root()).addMember("a", 5);
+    const frag = tree.newFragment();
+    tree.fragment(tree.root()).relation(frag, "https://w3id.org/tree#relation");
+    tree.fragment(frag).setFailcount(5).addMember("b", 7);
+
+    const base = tree.base() + tree.root();
+    const mock = tree.mock();
+    global.fetch = mock;
+
+    const client = replicateLDES(
+      intoConfig({
+        url: base,
+        fetch: retry_fetch(fetch, [408, 425, 429, 500, 502, 503, 504], 100, 2),
+      }),
+      undefined,
+      undefined,
+      "none",
+    );
+
+    let thrown = false;
+
+    try {
+      const members = await read(client.stream());
+      console.log("Here", members);
+    } catch (ex) {
+      console.log("Throw", ex);
+      thrown = true;
+    }
+
+    expect(thrown).toBeTruthy();
   });
 });

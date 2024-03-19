@@ -43,8 +43,12 @@ export class UnorderedStrategy {
     //         start member extraction
     // - relationFound: a relation has been found, inFlight += 1 and put it in the queue
     this.fetchNotifier = {
+      error: (error: any) => {
+        this.notifier.error(error, {});
+      },
       scheduleFetch: (node: Node) => {
         this.cacheList.push(node);
+        this.notifier.mutable({}, {});
       },
       pageFetched: (page, { index }) => this.handleFetched(page, index),
       relationFound: ({ from, target }) => {
@@ -54,8 +58,8 @@ export class UnorderedStrategy {
       },
     };
 
-    // Callbacks for the member extractor 
-    // - done: all members have been extracted, we are finally done with a page inFlight -= 1 
+    // Callbacks for the member extractor
+    // - done: all members have been extracted, we are finally done with a page inFlight -= 1
     // - extracted: a member has been found, yeet it
     this.memberNotifier = {
       done: () => {
