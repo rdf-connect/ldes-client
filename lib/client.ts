@@ -21,6 +21,7 @@ import debug from "debug";
 import type { Writer } from "@ajuvercr/js-runner";
 
 export { intoConfig } from "./config";
+export { retry_fetch } from "./utils";
 export type { Member, Page, Relation } from "./page";
 export type { Config, MediatorConfig, ShapeConfig } from "./config";
 
@@ -204,7 +205,9 @@ type EventReceiver<T> = (params: T) => void;
 
 export type ClientEvents = {
   fragment: void;
+  mutable: void;
   poll: void;
+  error: any;
 };
 
 export class Client {
@@ -220,7 +223,6 @@ export class Client {
 
   private modulatorFactory;
 
-  private pollCycle: (() => void)[] = [];
   private stateFactory: StateFactory;
 
   private listeners: {
@@ -274,10 +276,6 @@ export class Client {
     (this.listeners[key] || []).forEach(function (fn) {
       fn(data);
     });
-  }
-
-  addPollCycle(cb: () => void) {
-    this.pollCycle.push(cb);
   }
 
   async init(
@@ -345,6 +343,7 @@ export class Client {
     );
 
     const notifier: Notifier<StrategyEvents, {}> = {
+      error: (ex: any) => this.emit("error", ex),
       fragment: () => this.emit("fragment", undefined),
       member: (m) => {
         // Check if member is within date constraints (if any)
@@ -370,7 +369,9 @@ export class Client {
       },
       pollCycle: () => {
         this.emit("poll", undefined);
-        this.pollCycle.forEach((cb) => cb());
+      },
+      mutable: () => {
+        this.emit("mutable", undefined);
       },
       close: () => {
         this.stateFactory.write();
@@ -409,6 +410,7 @@ export class Client {
     const emitted = longPromise();
     const config: UnderlyingDefaultSource = {
       start: async (controller: Controller) => {
+        this.on("error", controller.error.bind(controller));
         this.modulatorFactory.pause();
         await this.init(
           (member) => {

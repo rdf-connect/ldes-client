@@ -32,24 +32,31 @@ function relationToQuads(rel: Relation): Quad[] {
 }
 
 export async function read(stream: ReadableStream<Member>): Promise<Member[]> {
-  return new Promise(async (res) => {
-    const out: Member[] = [];
-    const reader = stream.getReader();
+  return new Promise(async (res, rej) => {
+    try {
+      const out: Member[] = [];
+      const reader = stream.getReader();
 
-    let el = await reader.read();
-    while (el) {
-      if (el.done || !el.value) break;
-      out.push(el.value);
-      el = await reader.read();
+      let el = await reader.read();
+      while (el) {
+        if (el.done || !el.value) break;
+        out.push(el.value);
+        el = await reader.read();
+      }
+
+      res(out);
+    } catch (ex) {
+      console.log("expect", ex);
+      rej(ex);
     }
-
-    res(out);
   });
 }
 
 export class Fragment<T> {
   private members: { member: T; id: string }[] = [];
   private relations: Relation[] = [];
+
+  private failCount = 0;
   delay?: number;
 
   constructor(delay?: number) {
@@ -60,6 +67,11 @@ export class Fragment<T> {
     ldesId: string,
     memberToQuads: (id: string, member: T) => Quad[],
   ): Quad[] {
+    if (this.failCount > 0) {
+      this.failCount -= 1;
+      throw "I'm failing, oh no";
+    }
+
     const out: Quad[] = [];
     for (let rel of this.relations) {
       out.push(...relationToQuads(rel));
@@ -71,6 +83,11 @@ export class Fragment<T> {
     }
 
     return out;
+  }
+
+  setFailcount(count: number): typeof this {
+    this.failCount = count;
+    return this;
   }
 
   addMember(id: string, member: T): typeof this {
@@ -149,15 +166,20 @@ export class Tree<T> {
       if (fragment.delay) {
         await new Promise((res) => setTimeout(res, fragment.delay));
       }
-      quads.push(...fragment.toQuads(BASE + this.root(), this.memberToQuads));
+      try {
+        quads.push(...fragment.toQuads(BASE + this.root(), this.memberToQuads));
 
-      const respText = new Writer().quadsToString(quads);
+        const respText = new Writer().quadsToString(quads);
 
-      const resp = new Response(respText, {
-        headers: { "content-type": "text/turtle" },
-      });
+        const resp = new Response(respText, {
+          headers: { "content-type": "text/turtle" },
+        });
 
-      return resp;
+        return resp;
+      } catch (ex) {
+        const resp = new Response("I'm too loaded yo", { status: 429 });
+        return resp;
+      }
     });
   }
 }

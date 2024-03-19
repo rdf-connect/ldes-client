@@ -81,9 +81,13 @@ export class OrderedStrategy {
     //         start member extraction
     // - relationFound: a relation has been found, put the extended chain in the queue
     this.fetchNotifier = {
+      error: (error: any) => {
+        this.notifier.error(error, {});
+      },
       scheduleFetch: ({ target, expected }, { chain }) => {
         chain.target = target;
         this.toPoll.push({ chain, expected });
+        this.notifier.mutable({}, {});
       },
       pageFetched: (page, { chain, index }) => {
         logger("Page fetched %s", page.url);

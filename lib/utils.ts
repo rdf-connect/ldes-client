@@ -73,28 +73,35 @@ export function streamToArray<T extends BaseQuad>(
  * If more than one is found an exception is thrown.
  */
 export function extractMainNodeShape(store: RdfStore): NamedNode {
-  const nodeShapes = getSubjects(store, RDF.terms.type, SHACL.terms.NodeShape, null);
+  const nodeShapes = getSubjects(
+    store,
+    RDF.terms.type,
+    SHACL.terms.NodeShape,
+    null,
+  );
   let mainNodeShape = null;
 
   if (nodeShapes && nodeShapes.length > 0) {
-     for (const ns of nodeShapes) {
-        const isNotReferenced = getSubjects(store, null, ns, null).length === 0;
+    for (const ns of nodeShapes) {
+      const isNotReferenced = getSubjects(store, null, ns, null).length === 0;
 
-        if (isNotReferenced) {
-           if (!mainNodeShape) {
-              mainNodeShape = ns;
-           } else {
-              throw new Error("There are multiple main node shapes in a given shape graph. Unrelated shapes must be given as separate shape graphs");
-           }
+      if (isNotReferenced) {
+        if (!mainNodeShape) {
+          mainNodeShape = ns;
+        } else {
+          throw new Error(
+            "There are multiple main node shapes in a given shape graph. Unrelated shapes must be given as separate shape graphs",
+          );
         }
-     }
-     if (mainNodeShape) {
-        return <NamedNode>mainNodeShape;
-     } else {
-        throw new Error("No main SHACL Node Shapes found in given shape graph");
-     }
+      }
+    }
+    if (mainNodeShape) {
+      return <NamedNode>mainNodeShape;
+    } else {
+      throw new Error("No main SHACL Node Shapes found in given shape graph");
+    }
   } else {
-     throw new Error("No SHACL Node Shapes found in given shape graph");
+    throw new Error("No SHACL Node Shapes found in given shape graph");
   }
 }
 
@@ -280,4 +287,34 @@ class ModulatorInstance<T> implements Modulator<T> {
       }
     }
   }
+}
+
+export function retry_fetch(
+  fetch_f: typeof fetch,
+  httpCodes: number[],
+  base = 500,
+  maxRetries = 5,
+): typeof fetch {
+  const retry: typeof fetch = async (input, init) => {
+    let tryCount = 0;
+    let retryTime = base;
+    while (tryCount < maxRetries) {
+      const resp = await fetch_f(input, init);
+      if (!resp.ok) {
+        if (httpCodes.some((x) => x == resp.status)) {
+          // Wait 500ms, 1 second, 2 seconds, 4 seconds, 8 seconds, fail
+          tryCount += 1;
+          await new Promise((res) => setTimeout(res, retryTime));
+          retryTime *= 2;
+          continue;
+        }
+        return resp;
+      }
+      return resp;
+    }
+
+    throw "Max retries";
+  };
+
+  return retry;
 }

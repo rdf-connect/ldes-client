@@ -30,6 +30,8 @@ export type PageAndRelation = {
 export type StrategyEvents = {
   member: Member;
   fragment: {};
+  mutable: {};
   pollCycle: {};
   close: {};
+  error: any;
 };
