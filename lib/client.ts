@@ -1,14 +1,16 @@
 import { Config, intoConfig } from "./config";
 import { Member } from "./page";
 import rdfDereference, { RdfDereferencer } from "rdf-dereference";
-import { FileStateFactory, NoStateFactory, State, StateFactory } from "./state";
+import { FileStateFactory, NoStateFactory, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
 import { Writer as NWriter } from "n3";
 import { Quad_Object, Term } from "@rdfjs/types";
 import {
+  enhanced_fetch,
   extractMainNodeShape,
+  FetchConfig,
   getObjects,
   ModulatorFactory,
   Notifier,
@@ -24,7 +26,7 @@ import type { Writer } from "@ajuvercr/js-runner";
 export { intoConfig } from "./config";
 export { retry_fetch, extractMainNodeShape } from "./utils";
 export type { Member, Page, Relation } from "./page";
-export type { Config, MediatorConfig, ShapeConfig } from "./config";
+export type { Config, ShapeConfig } from "./config";
 
 const log = debug("client");
 const df = new DataFactory();
@@ -34,16 +36,12 @@ type Controller = ReadableStreamDefaultController<Member>;
 export type Ordered = "ascending" | "descending" | "none";
 
 export function replicateLDES(
-  config: Config,
-  states: {
-    membersState?: State;
-    fragmentState?: State;
-    dereferencer?: RdfDereferencer;
-  } = {},
-  streamId?: Term,
+  config: Partial<Config> & { url: string },
   ordered: Ordered = "none",
+  dereferencer?: RdfDereferencer,
+  streamId?: Term,
 ): Client {
-  return new Client(config, states, streamId, ordered);
+  return new Client(intoConfig(config), ordered, dereferencer, streamId);
 }
 
 export type LDESInfo = {
@@ -193,15 +191,9 @@ export class Client {
 
   constructor(
     config: Config,
-    {
-      dereferencer,
-    }: {
-      membersState?: State;
-      fragmentState?: State;
-      dereferencer?: RdfDereferencer;
-    } = {},
-    stream?: Term,
     ordered: Ordered = "none",
+    dereferencer?: RdfDereferencer,
+    stream?: Term,
   ) {
     this.config = config;
     this.dereferencer = dereferencer ?? rdfDereference;
@@ -371,8 +363,17 @@ export class Client {
   }): ReadableStream<Member> {
     const emitted = longPromise();
     const config: UnderlyingDefaultSource = {
+      //
+      // Called when starting the stream
+      //
       start: async (controller: Controller) => {
-        this.on("error", controller.error.bind(controller));
+        this.on("error", (error) => {
+          this.stateFactory.write();
+          this.memberManager.close();
+          this.fetcher.close();
+          controller.error(error);
+        });
+
         this.modulatorFactory.pause();
         await this.init(
           (member) => {
@@ -383,6 +384,10 @@ export class Client {
           this.modulatorFactory,
         );
       },
+
+      //
+      // Called when the internal buffer is not full
+      //
       pull: async () => {
         resetPromise(emitted);
         this.modulatorFactory.unpause();
@@ -390,10 +395,16 @@ export class Client {
         this.modulatorFactory.pause();
         return;
       },
+
+      //
+      // Called when canceled
+      //
       cancel: async () => {
+        log("Canceled");
         this.stateFactory.write();
-        console.log("Canceled");
-        this.strategy.cancle();
+        this.strategy.cancel();
+        this.memberManager.close();
+        this.fetcher.close();
       },
     };
 
@@ -433,9 +444,24 @@ export async function processor(
   loose?: boolean,
   urlIsView?: boolean,
   verbose?: boolean,
+  fetch_config?: {
+    auth?: {
+      type: "basic";
+      auth: string;
+      host: string;
+    };
+    concurrent?: number;
+    retry?: {
+      codes: number[];
+      maxRetries: number;
+    };
+  },
 ) {
+  if (fetch_config?.auth) {
+    fetch_config.auth.host = new URL(url).host;
+  }
   const client = replicateLDES(
-    intoConfig({
+    {
       loose,
       noShape,
       shapeFile: shape,
@@ -444,13 +470,10 @@ export async function processor(
       after,
       before,
       stateFile: save,
-      follow,
       pollInterval: pollInterval,
-      fetcher: { maxFetched: 2, concurrentRequests: 10 },
       urlIsView,
-    }),
-    undefined,
-    undefined,
+      fetch: fetch_config ? enhanced_fetch(fetch_config) : fetch,
+    },
     <Ordered>ordered || "none",
   );
 
@@ -500,3 +523,4 @@ export async function processor(
     }
   };
 }
+

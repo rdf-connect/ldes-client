@@ -4,10 +4,11 @@ import { Ordered, replicateLDES } from "../lib/client";
 import { intoConfig } from "../lib/config";
 import { Command, Option } from "commander";
 import { Writer } from "n3";
+import { enhanced_fetch, FetchConfig } from "../lib/utils";
 
 const program = new Command();
 let paramURL: string = "";
-let paramFollow: boolean = false;
+let polling: boolean = false;
 let after: Date | undefined;
 let before: Date | undefined;
 let paramPollInterval: number;
@@ -20,8 +21,10 @@ let verbose: boolean = false;
 let save: string | undefined;
 let onlyDefaultGraph: boolean = false;
 let loose: boolean = false;
-let concurrent: number = 5;
-let basicAuth: string | undefined;
+
+let fetch_config: FetchConfig = {
+  retry: {},
+};
 
 program
   .arguments("<url>")
@@ -69,21 +72,38 @@ program
     "Allowed amount of concurrent HTTP request to the same domain",
     "5",
   )
+  .option(
+    "--retry-count <retry>",
+    "Retry count per failing request (0 is infinite)",
+    "3",
+  )
+  .option("--http-codes [codes...]", "What HTTP codes to retry")
   .action((url: string, program) => {
     urlIsView = program.urlIsView;
     noShape = !program.shape;
     save = program.save;
     paramURL = url;
     shapeFile = program.shapeFile;
-    paramFollow = program.follow;
+    polling = program.follow;
     paramPollInterval = program.pollInterval;
     ordered = program.ordered;
     quiet = program.quiet;
     verbose = program.verbose;
     loose = program.loose;
     onlyDefaultGraph = program.onlyDefaultGraph;
-    basicAuth = program.basicAuth;
-    concurrent = parseInt(program.concurrent);
+
+    fetch_config.concurrent = parseInt(program.concurrent);
+    if (program.basicAuth) {
+      fetch_config.auth = {
+        auth: program.basicAuth,
+        host: new URL(url).host,
+        type: "basic",
+      };
+    }
+    fetch_config.retry!.maxRetries = parseInt(program.retryCount);
+    if (program.httpCodes) {
+      fetch_config.retry!.codes = program.httpCodes.map(parseInt);
+    }
 
     if (program.after) {
       if (!isNaN(new Date(program.after).getTime())) {
@@ -110,28 +130,30 @@ async function main() {
     intoConfig({
       loose,
       noShape,
-      polling: paramFollow,
+      polling: polling,
       url: paramURL,
       stateFile: save,
-      follow: paramFollow,
       pollInterval: paramPollInterval,
-      fetcher: { maxFetched: 2, concurrentRequests: 10 },
       urlIsView: urlIsView,
       shapeFile,
       onlyDefaultGraph,
       after,
       before,
-      basicAuth,
-      concurrent,
+      fetch: enhanced_fetch(fetch_config),
     }),
-    undefined,
-    undefined,
     ordered,
-    // intoConfig({ url: "http://marineregions.org/feed" }),
   );
 
   if (verbose) {
-    client.on("fragment", () => console.error("Fragment!"));
+    client.on("fragment", () => {
+      console.error("Fragment!");
+    });
+  }
+
+  if (!quiet) {
+    client.on("error", (error) => {
+      console.error("Error", error);
+    });
   }
 
   const reader = client.stream({ highWaterMark: 10 }).getReader();
@@ -170,4 +192,6 @@ async function main() {
   }
 }
 
-main().catch(console.error);
+main().catch(() => {
+  process.exit(1);
+});

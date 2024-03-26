@@ -35,10 +35,10 @@ export type MemberEvents = {
 
 export class Manager {
   public queued: number = 0;
+
+  private closed = false;
   private resolve?: () => void;
   private ldesId: Term;
-
-  private currentPromises: Promise<void>[] = [];
 
   private state: Set<string>;
   private extractor: CBDShapeExtractor;
@@ -59,13 +59,60 @@ export class Manager {
     logger("new %s %o", ldesId.value, info);
   }
 
-  async close() {
+  // Extract members found in this page, this does not yet emit the members
+  extractMembers<S>(
+    page: FetchedPage,
+    state: S,
+    notifier: Notifier<MemberEvents, S>,
+  ) {
+    const logger = log.extend("extract");
+    const members = getObjects(page.data, this.ldesId, TREE.terms.member, null);
+
+    logger("%d members", members.length);
+
+    const promises: Promise<Member | undefined | void>[] = [];
+
+    for (let member of members) {
+      if (!this.state.has(member.value)) {
+        const promise = this.extractMember(member, page.data)
+          .then((member) => {
+            if (member) {
+              if (!this.closed) {
+                notifier.extracted(member, state);
+              }
+            }
+            return member;
+          })
+          .catch((ex) => {
+            logger("Error %o", ex);
+            notifier.error(
+              { error: ex, type: "extract", memberId: member },
+              state,
+            );
+          });
+
+        promises.push(promise);
+      }
+    }
+
+    Promise.all(promises).then((members) => {
+      logger("All members extracted");
+      if (!this.closed) {
+        notifier.done(
+          members.flatMap((x) => (x ? [x] : [])),
+          state,
+        );
+      }
+    });
+  }
+
+  close() {
     log("Closing");
-    await Promise.all(this.currentPromises);
     if (this.resolve) {
       this.resolve();
       this.resolve = undefined;
     }
+    this.closed = true;
     log("this.resolve()");
   }
 
@@ -122,49 +169,6 @@ export class Manager {
     }
   }
 
-  // Extract members found in this page, this does not yet emit the members
-  extractMembers<S>(
-    page: FetchedPage,
-    state: S,
-    notifier: Notifier<MemberEvents, S>,
-  ) {
-    const logger = log.extend("extract");
-    const members = getObjects(page.data, this.ldesId, TREE.terms.member, null);
-
-    logger("%d members", members.length);
-
-    const promises: Promise<Member | undefined | void>[] = [];
-
-    for (let member of members) {
-      if (!this.state.has(member.value)) {
-        const promise = this.extractMember(member, page.data)
-          .then((member) => {
-            if (member) {
-              notifier.extracted(member, state);
-            }
-            return member;
-          })
-          .catch((ex) => {
-            notifier.error(
-              { error: ex, type: "extract", memberId: member },
-              state,
-            );
-          });
-
-        promises.push(promise);
-      }
-    }
-
-    Promise.all(promises).then((members) => {
-      logger("All members extracted");
-      notifier.done(
-        members.flatMap((x) => (x ? [x] : [])),
-        state,
-      );
-    });
-  }
-
-  /// Get a promsie that resolves when a member is submitted
   /// Only listen to this promise if a member is queued
   reset(): Promise<void> {
     const logger = log.extend("reset");

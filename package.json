@@ -1,14 +1,14 @@
 {
   "name": "ldes-client",
   "description": "This package provides common tooling to work with LDESes.",
-  "version": "0.0.9",
+  "version": "0.0.9-alpha.5",
   "main": "dist/lib/client.js",
   "bin": {
     "ldes-client": "dist/bin/cli.js"
   },
   "scripts": {
     "build": "tsc",
-    "test": "bun test"
+    "test": "bun test tests/*.ts"
   },
   "files": [
     "dist/lib/**/*",

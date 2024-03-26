@@ -72,7 +72,7 @@ export class UnorderedStrategy {
     // - done: all members have been extracted, we are finally done with a page inFlight -= 1
     // - extracted: a member has been found, yeet it
     this.memberNotifier = {
-      error: error => {
+      error: (error) => {
         this.notifier.error(error, {});
       },
       done: () => {
@@ -102,7 +102,7 @@ export class UnorderedStrategy {
     }
   }
 
-  cancle() {
+  cancel() {
     this.cancled = true;
   }
 
