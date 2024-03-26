@@ -187,10 +187,9 @@ async function getInfo(
       config.shapes && config.shapes.length > 0 ? shapeConfigStore : store,
       dereferencer,
       {
-        // Updated upstream
         cbdDefaultGraph: config.onlyDefaultGraph,
         fetch: config.fetch,
-      }, //Stashed changes
+      },
     ),
     shapeMap: config.noShape ? undefined : shapeMap,
     timestampPath: timestampPaths[0],
@@ -430,7 +429,7 @@ export class Client {
       },
       cancel: async () => {
         this.stateFactory.write();
-        console.log("Cancled");
+        console.log("Canceled");
         this.strategy.cancle();
       },
     };

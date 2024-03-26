@@ -20,6 +20,7 @@ let verbose: boolean = false;
 let save: string | undefined;
 let onlyDefaultGraph: boolean = false;
 let loose: boolean = false;
+let basicAuth: string | undefined;
 
 program
   .arguments("<url>")
@@ -61,6 +62,7 @@ program
   )
   .option("-q --quiet", "be quiet")
   .option("-v --verbose", "be verbose")
+  .option("--basic-auth <username>:<password>", "HTTP basic auth information")
   .action((url: string, program) => {
     urlIsView = program.urlIsView;
     noShape = !program.shape;
@@ -74,6 +76,7 @@ program
     verbose = program.verbose;
     loose = program.loose;
     onlyDefaultGraph = program.onlyDefaultGraph;
+    basicAuth = program.basicAuth;
     if (program.after) {
       if (!isNaN(new Date(program.after).getTime())) {
         after = new Date(program.after);
@@ -94,11 +97,6 @@ program
 
 program.parse(process.argv);
 
-const f = global.fetch;
-global.fetch = (req, options) => {
-  console.log("Global fetch", req);
-  return f(req, options);
-};
 async function main() {
   const client = replicateLDES(
     intoConfig({
@@ -115,7 +113,7 @@ async function main() {
       onlyDefaultGraph,
       after,
       before,
-      // fetch: <typeof fetch>fetch_f,
+      basicAuth,
     }),
     undefined,
     undefined,
