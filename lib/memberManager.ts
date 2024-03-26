@@ -133,6 +133,16 @@ export class Manager {
   ): Promise<Member | undefined> {
     const quads: Quad[] = await this.extractMemberQuads(member, data);
 
+    // let the extractor do it's thing
+    return await this.extractor.extract(data, member);
+  }
+
+  private async extractMember(
+    member: Term,
+    data: RdfStore,
+  ): Promise<Member | undefined> {
+    const quads: Quad[] = await this.extractMemberQuads(member, data);
+
     if (this.state.has(member.value)) {
       return;
     }
