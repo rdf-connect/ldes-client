@@ -349,7 +349,7 @@ export function handle_basic_auth(
   domain: URL,
 ): typeof fetch {
   const logger = log.extend("auth");
-  let domainRequired = false;
+  let authRequired = false;
 
   const basicAuthValue = `Basic ${Buffer.from(basicAuth).toString("base64")}`;
   const setHeader = (init?: RequestInit): RequestInit => {
@@ -362,7 +362,7 @@ export function handle_basic_auth(
 
   const auth_f: typeof fetch = async (input, init) => {
     let url: URL = urlToUrl(input);
-    if (domainRequired && url.host === domain.host) {
+    if (authRequired && url.host === domain.host) {
       return await fetch_f(input, setHeader(init));
     }
 
@@ -370,7 +370,7 @@ export function handle_basic_auth(
     if (resp.status === 401) {
       logger("Unauthorized, adding basic auth");
       if (url.host === domain.host) {
-        domainRequired = true;
+        authRequired = true;
         return await fetch_f(input, setHeader(init));
       }
     }
