@@ -156,6 +156,10 @@ async function main() {
     });
   }
 
+  if (!quiet) {
+    client.on("error", (error) => console.error("Error", error));
+  }
+
   const reader = client.stream({ highWaterMark: 10 }).getReader();
   let el = await reader.read();
   let count = 0;
