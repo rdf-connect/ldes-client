@@ -157,7 +157,9 @@ async function main() {
   }
 
   if (!quiet) {
-    client.on("error", (error) => console.error("Error", error));
+    client.on("error", (error) => {
+      console.error("Error", error);
+    });
   }
 
   const reader = client.stream({ highWaterMark: 10 }).getReader();
