@@ -157,10 +157,6 @@ export class Fetcher {
     } catch (ex) {
       logger("Fetch failed %o", ex);
       notifier.error(ex, state);
-      notifier.pageFetched(
-        { data: RdfStore.createDefault(), url: node.target },
-        state,
-      );
     }
   }
 }
