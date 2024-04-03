@@ -6,6 +6,7 @@ const rdf_dereference_1 = require("rdf-dereference");
 const state_1 = require("./state");
 const extract_cbd_shape_1 = require("extract-cbd-shape");
 const rdf_stores_1 = require("rdf-stores");
+const rdf_data_factory_1 = require("rdf-data-factory");
 const n3_1 = require("n3");
 const utils_1 = require("./utils");
 const types_1 = require("@treecg/types");
@@ -18,7 +19,8 @@ Object.defineProperty(exports, "intoConfig", { enumerable: true, get: function (
 var utils_2 = require("./utils");
 Object.defineProperty(exports, "retry_fetch", { enumerable: true, get: function () { return utils_2.retry_fetch; } });
 const log = (0, debug_1.default)("client");
-const { namedNode, blankNode, quad } = n3_1.DataFactory;
+const df = new rdf_data_factory_1.DataFactory();
+const { namedNode, blankNode, quad } = df;
 function replicateLDES(config, states = {}, streamId, ordered = "none") {
     return new Client(config, states, streamId, ordered);
 }
