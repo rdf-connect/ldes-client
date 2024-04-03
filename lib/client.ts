@@ -28,7 +28,6 @@ export type { Config, MediatorConfig, ShapeConfig } from "./config";
 
 const log = debug("client");
 const df = new DataFactory();
-const { namedNode, blankNode, quad } = df;
 
 type Controller = ReadableStreamDefaultController<Member>;
 
@@ -92,7 +91,7 @@ async function getInfo(
       } else {
         config.shapes.push({
           quads: quads,
-          shapeId: namedNode(shapeId),
+          shapeId: df.namedNode(shapeId),
         });
       }
     }
@@ -295,7 +294,7 @@ export class Client {
     // TODO Choose a view
     const viewQuads = root.data.getQuads(null, TREE.terms.view, null, null);
 
-    let ldesId: Term = namedNode(this.config.url);
+    let ldesId: Term = df.namedNode(this.config.url);
     if (!this.config.urlIsView) {
       if (viewQuads.length === 0) {
         console.error(
@@ -517,11 +516,11 @@ export async function processor(
           }
         }
 
-        const blank = blankNode();
+        const blank = df.blankNode();
         const quads = el.value.quads.slice();
         quads.push(
-          quad(blank, SDS.terms.stream, <Quad_Object>client.streamId!),
-          quad(blank, SDS.terms.payload, <Quad_Object>el.value.id!),
+          df.quad(blank, SDS.terms.stream, <Quad_Object>client.streamId!),
+          df.quad(blank, SDS.terms.payload, <Quad_Object>el.value.id!),
         );
 
         await writer.push(new NWriter().quadsToString(quads));

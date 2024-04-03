@@ -20,7 +20,6 @@ var utils_2 = require("./utils");
 Object.defineProperty(exports, "retry_fetch", { enumerable: true, get: function () { return utils_2.retry_fetch; } });
 const log = (0, debug_1.default)("client");
 const df = new rdf_data_factory_1.DataFactory();
-const { namedNode, blankNode, quad } = df;
 function replicateLDES(config, states = {}, streamId, ordered = "none") {
     return new Client(config, states, streamId, ordered);
 }
@@ -55,7 +54,7 @@ async function getInfo(ldesId, store, dereferencer, config) {
             else {
                 config.shapes.push({
                     quads: quads,
-                    shapeId: namedNode(shapeId),
+                    shapeId: df.namedNode(shapeId),
                 });
             }
         }
@@ -170,7 +169,7 @@ class Client {
         // Try to get a shape
         // TODO Choose a view
         const viewQuads = root.data.getQuads(null, types_1.TREE.terms.view, null, null);
-        let ldesId = namedNode(this.config.url);
+        let ldesId = df.namedNode(this.config.url);
         if (!this.config.urlIsView) {
             if (viewQuads.length === 0) {
                 console.error("Did not find tree:view predicate, this is required to interpret the LDES");
@@ -301,9 +300,9 @@ async function processor(writer, url, before, after, ordered, follow, pollInterv
                         console.error("Got member", seen.size, "with", el.value.quads.length, "quads");
                     }
                 }
-                const blank = blankNode();
+                const blank = df.blankNode();
                 const quads = el.value.quads.slice();
-                quads.push(quad(blank, types_1.SDS.terms.stream, client.streamId), quad(blank, types_1.SDS.terms.payload, el.value.id));
+                quads.push(df.quad(blank, types_1.SDS.terms.stream, client.streamId), df.quad(blank, types_1.SDS.terms.payload, el.value.id));
                 await writer.push(new n3_1.Writer().quadsToString(quads));
             }
             if (el.done) {
