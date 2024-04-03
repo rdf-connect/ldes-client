@@ -4,7 +4,8 @@ import rdfDereference, { RdfDereferencer } from "rdf-dereference";
 import { FileStateFactory, NoStateFactory, State, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { RdfStore } from "rdf-stores";
-import { DataFactory, Writer as NWriter } from "n3";
+import { DataFactory } from "rdf-data-factory";
+import { Writer as NWriter } from "n3";
 import { Quad_Object, Term } from "@rdfjs/types";
 import {
   extractMainNodeShape,
@@ -26,7 +27,8 @@ export type { Member, Page, Relation } from "./page";
 export type { Config, MediatorConfig, ShapeConfig } from "./config";
 
 const log = debug("client");
-const { namedNode, blankNode, quad } = DataFactory;
+const df = new DataFactory();
+const { namedNode, blankNode, quad } = df;
 
 type Controller = ReadableStreamDefaultController<Member>;
 
