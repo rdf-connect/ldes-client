@@ -65,7 +65,7 @@ describe("Tests for js:LdesClient processor", async () => {
         expect(ordered).toBe("ascending");
         expect(follow).toBeTruthy();
         expect(pollInterval).toBe(5);
-        expect(shapeFiles[0]).toBe("/path/to/shape.ttl");
+        expect(shapeFiles).toBe("/path/to/shape.ttl");
         expect(noShape).toBeFalsy();
         expect(savePath).toBe("/state/save.json");
         expect(loose).toBeFalsy();
