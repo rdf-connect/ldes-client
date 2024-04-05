@@ -1,0 +1,34 @@
+@prefix era: <http://data.europa.eu/949/>.
+@prefix gsp: <http://www.opengis.net/ont/geosparql#>.
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix sh: <http://www.w3.org/ns/shacl#>.
+
+[ ] a sh:NodeShape;
+    sh:property [ # Required rdf:type property
+        sh:path rdf:type;
+        sh:minCount 1;
+        sh:or ( # These values are not validated during member extraction
+            [ sh:hasValue era:ContactLineSystem ]
+            [ sh:hasValue era:ETCSLevel ]
+            [ sh:hasValue era:LoadCapability ]
+            [ sh:hasValue era:NationalRailwayLine ]
+            [ sh:hasValue era:NetElement ]
+            [ sh:hasValue era:NetRelation ]
+            [ sh:hasValue era:OperationalPoint ]
+            [ sh:hasValue era:SectionOfLine ]
+            [ sh:hasValue era:Track ]
+            [ sh:hasValue era:TrainDetectionSystem ]
+        )
+    ], [ # Optional named node property of era:OperationalPoint instances
+        sh:path gsp:hasGeometry;
+        sh:node [
+            a sh:NodeShape;
+            sh:targetClass gsp:Geometry
+        ]
+    ], [ # Optional named node property of era:OperationalPoint instances
+        sh:path era:lineReference;
+        sh:node [
+            a sh:NodeShape;
+            sh:targetClass era:LineReference
+        ]
+    ].

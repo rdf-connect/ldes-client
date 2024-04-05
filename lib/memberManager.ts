@@ -35,7 +35,7 @@ export class Manager {
 
   private state: Set<string>;
   private extractor: CBDShapeExtractor;
-  private shapeMap?: Map<string, Term>;
+  private shapeId?: Term;
 
   private timestampPath?: Term;
   private isVersionOfPath?: Term;
@@ -47,7 +47,7 @@ export class Manager {
     this.extractor = info.extractor;
     this.timestampPath = info.timestampPath;
     this.isVersionOfPath = info.isVersionOfPath;
-    this.shapeMap = info.shapeMap;
+    this.shapeId = info.shape;
 
     logger("new %s %o", ldesId.value, info);
   }
@@ -70,36 +70,7 @@ export class Manager {
     member: Term,
     data: RdfStore,
   ): Promise<Member | undefined> {
-    let quads: Quad[] = [];
-
-    if (this.shapeMap) {
-      if (this.shapeMap.size === 1) {
-        // Use the only shape available
-        quads = await this.extractor.extract(
-          data,
-          member,
-          Array.from(this.shapeMap.values())[0],
-        );
-      } else if (this.shapeMap.size > 1) {
-        // Find what is the proper shape for this member based on its rdf:type
-        const memberType = getObjects(data, member, RDF.terms.type)[0];
-        if (memberType) {
-          const shapeId = this.shapeMap.get(memberType.value);
-          if (shapeId) {
-            quads = await this.extractor.extract(data, member, shapeId);
-          }
-        } else {
-          // There is no rdf:type defined for this member. Fallback to CBD extraction
-          quads = await this.extractor.extract(data, member);
-        }
-      } else {
-        // Do a simple CBD extraction
-        quads = await this.extractor.extract(data, member);
-      }
-    } else {
-      // Do a simple CBD extraction
-      quads = await this.extractor.extract(data, member);
-    }
+    const quads = await this.extractor.extract(data, member, this.shapeId);
 
     if (this.state.has(member.value)) {
       return;
