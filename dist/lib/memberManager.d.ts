@@ -24,7 +24,7 @@ export declare class Manager {
     private currentPromises;
     private state;
     private extractor;
-    private shapeMap?;
+    private shapeId?;
     private timestampPath?;
     private isVersionOfPath?;
     constructor(ldesId: Term, state: Set<string>, info: LDESInfo);

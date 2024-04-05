@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.processor = exports.Client = exports.replicateLDES = exports.retry_fetch = exports.intoConfig = void 0;
+exports.processor = exports.Client = exports.replicateLDES = exports.extractMainNodeShape = exports.retry_fetch = exports.intoConfig = void 0;
 const config_1 = require("./config");
 const rdf_dereference_1 = require("rdf-dereference");
 const state_1 = require("./state");
@@ -18,6 +18,7 @@ var config_2 = require("./config");
 Object.defineProperty(exports, "intoConfig", { enumerable: true, get: function () { return config_2.intoConfig; } });
 var utils_2 = require("./utils");
 Object.defineProperty(exports, "retry_fetch", { enumerable: true, get: function () { return utils_2.retry_fetch; } });
+Object.defineProperty(exports, "extractMainNodeShape", { enumerable: true, get: function () { return utils_2.extractMainNodeShape; } });
 const log = (0, debug_1.default)("client");
 const df = new rdf_data_factory_1.DataFactory();
 function replicateLDES(config, states = {}, streamId, ordered = "none") {
@@ -26,38 +27,19 @@ function replicateLDES(config, states = {}, streamId, ordered = "none") {
 exports.replicateLDES = replicateLDES;
 async function getInfo(ldesId, store, dereferencer, config) {
     const logger = log.extend("getShape");
-    const shapeConfigStore = rdf_stores_1.RdfStore.createDefault();
-    if (config.shapeFiles && config.shapeFiles.length > 0) {
-        config.shapes = [];
-        for (const shapeFile of config.shapeFiles) {
-            const tempShapeStore = rdf_stores_1.RdfStore.createDefault();
-            const shapeId = shapeFile.startsWith("http")
-                ? shapeFile
-                : "file://" + shapeFile;
-            const resp = await rdf_dereference_1.default.dereference(shapeFile, {
-                localFiles: true,
-                fetch: config.fetch,
-            });
-            const quads = await (0, utils_1.streamToArray)(resp.data);
-            // Add retrieved quads to local stores
-            quads.forEach((q) => {
-                tempShapeStore.addQuad(q);
-                shapeConfigStore.addQuad(q);
-            });
-            if (shapeId.startsWith("file://")) {
-                // We have to find the actual IRI/Blank Node of the main shape within the file
-                config.shapes.push({
-                    quads,
-                    shapeId: (0, utils_1.extractMainNodeShape)(tempShapeStore),
-                });
-            }
-            else {
-                config.shapes.push({
-                    quads: quads,
-                    shapeId: df.namedNode(shapeId),
-                });
-            }
-        }
+    if (config.shapeFile) {
+        const shapeId = config.shapeFile.startsWith("http")
+            ? config.shapeFile
+            : "file://" + config.shapeFile;
+        const resp = await rdf_dereference_1.default.dereference(config.shapeFile, {
+            localFiles: true,
+            fetch: config.fetch
+        });
+        const quads = await (0, utils_1.streamToArray)(resp.data);
+        config.shape = {
+            quads: quads,
+            shapeId: df.namedNode(shapeId),
+        };
     }
     let shapeIds = config.noShape
         ? []
@@ -86,42 +68,31 @@ async function getInfo(ldesId, store, dereferencer, config) {
         }
         catch (ex) { }
     }
+    if (shapeIds.length > 1) {
+        console.error("Expected at most one shape id, found " + shapeIds.length);
+    }
     if (timestampPaths.length > 1) {
         console.error("Expected at most one timestamp path, found " + timestampPaths.length);
     }
     if (isVersionOfPaths.length > 1) {
         console.error("Expected at most one versionOf path, found " + isVersionOfPaths.length);
     }
-    // Create a map of shapes and member types
-    const shapeMap = new Map();
-    if (config.shapes) {
-        for (const shape of config.shapes) {
-            const memberType = (0, utils_1.getObjects)(shapeConfigStore, shape.shapeId, types_1.SHACL.terms.targetClass)[0];
-            if (memberType) {
-                shapeMap.set(memberType.value, shape.shapeId);
-            }
-            else {
-                console.error("Ignoring SHACL shape without a declared sh:targetClass: ", shape.shapeId);
-            }
+    const shapeConfigStore = rdf_stores_1.RdfStore.createDefault();
+    if (config.shape) {
+        for (const quad of config.shape.quads) {
+            shapeConfigStore.addQuad(quad);
         }
-    }
-    else {
-        for (const shapeId of shapeIds) {
-            const memberType = (0, utils_1.getObjects)(store, shapeId, types_1.SHACL.terms.targetClass)[0];
-            if (memberType) {
-                shapeMap.set(memberType.value, shapeId);
-            }
-            else {
-                console.error("Ignoring SHACL shape without a declared sh:targetClass: ", shapeId);
-            }
+        // Make sure the shapeId is as defined in the given shape file
+        if (config.shape.shapeId.value.startsWith("file://")) {
+            config.shape.shapeId = (0, utils_1.extractMainNodeShape)(shapeConfigStore);
         }
     }
     return {
-        extractor: new extract_cbd_shape_1.CBDShapeExtractor(config.shapes && config.shapes.length > 0 ? shapeConfigStore : store, dereferencer, {
+        extractor: new extract_cbd_shape_1.CBDShapeExtractor(config.shape ? shapeConfigStore : store, dereferencer, {
             cbdDefaultGraph: config.onlyDefaultGraph,
             fetch: config.fetch,
         }),
-        shapeMap: config.noShape ? undefined : shapeMap,
+        shape: config.shape ? config.shape.shapeId : shapeIds[0],
         timestampPath: timestampPaths[0],
         isVersionOfPath: isVersionOfPaths[0],
     };
@@ -270,11 +241,11 @@ async function fetchPage(location, dereferencer, fetch_f) {
     });
     return { url, data };
 }
-async function processor(writer, url, before, after, ordered, follow, pollInterval, shapes, noShape, save, loose, urlIsView, verbose) {
+async function processor(writer, url, before, after, ordered, follow, pollInterval, shape, noShape, save, loose, urlIsView, verbose) {
     const client = replicateLDES((0, config_1.intoConfig)({
         loose,
         noShape,
-        shapeFiles: shapes,
+        shapeFile: shape,
         polling: follow,
         url: url,
         after,

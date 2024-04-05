@@ -21,8 +21,8 @@ export interface Config {
     fetcher: FetcherConfig;
     before?: Date;
     after?: Date;
-    shapes?: ShapeConfig[];
-    shapeFiles?: string[];
+    shape?: ShapeConfig;
+    shapeFile?: string;
     onlyDefaultGraph?: boolean;
     fetch?: typeof fetch;
     basicAuth?: string;

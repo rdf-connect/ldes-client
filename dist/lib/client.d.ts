@@ -7,7 +7,7 @@ import { Term } from "@rdfjs/types";
 import { ModulatorFactory } from "./utils";
 import type { Writer } from "@ajuvercr/js-runner";
 export { intoConfig } from "./config";
-export { retry_fetch } from "./utils";
+export { retry_fetch, extractMainNodeShape } from "./utils";
 export type { Member, Page, Relation } from "./page";
 export type { Config, MediatorConfig, ShapeConfig } from "./config";
 export type Ordered = "ascending" | "descending" | "none";
@@ -17,7 +17,7 @@ export declare function replicateLDES(config: Config, states?: {
     dereferencer?: RdfDereferencer;
 }, streamId?: Term, ordered?: Ordered): Client;
 export type LDESInfo = {
-    shapeMap?: Map<string, Term>;
+    shape: Term;
     extractor: CBDShapeExtractor;
     timestampPath?: Term;
     isVersionOfPath?: Term;
@@ -55,4 +55,4 @@ export declare class Client {
         size?: (chunk: Member) => number;
     }): ReadableStream<Member>;
 }
-export declare function processor(writer: Writer<string>, url: string, before?: Date, after?: Date, ordered?: string, follow?: boolean, pollInterval?: number, shapes?: string[], noShape?: boolean, save?: string, loose?: boolean, urlIsView?: boolean, verbose?: boolean): Promise<() => Promise<void>>;
+export declare function processor(writer: Writer<string>, url: string, before?: Date, after?: Date, ordered?: string, follow?: boolean, pollInterval?: number, shape?: string, noShape?: boolean, save?: string, loose?: boolean, urlIsView?: boolean, verbose?: boolean): Promise<() => Promise<void>>;

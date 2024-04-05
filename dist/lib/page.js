@@ -132,7 +132,7 @@ function extractRelations(store, node, loose, after, before) {
                         }
                     }
                 }
-                else { /* No filters, everything is allowed*/ }
+                else { /* No filters, everything is allowed */ }
             }
         }
         if (!filteredNodes.has(node.value)) {

@@ -14,7 +14,7 @@ let before;
 let paramPollInterval;
 let urlIsView = false;
 let noShape = false;
-let shapeFiles;
+let shapeFile;
 let ordered = "none";
 let quiet = false;
 let verbose = false;
@@ -31,7 +31,7 @@ program
     .option("--after <after>", "follow only relations including members after a certain point in time")
     .option("--before <before>", "follow only relations including members before a certain point in time")
     .option("--poll-interval <number>", "specify poll interval")
-    .option("--shape-files [shapeFiles...]", "specify a shapefile")
+    .option("--shape-file <shapeFile>", "specify a shapefile")
     .option("--no-shape", "don't extract members with a shape (only use cbd and named graphs)")
     .option("--only-default-graph", "extract members only from the default graph and the member graph")
     .option("-s, --save <path>", "filepath to the save state file to use, used both to resume and to update")
@@ -45,7 +45,7 @@ program
     noShape = !program.shape;
     save = program.save;
     paramURL = url;
-    shapeFiles = program.shapeFiles;
+    shapeFile = program.shapeFile;
     paramFollow = program.follow;
     paramPollInterval = program.pollInterval;
     ordered = program.ordered;
@@ -85,7 +85,7 @@ async function main() {
         pollInterval: paramPollInterval,
         fetcher: { maxFetched: 2, concurrentRequests: 10 },
         urlIsView: urlIsView,
-        shapeFiles,
+        shapeFile,
         onlyDefaultGraph,
         after,
         before,
