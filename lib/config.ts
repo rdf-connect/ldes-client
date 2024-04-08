@@ -1,5 +1,10 @@
 import { NamedNode, Quad } from "@rdfjs/types";
 import { DefaultFetcherConfig, FetcherConfig } from "./pageFetcher";
+import {
+  handle_basic_auth,
+  limit_fetch_per_domain,
+  retry_fetch,
+} from "./utils";
 
 export interface ShapeConfig {
   quads: Quad[];
@@ -29,10 +34,11 @@ export interface Config {
   fetcher: FetcherConfig;
   before?: Date;
   after?: Date;
-  shape?: ShapeConfig;
-  shapeFile?: string;
+  shapes?: ShapeConfig[];
+  shapeFiles?: string[];
   onlyDefaultGraph?: boolean;
-
+  fetch?: typeof fetch;
+  basicAuth?: string;
   // Add flag to indicate in order (default true)
   // Make sure that slower pages to first emit the first members
   //
@@ -67,5 +73,16 @@ export async function getConfig(): Promise<Config & WithTarget> {
 }
 
 export function intoConfig(config: Partial<Config>): Config {
+  if (!config.fetch) {
+    const fetch_f = config.basicAuth
+      ? handle_basic_auth(fetch, config.basicAuth, new URL(config.url!))
+      : fetch;
+
+    config.fetch = limit_fetch_per_domain(
+      retry_fetch(fetch_f, [408, 425, 429, 500, 502, 503, 504, 404]),
+      1,
+    );
+  }
+
   return Object.assign({}, defaultConfig, defaultTarget, config);
 }

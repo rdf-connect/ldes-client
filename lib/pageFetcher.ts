@@ -61,8 +61,8 @@ export interface Helper {
 export type FetchEvent = {
   relationFound: { from: Node; target: Relation };
   pageFetched: FetchedPage;
-  // seen: {};
   scheduleFetch: Node;
+  error: any;
 };
 
 export type Cache = {
@@ -73,67 +73,90 @@ export type Cache = {
 export class Fetcher {
   private dereferencer: RdfDereferencer;
   private loose: boolean;
+  private fetch_f?: typeof fetch;
+  private after?: Date;
+  private before?: Date;
 
-  constructor(dereferencer: RdfDereferencer, loose: boolean) {
+  constructor(
+    dereferencer: RdfDereferencer,
+    loose: boolean,
+    fetch_f?: typeof fetch,
+    after?: Date,
+    before?: Date,
+  ) {
     this.dereferencer = dereferencer;
     this.loose = loose;
+    this.fetch_f = fetch_f;
+    if (after) this.after = after;
+    if (before) this.before = before;
   }
 
   async fetch<S>(node: Node, state: S, notifier: Notifier<FetchEvent, S>) {
     const logger = log.extend("fetch");
 
-    const resp = await this.dereferencer.dereference(node.target, {
-      localFiles: true,
-    });
+    try {
+      const resp = await this.dereferencer.dereference(node.target, {
+        localFiles: true,
+        fetch: this.fetch_f,
+      });
 
-    node.target = resp.url;
+      node.target = resp.url;
 
-    const cache = {} as Cache;
-    if (resp.headers) {
-      const cacheControlCandidate = resp.headers.get("cache-control");
-      if (cacheControlCandidate) {
-        const controls = cacheControlCandidate
-          .split(",")
-          .map((x) => x.split("=", 2).map((x) => x.trim()));
+      const cache = {} as Cache;
+      if (resp.headers) {
+        const cacheControlCandidate = resp.headers.get("cache-control");
+        if (cacheControlCandidate) {
+          const controls = cacheControlCandidate
+            .split(",")
+            .map((x) => x.split("=", 2).map((x) => x.trim()));
 
-        for (let control of controls) {
-          if (control[0] == "max-age") {
-            cache.maxAge = parseInt(control[1]);
-          }
+          for (let control of controls) {
+            if (control[0] == "max-age") {
+              cache.maxAge = parseInt(control[1]);
+            }
 
-          if (control[0] == "immutable") {
-            cache.immutable = true;
+            if (control[0] == "immutable") {
+              cache.immutable = true;
+            }
           }
         }
       }
-    }
 
-    if (!cache.immutable) {
-      notifier.scheduleFetch(node, state);
-    }
-
-    logger("Cache for  %s %o", node.target, cache);
-
-    const data = RdfStore.createDefault();
-    let quadCount = 0;
-    await new Promise((resolve, reject) => {
-      resp.data
-        .on("data", (quad) => {
-          data.addQuad(quad);
-          quadCount++;
-        })
-        .on("end", resolve)
-        .on("error", reject);
-    });
-    logger("Got data %s (%d quads)", node.target, quadCount);
-
-    for (let rel of extractRelations(data, namedNode(resp.url), this.loose)) {
-      if (!node.expected.some((x) => x == rel.node)) {
-        notifier.relationFound({ from: node, target: rel }, state);
+      if (!cache.immutable) {
+        notifier.scheduleFetch(node, state);
       }
-    }
 
-    // TODO check this, is node.target correct?
-    notifier.pageFetched({ data, url: resp.url }, state);
+      logger("Cache for  %s %o", node.target, cache);
+
+      const data = RdfStore.createDefault();
+      let quadCount = 0;
+      await new Promise((resolve, reject) => {
+        resp.data
+          .on("data", (quad) => {
+            data.addQuad(quad);
+            quadCount++;
+          })
+          .on("end", resolve)
+          .on("error", reject);
+      });
+      logger("Got data %s (%d quads)", node.target, quadCount);
+
+      for (let rel of extractRelations(
+        data,
+        namedNode(resp.url),
+        this.loose,
+        this.after,
+        this.before,
+      )) {
+        if (!node.expected.some((x) => x == rel.node)) {
+          notifier.relationFound({ from: node, target: rel }, state);
+        }
+      }
+
+      // TODO check this, is node.target correct?
+      notifier.pageFetched({ data, url: resp.url }, state);
+    } catch (ex) {
+      notifier.error(ex, state);
+    }
   }
 }

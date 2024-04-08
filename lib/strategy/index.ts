@@ -11,7 +11,7 @@ export { OrderedStrategy } from "./ordered";
  */
 export const GTRs = [
   TREE.terms.GreaterThanRelation,
-  TREE.terms.GreaterThanOrEqualRelation,
+  TREE.terms.GreaterThanOrEqualToRelation,
 ];
 
 /**
@@ -30,6 +30,8 @@ export type PageAndRelation = {
 export type StrategyEvents = {
   member: Member;
   fragment: {};
+  mutable: {};
   pollCycle: {};
   close: {};
+  error: any;
 };

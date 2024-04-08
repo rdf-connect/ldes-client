@@ -4,11 +4,16 @@ import rdfDereference, { RdfDereferencer } from "rdf-dereference";
 import { FileStateFactory, NoStateFactory, State, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { RdfStore } from "rdf-stores";
-import { DataFactory } from "rdf-data-factory";
-import { Writer as NWriter } from "n3";
+import { DataFactory, Writer as NWriter } from "n3";
 import { Quad_Object, Term } from "@rdfjs/types";
-import { getObjects, ModulatorFactory, Notifier, streamToArray } from "./utils";
-import { LDES, SDS, TREE } from "@treecg/types";
+import {
+  extractMainNodeShape,
+  getObjects,
+  ModulatorFactory,
+  Notifier,
+  streamToArray,
+} from "./utils";
+import { LDES, SDS, SHACL, TREE } from "@treecg/types";
 import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
 import { Manager } from "./memberManager";
 import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
@@ -16,12 +21,12 @@ import debug from "debug";
 import type { Writer } from "@ajuvercr/js-runner";
 
 export { intoConfig } from "./config";
+export { retry_fetch } from "./utils";
 export type { Member, Page, Relation } from "./page";
 export type { Config, MediatorConfig, ShapeConfig } from "./config";
 
-const df = new DataFactory();
 const log = debug("client");
-const { namedNode, blankNode, quad } = df;
+const { namedNode, blankNode, quad } = DataFactory;
 
 type Controller = ReadableStreamDefaultController<Member>;
 
@@ -41,7 +46,7 @@ export function replicateLDES(
 }
 
 export type LDESInfo = {
-  shape?: Term;
+  shapeMap?: Map<string, Term>;
   extractor: CBDShapeExtractor;
   timestampPath?: Term;
   isVersionOfPath?: Term;
@@ -55,19 +60,40 @@ async function getInfo(
 ): Promise<LDESInfo> {
   const logger = log.extend("getShape");
 
-  if (config.shapeFile) {
-    const shapeId = config.shapeFile.startsWith("http")
-      ? config.shapeFile
-      : "file://" + config.shapeFile;
+  const shapeConfigStore = RdfStore.createDefault();
+  if (config.shapeFiles && config.shapeFiles.length > 0) {
+    config.shapes = [];
 
-    const resp = await rdfDereference.dereference(config.shapeFile, {
-      localFiles: true,
-    });
-    const quads = await streamToArray(resp.data);
-    config.shape = {
-      quads: quads,
-      shapeId: namedNode(shapeId),
-    };
+    for (const shapeFile of config.shapeFiles) {
+      const tempShapeStore = RdfStore.createDefault();
+      const shapeId = shapeFile.startsWith("http")
+        ? shapeFile
+        : "file://" + shapeFile;
+
+      const resp = await rdfDereference.dereference(shapeFile, {
+        localFiles: true,
+        fetch: config.fetch,
+      });
+      const quads = await streamToArray(resp.data);
+      // Add retrieved quads to local stores
+      quads.forEach((q) => {
+        tempShapeStore.addQuad(q);
+        shapeConfigStore.addQuad(q);
+      });
+
+      if (shapeId.startsWith("file://")) {
+        // We have to find the actual IRI/Blank Node of the main shape within the file
+        config.shapes.push({
+          quads,
+          shapeId: extractMainNodeShape(tempShapeStore),
+        });
+      } else {
+        config.shapes.push({
+          quads: quads,
+          shapeId: namedNode(shapeId),
+        });
+      }
+    }
   }
 
   let shapeIds = config.noShape
@@ -93,6 +119,7 @@ async function getInfo(
       logger("Maybe find more info at %s", ldesId.value);
       const resp = await dereferencer.dereference(ldesId.value, {
         localFiles: true,
+        fetch: config.fetch,
       });
       store = RdfStore.createDefault();
       await new Promise((resolve, reject) => {
@@ -110,10 +137,6 @@ async function getInfo(
     } catch (ex: any) {}
   }
 
-  if (shapeIds.length > 1) {
-    console.error("Expected at most one shape id, found " + shapeIds.length);
-  }
-
   if (timestampPaths.length > 1) {
     console.error(
       "Expected at most one timestamp path, found " + timestampPaths.length,
@@ -126,22 +149,49 @@ async function getInfo(
     );
   }
 
-  let shapeConfigStore = RdfStore.createDefault();
-  if (config.shape) {
-    for (let quad of config.shape.quads) {
-      shapeConfigStore.addQuad(quad);
+  // Create a map of shapes and member types
+  const shapeMap = new Map<string, Term>();
+
+  if (config.shapes) {
+    for (const shape of config.shapes) {
+      const memberType = getObjects(
+        shapeConfigStore,
+        shape.shapeId,
+        SHACL.terms.targetClass,
+      )[0];
+      if (memberType) {
+        shapeMap.set(memberType.value, shape.shapeId);
+      } else {
+        console.error(
+          "Ignoring SHACL shape without a declared sh:targetClass: ",
+          shape.shapeId,
+        );
+      }
+    }
+  } else {
+    for (const shapeId of shapeIds) {
+      const memberType = getObjects(store, shapeId, SHACL.terms.targetClass)[0];
+      if (memberType) {
+        shapeMap.set(memberType.value, shapeId);
+      } else {
+        console.error(
+          "Ignoring SHACL shape without a declared sh:targetClass: ",
+          shapeId,
+        );
+      }
     }
   }
 
   return {
     extractor: new CBDShapeExtractor(
-      config.shape ? shapeConfigStore : store,
+      config.shapes && config.shapes.length > 0 ? shapeConfigStore : store,
       dereferencer,
       {
         cbdDefaultGraph: config.onlyDefaultGraph,
+        fetch: config.fetch,
       },
     ),
-    shape: config.shape ? config.shape.shapeId : shapeIds[0],
+    shapeMap: config.noShape ? undefined : shapeMap,
     timestampPath: timestampPaths[0],
     isVersionOfPath: isVersionOfPaths[0],
   };
@@ -154,7 +204,9 @@ type EventReceiver<T> = (params: T) => void;
 
 export type ClientEvents = {
   fragment: void;
+  mutable: void;
   poll: void;
+  error: any;
 };
 
 export class Client {
@@ -170,7 +222,6 @@ export class Client {
 
   private modulatorFactory;
 
-  private pollCycle: (() => void)[] = [];
   private stateFactory: StateFactory;
 
   private listeners: {
@@ -226,10 +277,6 @@ export class Client {
     });
   }
 
-  addPollCycle(cb: () => void) {
-    this.pollCycle.push(cb);
-  }
-
   async init(
     emit: (member: Member) => void,
     close: () => void,
@@ -237,7 +284,11 @@ export class Client {
   ): Promise<void> {
     const logger = log.extend("init");
     // Fetch the url
-    const root = await fetchPage(this.config.url, this.dereferencer);
+    const root = await fetchPage(
+      this.config.url,
+      this.dereferencer,
+      this.config.fetch,
+    );
     // Try to get a shape
     // TODO Choose a view
     const viewQuads = root.data.getQuads(null, TREE.terms.view, null, null);
@@ -282,16 +333,44 @@ export class Client {
       throw "Can only emit members in order, if LDES is configured with timestampPath";
     }
 
-    this.fetcher = new Fetcher(this.dereferencer, this.config.loose);
+    this.fetcher = new Fetcher(
+      this.dereferencer,
+      this.config.loose,
+      this.config.fetch,
+      this.config.after,
+      this.config.before,
+    );
 
     const notifier: Notifier<StrategyEvents, {}> = {
+      error: (ex: any) => this.emit("error", ex),
       fragment: () => this.emit("fragment", undefined),
       member: (m) => {
+        // Check if member is within date constraints (if any)
+        if (this.config.before) {
+          if (
+            m.timestamp &&
+            m.timestamp instanceof Date &&
+            m.timestamp > this.config.before
+          ) {
+            return;
+          }
+        }
+        if (this.config.after) {
+          if (
+            m.timestamp &&
+            m.timestamp instanceof Date &&
+            m.timestamp < this.config.after
+          ) {
+            return;
+          }
+        }
         emit(m);
       },
       pollCycle: () => {
         this.emit("poll", undefined);
-        this.pollCycle.forEach((cb) => cb());
+      },
+      mutable: () => {
+        this.emit("mutable", undefined);
       },
       close: () => {
         this.stateFactory.write();
@@ -330,6 +409,7 @@ export class Client {
     const emitted = longPromise();
     const config: UnderlyingDefaultSource = {
       start: async (controller: Controller) => {
+        this.on("error", controller.error.bind(controller));
         this.modulatorFactory.pause();
         await this.init(
           (member) => {
@@ -349,7 +429,7 @@ export class Client {
       },
       cancel: async () => {
         this.stateFactory.write();
-        console.log("Cancled");
+        console.log("Canceled");
         this.strategy.cancle();
       },
     };
@@ -362,8 +442,12 @@ export class Client {
 async function fetchPage(
   location: string,
   dereferencer: RdfDereferencer,
+  fetch_f?: typeof fetch,
 ): Promise<FetchedPage> {
-  const resp = await dereferencer.dereference(location, { localFiles: true });
+  const resp = await dereferencer.dereference(location, {
+    localFiles: true,
+    fetch: fetch_f,
+  });
   const url = resp.url;
   const data = RdfStore.createDefault();
   await new Promise((resolve, reject) => {
@@ -375,10 +459,12 @@ async function fetchPage(
 export async function processor(
   writer: Writer<string>,
   url: string,
+  before?: Date,
+  after?: Date,
   ordered?: string,
   follow?: boolean,
   pollInterval?: number,
-  shape?: string,
+  shapes?: string[],
   noShape?: boolean,
   save?: string,
   loose?: boolean,
@@ -389,9 +475,11 @@ export async function processor(
     intoConfig({
       loose,
       noShape,
-      shapeFile: shape,
+      shapeFiles: shapes,
       polling: follow,
       url: url,
+      after,
+      before,
       stateFile: save,
       follow,
       pollInterval: pollInterval,
