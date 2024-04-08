@@ -1,6 +1,6 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1709729739351,
-  "repoUrl": "https://github.com/TREEcg/ldes-client",
+  "lastUpdate": 1712571511420,
+  "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
       {
@@ -62,6 +62,37 @@ window.BENCHMARK_DATA = {
             "range": "±20.23%",
             "unit": "ops/sec",
             "extra": "69 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xueying_deng@outlook.com",
+            "name": "XD",
+            "username": "xdxxxdx"
+          },
+          "committer": {
+            "email": "xueying_deng@outlook.com",
+            "name": "XD",
+            "username": "xdxxxdx"
+          },
+          "distinct": true,
+          "id": "1f4d76d225db157fea8463599cfb26d2e7373ef9",
+          "message": "Merge branch 'feat/perf' of https://github.com/rdf-connect/ldes-client into feat/perf",
+          "timestamp": "2024-04-08T12:17:58+02:00",
+          "tree_id": "d9ccdd8010f56314f9785d14ac1c162fe9d2fe8a",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/1f4d76d225db157fea8463599cfb26d2e7373ef9"
+        },
+        "date": 1712571511025,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "descending tree, emits ordered",
+            "value": 123354,
+            "range": "±5.41%",
+            "unit": "ops/sec",
+            "extra": "82 samples"
           }
         ]
       }
