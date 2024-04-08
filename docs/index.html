@@ -15,11 +15,17 @@
         margin: 8px;
         font-size: 1em;
         font-weight: 400;
+        /* zoom: 80%; */
       }
       header {
+        position: relative;
         margin-bottom: 8px;
+        font-size: larger;
+        color:#fff;
         display: flex;
         flex-direction: column;
+        background-color: #00a300;
+        padding: 8px;
       }
       main {
         width: 100%;
@@ -35,14 +41,16 @@
         color: #000;
       }
       button {
+        position: relative;
+        font-size: larger;
         color: #fff;
-        background-color: #3298dc;
+        background-color: green;
         border-color: transparent;
         cursor: pointer;
         text-align: center;
       }
       button:hover {
-        background-color: #2793da;
+        background-color: green;
         flex: none;
       }
       .spacer {
@@ -52,9 +60,14 @@
         font-size: 0.75rem;
       }
       footer {
+        font-size: larger;
         margin-top: 16px;
         display: flex;
+        background-color: #00a300;
         align-items: center;
+        color: #fff;
+        padding: 5px;
+        position: relative;
       }
       .header-label {
         margin-right: 4px;
@@ -82,12 +95,36 @@
       .benchmark-chart {
         max-width: 1000px;
       }
+
+      .navigation {
+      border:2px solid green;
+      position:fixed;
+      top:16%;
+      bottom:10%;
+      font-size: larger;
+      padding: 2px;
+			float: left; 
+			width: 420px;
+			background-color: white;
+      color:black;
+      overflow:scroll;
+		 }		
+      .content {
+        position: relative;
+        margin-left: 440px; 
+        padding: 10px;
+        background-color: #fff;
+      }
     </style>
     <title>Benchmarks</title>
   </head>
 
   <body>
     <header id="header">
+      <div class="header-item">
+        <strong class="header-label">Tree community group:</strong>
+        <a style = "color: white; font-weight:bold">https://tree.linkeddatafragments.org/</a>
+      </div>
       <div class="header-item">
         <strong class="header-label">Last Update:</strong>
         <span id="last-update"></span>
