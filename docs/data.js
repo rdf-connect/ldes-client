@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712571511420,
+  "lastUpdate": 1712577218970,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -93,6 +93,37 @@ window.BENCHMARK_DATA = {
             "range": "±5.41%",
             "unit": "ops/sec",
             "extra": "82 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xueying_deng@outlook.com",
+            "name": "XD",
+            "username": "xdxxxdx"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d011f1a66fa30d1d9234feeed3481fdc30be8bf1",
+          "message": "Update perf-test.yml",
+          "timestamp": "2024-04-08T13:53:09+02:00",
+          "tree_id": "cf007896a539e4c85c349aa3e077accbcb3aba7a",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/d011f1a66fa30d1d9234feeed3481fdc30be8bf1"
+        },
+        "date": 1712577218415,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "descending tree, emits ordered",
+            "value": 116522,
+            "range": "±6.61%",
+            "unit": "ops/sec",
+            "extra": "76 samples"
           }
         ]
       }
