@@ -11,7 +11,8 @@
     "test": "bun test"
   },
   "files": [
-    "dist/**/*",
+    "dist/lib/**/*",
+    "dist/bin/**/*",
     "processor.ttl"
   ],
   "directories": {

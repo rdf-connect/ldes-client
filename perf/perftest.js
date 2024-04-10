@@ -1,7 +1,7 @@
 const Benchmark = require("benchmark");
 const { replicateLDES } = require("../dist/lib/client");
 const { intoConfig } = require("../dist/lib/config");
-const { Tree } = require("../tests/helper");
+const { Tree } = require("../dist/tests/helper");
 const { Parser } = require("n3");
 const { TREE } = require("@treecg/types");
 
@@ -95,4 +95,3 @@ suite.add("tree-3-3", {
   })
   // run async
   .run({ "async": true });
-
