@@ -5,9 +5,8 @@ const { Tree } = require("../tests/helper");
 const { Parser } = require("n3");
 const { TREE } = require("@treecg/types");
 
-const tree = new Tree(
+let tree = new Tree(
   (x, numb) => {
-    console.log("x", x, "numb", numb);
     if (!numb) {
       return new Parser().parse(`<${x}> <http://example.com/value> 0.`);
     } else {
@@ -17,13 +16,26 @@ const tree = new Tree(
   "http://example.com/value",
 );
 
+function build_tree(depth, width, delay = 200, member_count = 5) {
+  tree = new Tree(
+    (x, numb) => {
+      if (!numb) {
+        return new Parser().parse(`<${x}> <http://example.com/value> 0.`);
+      } else {
+        return new Parser().parse(`<${x}> <http://example.com/value> ${numb}.`);
+      }
+    },
+    "http://example.com/value",
+  );
+  wide_tree(depth, width, tree.root(), 0, delay, member_count);
+}
+
 function wide_tree(depth, width, node, member, delay, memberCount) {
-  if (depth == 0) return;
+  if (depth == 0) return member;
 
   const newId = tree.newFragment(delay);
   const frag = tree.fragment(newId);
   tree.fragment(node).relation(newId, TREE.Relation);
-  console.log("setting up relation", node, "->", newId);
 
   for (let i = 0; i < memberCount; i++) {
     frag.addMember("member-" + member, member);
@@ -37,12 +49,7 @@ function wide_tree(depth, width, node, member, delay, memberCount) {
   return member;
 }
 
-wide_tree(2, 3, tree.root(), 0, 200, 5);
-global.fetch = tree.mock();
-
-let concurrent = 0;
 async function bench_it() {
-  concurrent += 1;
   let client = replicateLDES(
     intoConfig({
       url: tree.base() + tree.root(),
@@ -58,14 +65,34 @@ async function bench_it() {
   const stream = client.stream();
   const members = stream.getReader();
 
-  console.log("concurrent", concurrent);
   let item = await members.read();
   while (item && !item.done) {
     item = await members.read();
   }
-  console.log("DONE");
+  console.log("run finished");
 }
 
-const bench = new Benchmark(bench_it, { async: false });
-bench.hz = 1;
-bench.run({ maxTime: 500, delay: 20 });
+var suite = new Benchmark.Suite();
+
+build_tree(3, 3, 50, 10);
+global.fetch = tree.mock();
+
+// add tests
+suite.add("tree-3-3", {
+  defer: true,
+
+  fn: async function (deferred) {
+    await bench_it();
+    deferred.resolve();
+  },
+})
+  // add listeners
+  .on("cycle", function (event) {
+    console.log(String(event.target));
+  })
+  .on("complete", function () {
+    console.log("Fastest is " + this.filter("fastest").map("name"));
+  })
+  // run async
+  .run({ "async": true });
+
