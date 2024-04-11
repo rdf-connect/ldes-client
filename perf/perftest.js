@@ -5,6 +5,9 @@ const { Tree } = require("../dist/tests/helper");
 const { Parser } = require("n3");
 const { TREE } = require("@treecg/types");
 
+// Increase the max listeners to prevent warnings
+process.setMaxListeners(20);
+
 let tree = new Tree(
   (x, numb) => {
     if (!numb) {
