@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico" />
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes" />
     <style>
@@ -116,7 +117,7 @@
         background-color: #fff;
       }
     </style>
-    <title>Benchmarks</title>
+    <title>TREEcg - LDES Client Benchmark Chart</title>
   </head>
 
   <body>
@@ -134,11 +135,22 @@
         <a style = "color: white; font-weight:bold" id="repository-link" rel="noopener"></a>
       </div>
     </header>
+
+  
+    <div class="navigation">
+      <p style="font-weight: bold;">The diagrams present the historical performance tests run <a href="https://github.com/TREEcg/extract-cbd-shape/commits/main">GitHub Commits</a>  based on the<a href="https://treecg.github.io/specification/#member-extraction-algorithm"> member extraction algorithm</a>.</p>
+      <p>The results contain the performance of the LDES client</p>
+      <ul>     
+      <li>tree-3-3: client runs on a balance tree and extract 5 members.</li>
+    </ul> 
+    </div>
+    <div class="content">
     <main id="main"></main>
+    </div>
     <footer>
-      <button id="dl-button">Download data as JSON</button>
+      <button style="font-weight: bold;" id="dl-button">Download data as JSON</button>
       <div class="spacer"></div>
-      <div class="small">Powered by <a rel="noopener" href="https://github.com/marketplace/actions/continuous-benchmark">github-action-benchmark</a></div>
+      <div class="small"> <strong>Linked Data Event Streams:</strong> <a style = "color: white; font-weight:bold" rel="noopener" href="https://semiceu.github.io/LinkedDataEventStreams/">https://semiceu.github.io/LinkedDataEventStreams/</a></div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.2/dist/Chart.min.js"></script>
