@@ -3,10 +3,10 @@ import { Notifier } from "./utils";
 import { extractRelations, Relation } from "./page";
 import debug from "debug";
 import { SimpleRelation } from "./relation";
-import { RdfStore } from "rdf-stores";
+import { RdfStore, RdfStoreIndexNestedMapQuoted, TermDictionaryNumberRecordFullTerms } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
 const log = debug("fetcher");
-const { namedNode } = new DataFactory();
+const df = new DataFactory();
 
 /**
  * target: url to fetch
@@ -124,22 +124,27 @@ export class Fetcher {
 
       logger("Cache for  %s %o", node.target, cache);
 
-      const data = RdfStore.createDefault();
-      let quadCount = 0;
+      const data = new RdfStore<number>({
+        indexCombinations: [
+          [ 'graph', 'object', 'predicate', 'subject' ],
+          [ 'graph', 'subject', 'predicate', 'object' ],
+          [ 'graph', 'predicate', 'object', 'subject' ],
+          [ 'graph', 'object', 'subject', 'predicate' ],
+        ],
+        indexConstructor: subOptions => new RdfStoreIndexNestedMapQuoted(subOptions),
+        dictionary: new TermDictionaryNumberRecordFullTerms(),
+        dataFactory: df,
+        termsCardinalitySets: ['graph'] //enable quick overview of graphs
+      });
+      logger("Start loading " + node.target + "into store");
       await new Promise((resolve, reject) => {
-        resp.data
-          .on("data", (quad) => {
-            data.addQuad(quad);
-            quadCount++;
-          })
-          .on("end", resolve)
+        data.import(resp.data).on("end", resolve)
           .on("error", reject);
       });
-
-      logger("Got data %s (%d quads)", node.target, quadCount);
+      logger("Imported data %s (%d quads)", node.target, data.size);
       for (let rel of extractRelations(
         data,
-        namedNode(resp.url),
+        df.namedNode(resp.url),
         this.loose,
         this.after,
         this.before,

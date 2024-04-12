@@ -44,6 +44,8 @@ export class Manager {
   private extractor: CBDShapeExtractor;
   private shapeId?: Term;
 
+  private members: Array<Term>;
+
   private timestampPath?: Term;
   private isVersionOfPath?: Term;
 
@@ -67,7 +69,7 @@ export class Manager {
   ) {
     const logger = log.extend("extract");
     const members = getObjects(page.data, this.ldesId, TREE.terms.member, null);
-
+    this.members = members;
     logger("%d members", members.length);
 
     const promises: Promise<Member | undefined | void>[] = [];

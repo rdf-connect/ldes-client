@@ -148,7 +148,6 @@ async function getInfo(
       config.shape ? shapeConfigStore : store,
       dereferencer,
       {
-        cbdDefaultGraph: config.onlyDefaultGraph,
         fetch: config.fetch,
       },
     ),
@@ -423,7 +422,17 @@ async function fetchPage(
     fetch: fetch_f,
   });
   const url = resp.url;
-  const data = RdfStore.createDefault();
+  const data = new RdfStore<number>({
+    indexCombinations: [
+      [ 'graph', 'subject', 'predicate', 'object' ],
+      [ 'graph', 'predicate', 'object', 'subject' ],
+      [ 'graph', 'object', 'subject', 'predicate' ],
+    ],
+    indexConstructor: subOptions => new RdfStoreIndexNestedMapQuoted(subOptions),
+    dictionary: new TermDictionaryNumberRecordFullTerms(),
+    dataFactory: df,
+    termsCardinalitySets:  [ 'graph'] //enable quick overview of graphs using getGraph();
+  });
   await new Promise((resolve, reject) => {
     data.import(resp.data).on("end", resolve).on("error", reject);
   });
