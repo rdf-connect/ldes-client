@@ -178,7 +178,7 @@ export function extractRelations(
               continue;
             }
           }
-        } else { /* No filters, everything is allowed*/ }
+        } else { /* No filters, everything is allowed */ }
       }
     }
 

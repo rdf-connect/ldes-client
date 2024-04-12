@@ -1,0 +1,417 @@
+@prefix era: <http://data.europa.eu/949/> .
+@prefix era-sh: <http://data.europa.eu/949/shapes/> .
+@prefix gsp: <http://www.opengis.net/ont/geosparql#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix wgs: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+
+[ ] a sh:NodeShape ;
+    sh:xone (
+        era-sh:contactLineSystemShape
+        era-sh:etcsLevelShape
+        era-sh:loadCapabilityShape
+        era-sh:nationalLineShape
+        era-sh:netElementShape
+        era-sh:netRelationShape
+        era-sh:operationalPointShape
+        era-sh:sectionOfLineShape
+        era-sh:opTrackShape
+        era-sh:solTrackShape
+        era-sh:trainDetectionSystemShape
+        # TODO:
+        #era-sh:platformShape
+        #era-sh:sidingShape
+        #era-sh:tunnelShape
+    ) .
+
+# Shape adapted from https://github.com/Interoperable-data/ERA_vocabulary/blob/main/era-shacl/RINF-contact-line-systems.ttl
+era-sh:contactLineSystemShape a sh:NodeShape ;
+    sh:targetClass era:ContactLineSystem ;
+    sh:property [
+        a sh:PropertyShape ;
+        rdfs:comment "Indication of the type of the contact line system" ;
+        era:rinfIndex "1.1.1.2.2.1.1" ;
+        sh:path era:contactLineSystemType ;
+        sh:minCount 0 ; #TODO: Not yet applicable
+        sh:nodeKind sh:IRI ;
+    	#sh:class skos:Concept ; #TODO: Check error
+        #skos:inScheme era-cls:ContactLineSystems ;
+        sh:severity sh:Violation ;
+        sh:message "contactLineSystemType (1.1.1.2.2.1.1): The contact line system must define the type."@en
+    ], [
+        a sh:PropertyShape ;
+        rdfs:comment "Indication of the traction supply system" ;
+        era:rinfIndex "1.1.1.2.2.1.2" ;
+        sh:path era:energySupplySystem ;
+        sh:minCount 0 ; #TODO: Not yet applicable
+        sh:nodeKind sh:IRI ;
+    	#sh:class skos:Concept ; #TODO: Check error
+        #skos:inScheme era-ess:EnergySupplySystems ;
+        sh:severity sh:Violation ;
+        sh:message "energySupplySystem (1.1.1.2.2.1.2): The contact line system must define the energy supply system."@en
+    ], [
+        a sh:PropertyShape ;
+        rdfs:comment "Indication if the traction supply system is fully compilant with TSI" ;
+        era:rinfIndex "1.1.1.2.2.1.2.1" ;
+        sh:path era:energySupplySystemTSICompliant ;
+        sh:minCount 0 ; #TODO: Not yet applicable
+        sh:datatype xsd:boolean ;
+        sh:severity sh:Violation ;
+        sh:message "energySupplySystemTSICompliant (1.1.1.2.2.1.2.1): The contact line system must define if the energy supply system is fully compilant with TSI."@en
+    ], [
+        a sh:PropertyShape ;
+        rdfs:comment "Umax2 for lines referred to in sections 7.4.2.2.1 and 7.4.2.11.1 of Regulation (EU) 1301/2014" ;
+        era:rinfIndex "1.1.1.2.2.1.3" ;
+        sh:path era:umax2 ;
+        sh:minCount 0 ; #TODO: Not yet applicable
+        sh:datatype xsd:integer ;
+        sh:pattern "[1-9]\\d{0,5}|0" ;
+        sh:severity sh:Violation ;
+        sh:message "umax2 (1.1.1.2.2.1.3): The contact line system must define the Umax2"@en
+    ], [
+        a sh:PropertyShape ;
+        rdfs:comment "Indication of the maximum allowable train current" ;
+        era:rinfIndex "1.1.1.2.2.2" ;
+        sh:path era:maxTrainCurrent ;
+        sh:minCount 0 ; #TODO: Not yet applicable
+        sh:datatype xsd:integer ;
+        sh:pattern "[1-9]\\d{0,3}|0" ;
+        sh:severity sh:Violation ;
+        sh:message "maxTrainCurrent (1.1.1.2.2.2): The contact line system must define the maximum allowable train current."@en
+    ], [
+        a sh:PropertyShape ;
+        rdfs:comment "Indication of the maximum allowable current at standstill per pantograph" ;
+        era:rinfIndex "1.1.1.2.2.3" ;
+        sh:path era:maxCurrentStandstillPantograph ;
+        sh:minCount 0 ; #TODO: Not yet applicable
+        sh:datatype xsd:double ;
+        sh:pattern "[1-9]\\d{0,2}|0" ;
+        sh:severity sh:Violation ;
+        sh:message "maxCurrentStandstillPantograph (1.1.1.2.2.3): The contact line system must define the maximum allowable current at standstill per pantograph."@en
+    ], [
+        a sh:PropertyShape ;
+        rdfs:comment "Indication if the regenerative brake is permitted" ;
+        era:rinfIndex "1.1.1.2.2.4" ;
+        sh:path era:conditionalRegenerativeBrake ;
+        sh:minCount 0 ; #TODO: Not yet applicable
+        sh:datatype xsd:boolean ;
+        sh:severity sh:Violation ;
+        sh:message "conditionalRegenerativeBrake (1.1.1.2.2.4): The contact line system must define if the regenerative brake is permitted."@en
+    ], [
+        a sh:PropertyShape ;
+        rdfs:comment "Indication of the current or power limitation on board required" ;
+        era:rinfIndex "1.1.1.2.5.1" ;
+        sh:path era:currentLimitationRequired ;
+        sh:minCount 0 ; #TODO: Not yet applicable
+        sh:datatype xsd:boolean ;
+        sh:severity sh:Violation ;
+        sh:message "currentLimitationRequired (1.1.1.2.5.1): The contact line system must define the current or power limitation on board required."@en
+    ] .
+
+# TODO: adapt shape from https://github.com/Interoperable-data/ERA_vocabulary/blob/main/era-shacl/RINF-etcs-levels.ttl
+era-sh:etcsLevelShape a sh:NodeShape ;
+    sh:targetClass era:ETCSLevel .
+
+# Shape extracted from https://github.com/Interoperable-data/ERA_vocabulary/blob/main/era-shacl/RINF-sol-tracks.ttl
+era-sh:loadCapabilityShape a sh:NodeShape ;
+    sh:targetClass era:LoadCapability ;
+    sh:property [
+        a sh:PropertyShape ;
+        rdfs:comment "Load capability is a combination of the line category and speed at the weakest point of the track.";
+        era:rinfIndex "1.1.1.1.2.4" ;
+        sh:path era:loadCapabilitySpeed ;
+        sh:minCount 0 ; #TODO: Not yet applicable
+        sh:datatype xsd:integer ;
+        sh:severity sh:Violation ;
+        sh:message "loadCapabilitySpeed (1.1.1.1.2.4): The track must have a load capability with a value of speed that is an integer. This error may be due to havong a load capability speed that is not an integer."@en
+    ], [
+        a sh:PropertyShape ;
+        rdfs:comment "Load capability is a combination of the line category and speed at the weakest point of the track.";
+        era:rinfIndex "1.1.1.1.2.4" ;
+        sh:path era:loadCapabilityLineCategory ;
+        sh:nodeKind sh:IRI ;
+        sh:severity sh:Violation ;
+        sh:message "loadCapabilityLineCategory (1.1.1.1.2.4): The track must have a load capability with a value of line category that is an URI. This error may be due to having a load capability line category that is not an URI."@en
+    ] .
+
+# Shape adapted from https://github.com/Interoperable-data/ERA_vocabulary/blob/main/era-shacl/RINF-national-lines.ttl
+era-sh:nationalLineShape
+	a sh:NodeShape ;
+	sh:targetClass era:NationalRailwayLine ;
+    sh:property [
+        a sh:PropertyShape;
+        rdfs:comment "Indicates the country to which the national line belongs" ; 
+        sh:path era:inCountry ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI;
+        sh:severity sh:Violation ;
+        sh:message "inCountry:  Each national line must have exactly one country. This error may be due to having national railway line without or with more than one country or its value is not a Concept."@en
+    ], [
+        a sh:PropertyShape ;   
+        rdfs:comment "Classification of a line according to the INF TSI" ;
+        era:rinfIndex "1.1.1.1.2.2", "1.2.1.0.2.2";
+        sh:path era:lineCategory ;
+        #sh:class skos:Concept ; todo
+        #skos:inScheme http://data.europa.eu/949/concepts/line-category/LineCategories
+        sh:severity sh:Violation ;
+        sh:message "lineCategory (1.1.1.1.2.2, 1.2.1.0.2.2): This error may be due to the national railway line having a value that does not belong to the corresponding concept scheme, http://data.europa.eu/949/concepts/line-category/LineCategories."@en
+    ], [
+        a sh:PropertyShape ;   
+        rdfs:comment "Indication whether the line is designated to a Railway Freight Corridor" ;
+        era:rinfIndex "1.1.1.1.2.3", "1.2.1.0.2.3" ;
+        sh:path era:freightCorridor ;
+        #sh:class skos:Concept ; todo
+        #skos:inScheme http://data.europa.eu/949/concepts/freight-corridor/FreightCorridors
+        sh:severity sh:Violation ;
+        sh:message "freightCorridor (1.1.1.1.2.3, 1.2.1.0.2.3): This error may be due to the national railway line having a value that does not belong to the corresponding concept scheme, http://data.europa.eu/949/concepts/freight-corridor/FreightCorridors."@en
+    ] .
+
+# TODO: adapt shape from https://github.com/Interoperable-data/ERA_vocabulary/blob/main/era-shacl/RINF-meso-net-elements.ttl
+era-sh:netElementShape a sh:NodeShape ;
+    sh:targetClass era:NetElement .
+
+# TODO: adapt shape from https://github.com/Interoperable-data/ERA_vocabulary/blob/main/era-shacl/RINF-meso-net-relations.ttl
+era-sh:netRelationShape a sh:NodeShape ;
+    sh:targetClass era:NetRelation .
+
+# Shape adapted from https://github.com/Interoperable-data/ERA_vocabulary/blob/main/era-shacl/RINF-operational-points.ttl
+era-sh:operationalPointShape a sh:NodeShape ;
+    sh:targetClass era:OperationalPoint ;
+    sh:property [
+        a sh:PropertyShape;
+        rdfs:comment "Name normally related to the town or village or to traffic control purpose." ;
+        era:rinfIndex "1.2.0.0.0.1" ;
+        sh:path era:opName ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:severity sh:Warning ;
+        sh:message "opName (1.2.0.0.0.1): There has to be one opName as most, and must be represented as a String."@en
+    ], [
+        a sh:PropertyShape;
+        rdfs:comment "Code composed of country code and alphanumeric OP code." ;
+        era:rinfIndex "1.2.0.0.0.2" ;
+        sh:path era:uopid ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^[A-Z]{2}.{0,10}$" ;
+        sh:severity sh:Violation ;
+        sh:message "uopid (1.2.0.0.0.2): There must be exactly one UOPID, and its value must follow the pattern [AA+AAAAAAAAAA]."@en
+    ], [
+        a sh:PropertyShape;
+        rdfs:comment "Primary code developed for TAF/TAP." ;
+        era:rinfIndex "1.2.0.0.0.3" ;
+        sh:path era:tafTAPCode ;
+        sh:minCount 0 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^[A-Z]{2}\\d{5}$" ;
+        sh:severity sh:Violation ;
+        sh:message "tafTAPCode (1.2.0.0.0.3): Must follow the pattern [AANNNNN]."@en
+    ], [
+        a sh:PropertyShape;
+        rdfs:comment "Type of facility in relation to the dominating operational functions.\nEach existing case has to be approximated to the one of the above defined types by including size, importance and dominating functions. It is most important to recognize the most important role of specific OP in the network. That is why only one type for one OP is permitted." ;
+        era:rinfIndex "1.2.0.0.0.4" ;
+        sh:path era:opType ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI;
+        #sh:class skos:Concept ; todo
+        sh:severity sh:Violation ;
+        sh:message "opType (1.2.0.0.0.4): Each OperationalPoint must have exactly one type. This error may be due to having an OP without or with more than one type or it value is not a Concept."@en
+    ], [
+        a sh:PropertyShape;
+        rdfs:comment "Type of track gauge changeover facility." ;
+        era:rinfIndex "1.2.0.0.0.4.1" ;
+        sh:targetClass era:OperationalPoint ;
+        sh:path era:opTypeGaugeChangeover ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:severity sh:Violation ;
+        sh:message "opTypeGaugeChangeover (1.2.0.0.0.4.1): The Operational Point must have one opTypeGaugeChangeover at most and the type must be string."@en
+    ], [
+        a sh:PropertyShape;
+        rdfs:comment "Geographical coordinates in decimal degrees normally given for the centre of the OP." ;
+        era:rinfIndex "1.2.0.0.0.5" ;
+        sh:path gsp:hasGeometry ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:severity sh:Violation ;
+        sh:message "hasGeometry (1.2.0.0.0.5): Each OP must have exactly one location. This error may be due to having an OP without or with more than one location or the object of the property is not a geosparql:Geometry."@en ;
+        sh:node [ # Added for the TREE member extraction algorithm
+            a sh:NodeShape ;
+            sh:targetClass gsp:Geometry;
+            sh:property [
+                a sh:PropertyShape;
+                rdfs:comment "Geometry coordinates in WKT serialization format." ;
+                sh:path gsp:asWKT ;
+                #sh:minCount 1 ; # Ommited
+                sh:maxCount 1 ;
+                sh:datatype gsp:wktLiteral ;
+                sh:severity sh:Violation ;
+                sh:message "gsp:Geometry. This error This error may be due to having a Geometry without or with more than one asWKT property or it value is not from the wktLiteral type."
+            ], [
+                a sh:PropertyShape;
+                rdfs:comment "Latitude following the spatial reference system WGS84." ;
+                sh:path wgs:lat ;
+                #sh:minCount 1 ;
+                sh:maxCount 1 ;
+                sh:minInclusive 34;
+                sh:maxExclusive 73;
+                sh:datatype xsd:double ;
+                sh:severity sh:Violation ;
+                sh:message "wgs:lat property. This error may be due to having a Geometry without or with more than one lat property or its value is out of the latitude range of Europe."
+            ], [
+                a sh:PropertyShape;
+                rdfs:comment "Longitude following the spatial reference system WGS84." ;
+                sh:path wgs:long ;
+                #sh:minCount 1 ;
+                sh:maxCount 1 ;
+                sh:minInclusive -25;
+                sh:maxExclusive 46;
+                sh:datatype xsd:double ;
+                sh:severity sh:Violation ;
+                sh:message "wgs:long property. This error may be due to having a Geometry without or with more than one long property or it value is out of the longitude range of Europe."
+            ]
+        ]
+    ], [
+        a sh:PropertyShape;
+        rdfs:comment "Kilometre related to line identification defining the location of the OP. This will normally be in the centre of the OP.\nThe railway location identifies the location of an OP in the system of reference of a given line.\nThe parameter can be repeated to allow to describe the location of the OP when it belongs to several lines." ;
+        era:rinfIndex "1.2.0.0.0.6" ;
+        sh:path era:lineReference ;
+        sh:minCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:severity sh:Violation ;
+        sh:message "lineReference (1.2.0.0.0.6):  The OperationalPoint must have one LineReference at least. This error may be due to having an OP without LineReference or it class is not LineReference."@en ;
+        sh:node [ # Added for the TREE member extraction algorithm
+            a sh:NodeShape;
+            sh:targetClass era:LineReference;
+            sh:property [
+                a sh:PropertyShape;
+                rdfs:comment "A reference to the distance measured in kilometers from the origin of a national railway line." ;
+                sh:path era:kilometer ;
+                sh:minCount 1 ;
+                sh:datatype xsd:double;
+                sh:severity sh:Violation ;
+                sh:message "lineReference (1.2.0.0.0.6): The LineReference either does not have a value for kilometer that defines its location in the line, or the value of the kilometer is not a double (real) number."@en
+            ], [
+                a sh:PropertyShape;
+                rdfs:comment "A reference to a specific national railway line." ;
+                sh:path era:lineNationalId ;
+                #sh:minCount 1 ; Ommited to avoid dereferencing during TREE member extraction
+                sh:nodeKind sh:IRI ;
+                sh:severity sh:Violation ;
+                sh:message "lineReference (1.2.0.0.0.6): The LineReference must have at least one reference to a specific national railway line."@en
+            ]
+        ]
+    ], [
+        a sh:PropertyShape;
+        rdfs:comment "Existence of rules and restrictions of a strictly local nature." ;
+        era:rinfIndex "1.2.3.1" ;
+        sh:path era:localRulesOrRestrictions ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:boolean ;
+        sh:severity sh:Warning ;
+        sh:message "localRulesOrRestrictions (1.2.3.1): The Operational Point must have one localRulesOrRestrictions at most and the type must be boolean."@en
+    ], [
+        a sh:PropertyShape;
+        rdfs:comment "Reference of the documents regarding the rules or restrictions of a strictly local nature available by the IM." ;
+        era:rinfIndex "1.2.3.2" ;
+        sh:path era:localRulesOrRestrictionsDoc ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ; #todo: might not have a maximum
+        sh:datatype xsd:string ;
+        sh:severity sh:Warning ;
+        sh:message "localRulesOrRestrictionsDoc (1.2.3.2): The Operational Point must have one localRulesOrRestrictionsDoc reference at most and the type must be string."@en
+    ], [
+        a sh:PropertyShape;
+        rdfs:comment "Indicates the country in which the OP resides" ;
+        sh:path era:inCountry ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        #sh:class skos:Concept ; todo
+        sh:severity sh:Violation ;
+        sh:message "inCountry: Each OperationalPoint must have exactly one country. This error may be due to having an OP without or with more than one country or it value is not a Concept."@en
+    ] .
+
+# Shape adapted from https://github.com/Interoperable-data/ERA_vocabulary/blob/main/era-shacl/01_RINF-SOL-genericInformation.ttl
+era-sh:sectionOfLineShape a sh:NodeShape ;
+    sh:targetClass era:SectionOfLine ;
+    sh:property [
+        a sh:PropertyShape ;
+        rdfs:comment "Each SoL can belong to only one national line. In case the SoL is the track connecting OPs within a big node (resulting from the division of a big station into several smaller ones) the line can be identified using the name of this track." ;
+        era:rinfIndex "1.1.0.0.0.2" ;
+        sh:path era:lineNationalId ;           
+        #sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:severity sh:Violation ;
+        sh:message "lineNationalId (1.1.0.0.0.2): Each SoL can belong to only one national line."@en
+    ], [
+        a sh:PropertyShape ;
+        rdfs:comment "Each SoL may have only one start OP, and each OP has unique OP ID within the MS. The uniqueOPID is defined in parameter 1.2.0.0.0.2. Each SoL has the principal direction of the traffic defined by increasing kilometres running from the start OP to the end OP. That is why the start OP is always located at lowest kilometre of the line within the SoL. Data collected in the UK in miles will be transformed to km for uploading to the RINF application. \n The OP ID must exist in the MS file of RINF. The value of this parameter must be different from 1.1.0.0.0.4. No validation will be performed by RINF application regarding which is the start and which the end OP. This requires national verification." ;
+        era:rinfIndex "1.1.0.0.0.3" ;
+        sh:path era:opStart ; 
+        sh:disjoint era:opEnd ; # value must be different to opEnd
+        # sh:minCount 1 ; checked in ea-sh:opStartExists
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:severity sh:Violation ;
+        sh:message "opStart (1.1.0.0.0.3): There must be at most one OP start for this section of line and it must be different from the OP end."@en
+    ], [
+        sh:path gsp:hasGeometry ; # Avoid to dereferencing sub-entity as it is not yet populated in the ERA KG
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI
+    ], [
+        a sh:PropertyShape ;
+        rdfs:comment "Each SoL may have only one end OP, and each OP has unique OP ID within the MS. The uniqueOPID is defined in parameter 1.2.0.0.0.2. Each SoL has the principal direction of the traffic defined by increasing kilometres running from the start OP to the end OP. That is why the start OP is always located at lowest kilometre of the line within the SoL. Data collected in the UK in miles will be transformed to km for uploading to the RINF application. \n The OP ID must exist in the MS file of RINF. The value of this parameter must be different from 1.1.0.0.0.3. No validation will be performed by RINF application regarding which is the start and which the end OP. This requires national verification." ;
+        era:rinfIndex "1.1.0.0.0.4" ;
+        sh:path era:opEnd ; 
+        sh:disjoint era:opStart ; # value must be different to opStart
+        #sh:minCount 1 ; #checked in era-sh:opEndExists
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:severity sh:Violation ;
+        sh:message "opEnd (1.1.0.0.0.4): There must be at most one OP end for this section of line and it must be different from the OP start."@en
+    ], [
+        a sh:PropertyShape ;
+        rdfs:comment "General description: The length of SoL is theoretical distance between centre points of Ops which are selected in such a way to represent the average value for all tracks within the SoL. It is advised to include distances applied by IM for commercial purposes. \n Validation: No validation will be performed by RINF application regarding the length of SoL. This requires national verification." ;
+        era:rinfIndex "1.1.0.0.0.5" ;
+        sh:path era:length ; 
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:double ;
+        sh:severity sh:Warning ;
+        sh:message "SOL length (1.1.0.0.0.5): Although no validation is done by the RINF application, either there is no length for the specified SoL, or more than one length has been defined, or the datatype cannot be converted into an xsd:double."@en
+    ], [
+        a sh:PropertyShape ;
+        rdfs:comment "General description: -- \n Validation: If the value of this parameter is \"Link\", then for all tracks belonging to this SoL, all the parameters of the following groups of parameters are not applicable:\n 1.1.1.1 Infrastructure subsystem \n 1.1.1.2 Energy subsystem \n 1.1.1.3 Control-command and signalling subsystem" ;
+        era:rinfIndex "1.1.0.0.0.6" ;
+        sh:path era:solNature ; 
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        #sh:class skos:Concept ; #TODO: Check error
+        #skos:inScheme <http://data.europa.eu/949/concepts/sol-natures/SoLNatures> ;
+        sh:severity sh:Violation ;
+        sh:message "SoL nature (1.1.0.0.0.6): Either no SOL nature is specified for this SoL, or more than one SoL nature has been specified."@en
+    ] .
+
+# TODO: adapt shape from https://github.com/Interoperable-data/ERA_vocabulary/blob/main/era-shacl/RINF-op-tracks.ttl
+era-sh:opTrackShape a sh:NodeShape ;
+	sh:targetClass era:Track .
+
+# TODO: adapt shape from https://github.com/Interoperable-data/ERA_vocabulary/blob/main/era-shacl/RINF-sol-tracks.ttl
+era-sh:solTrackShape a sh:NodeShape ;
+	sh:targetClass era:Track .
+
+# TODO: adapt shape from https://github.com/Interoperable-data/ERA_vocabulary/blob/main/era-shacl/RINF-train-detection-systems.ttl
+era-sh:trainDetectionSystemShape a sh:NodeShape ;
+    sh:targetClass era:TrainDetectionSystem .
