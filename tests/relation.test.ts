@@ -4,7 +4,7 @@ import Heap from "heap-js";
 
 describe("Chain relations", () => {
   test("correct chaining", () => {
-    let chain = new RelationChain("");
+    let chain = new RelationChain("", "");
     chain = chain.push("", { value: 0, important: false });
 
     expect(chain.relations.length).toBe(1);

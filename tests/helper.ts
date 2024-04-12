@@ -1,4 +1,3 @@
-import { beforeEach, describe, expect, jest, test } from "@jest/globals";
 import { Quad } from "@rdfjs/types";
 import { Parser, Writer } from "n3";
 import { Member } from "../lib/page";
@@ -138,8 +137,11 @@ export class Tree<T> {
     return this.fragments[id];
   }
 
-  mock(): jest.Mock<typeof fetch> {
-    return jest.fn(async (req, _opts) => {
+  mock(): typeof fetch {
+    const fetch_f: typeof fetch = async (
+      req: Parameters<typeof fetch>[0],
+      _opts: Parameters<typeof fetch>[1],
+    ) => {
       if (!req.toString().startsWith(BASE)) {
         return new Response("", { status: 404 });
       }
@@ -180,6 +182,7 @@ export class Tree<T> {
         const resp = new Response("I'm too loaded yo", { status: 429 });
         return resp;
       }
-    });
+    };
+    return fetch_f;
   }
 }
