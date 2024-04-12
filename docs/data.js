@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712830947611,
+  "lastUpdate": 1712941560374,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -60,6 +60,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 1.5,
             "range": "±1.37%",
+            "unit": "ops/sec",
+            "extra": "12 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xueying_deng@outlook.com",
+            "name": "XD",
+            "username": "xdxxxdx"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2ee33a6ac2a0bfbfab8234237f67c4a4c8bfa964",
+          "message": "Merge pull request #28 from rdf-connect/feat/perf\n\nFeat/perf",
+          "timestamp": "2024-04-12T19:03:04+02:00",
+          "tree_id": "7a32d2808b28af5adb5199051fe65d9b52bd7c06",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/2ee33a6ac2a0bfbfab8234237f67c4a4c8bfa964"
+        },
+        "date": 1712941559389,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 1.5,
+            "range": "±1.36%",
             "unit": "ops/sec",
             "extra": "12 samples"
           }
