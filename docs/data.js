@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713443673556,
+  "lastUpdate": 1713447015933,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -124,6 +124,37 @@ window.BENCHMARK_DATA = {
             "range": "±1.93%",
             "unit": "ops/sec",
             "extra": "27 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pieter.colpaert@ugent.be",
+            "name": "Pieter Colpaert",
+            "username": "pietercolpaert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "54322170123e899a15b1f6c91891a312cf5904a3",
+          "message": "Merge pull request #24 from rdf-connect/catch-member-errors\n\nCatch member errors",
+          "timestamp": "2024-04-18T15:29:49+02:00",
+          "tree_id": "8e0be6c8ee1331ce25f3c66ba621ce00f61e298f",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/54322170123e899a15b1f6c91891a312cf5904a3"
+        },
+        "date": 1713447015502,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.14,
+            "range": "±1.85%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
           }
         ]
       }
