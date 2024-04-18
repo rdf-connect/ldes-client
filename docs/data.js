@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712941560374,
+  "lastUpdate": 1713443673556,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -93,6 +93,37 @@ window.BENCHMARK_DATA = {
             "range": "±1.36%",
             "unit": "ops/sec",
             "extra": "12 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pieter.colpaert@ugent.be",
+            "name": "Pieter Colpaert",
+            "username": "pietercolpaert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5a4cac38e98ce0c9fc5095ce5e5e4d5728202052",
+          "message": "Merge pull request #25 from rdf-connect/better-logging\n\nBetter logging, better errors, better concurrent requests",
+          "timestamp": "2024-04-18T14:34:06+02:00",
+          "tree_id": "877c77d8b870b1ea78f6816f2c6f36d3932863c0",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/5a4cac38e98ce0c9fc5095ce5e5e4d5728202052"
+        },
+        "date": 1713443672946,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 4.68,
+            "range": "±1.93%",
+            "unit": "ops/sec",
+            "extra": "27 samples"
           }
         ]
       }
