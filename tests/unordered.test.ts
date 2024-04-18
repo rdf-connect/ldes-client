@@ -62,12 +62,9 @@ describe("Simple Tree", () => {
     global.fetch = mock;
 
     const client = replicateLDES(
-      intoConfig({
+      {
         url: base,
-        fetcher: { maxFetched: 2, concurrentRequests: 10 },
-      }),
-      undefined,
-      undefined,
+      },
       "ascending",
     );
 
@@ -87,12 +84,9 @@ describe("Simple Tree", () => {
     global.fetch = mock;
 
     const client = replicateLDES(
-      intoConfig({
+      {
         url: base,
-        fetcher: { maxFetched: 2, concurrentRequests: 10 },
-      }),
-      undefined,
-      undefined,
+      },
       "descending",
     );
 
@@ -117,12 +111,9 @@ describe("Simple Tree", () => {
     global.fetch = mock;
 
     const client = replicateLDES(
-      intoConfig({
+      {
         url: base,
-        fetcher: { maxFetched: 2, concurrentRequests: 10 },
-      }),
-      undefined,
-      undefined,
+      },
       "none",
     );
 
@@ -143,12 +134,9 @@ describe("Simple Tree", () => {
     global.fetch = mock;
 
     const client = replicateLDES(
-      intoConfig({
+      {
         url: base,
-        fetcher: { maxFetched: 2, concurrentRequests: 10 },
-      }),
-      undefined,
-      undefined,
+      },
       "none",
     );
 
@@ -198,12 +186,9 @@ describe("more complex tree", () => {
     global.fetch = mock;
 
     const client = replicateLDES(
-      intoConfig({
+      {
         url: base,
-        fetcher: { maxFetched: 2, concurrentRequests: 10 },
-      }),
-      undefined,
-      undefined,
+      },
       "none",
     );
 
@@ -225,12 +210,9 @@ describe("more complex tree", () => {
     global.fetch = mock;
 
     const client = replicateLDES(
-      intoConfig({
+      {
         url: base,
-        fetcher: { maxFetched: 2, concurrentRequests: 10 },
-      }),
-      undefined,
-      undefined,
+      },
       "none",
     );
 
@@ -246,12 +228,9 @@ describe("more complex tree", () => {
     global.fetch = mock;
 
     const client = replicateLDES(
-      intoConfig({
+      {
         url: base,
-        fetcher: { maxFetched: 2, concurrentRequests: 10 },
-      }),
-      undefined,
-      undefined,
+      },
       "ascending",
     );
 
@@ -271,12 +250,9 @@ describe("more complex tree", () => {
     global.fetch = mock;
 
     const client = replicateLDES(
-      intoConfig({
+      {
         url: base,
-        fetcher: { maxFetched: 2, concurrentRequests: 10 },
-      }),
-      undefined,
-      undefined,
+      },
       "descending",
     );
 
@@ -296,12 +272,9 @@ describe("more complex tree", () => {
     global.fetch = mock;
 
     const client = replicateLDES(
-      intoConfig({
+      {
         url: base,
-        fetcher: { maxFetched: 2, concurrentRequests: 10 },
-      }),
-      undefined,
-      undefined,
+      },
       "ascending",
     );
 
@@ -323,13 +296,10 @@ describe("more complex tree", () => {
     global.fetch = mock;
 
     const client = replicateLDES(
-      intoConfig({
+      {
         polling: true,
         url: base,
-        fetcher: { maxFetched: 2, concurrentRequests: 10 },
-      }),
-      undefined,
-      undefined,
+      },
       "none",
     );
 
@@ -374,13 +344,10 @@ describe("more complex tree", () => {
     global.fetch = mock;
 
     const client = replicateLDES(
-      intoConfig({
+      {
         polling: true,
         url: base,
-        fetcher: { maxFetched: 2, concurrentRequests: 10 },
-      }),
-      undefined,
-      undefined,
+      },
       "ascending",
     );
 
@@ -431,12 +398,14 @@ describe("more complex tree", () => {
     global.fetch = mock;
 
     const client = replicateLDES(
-      intoConfig({
+      {
         url: base,
-        fetcher: { maxFetched: 2, concurrentRequests: 10 },
-      }),
-      undefined,
-      undefined,
+        fetch: retry_fetch(fetch, {
+          codes: [408, 425, 429, 500, 502, 503, 504],
+          base: 100,
+          maxRetries: 5,
+        }),
+      },
       "none",
     );
 
@@ -460,25 +429,28 @@ describe("more complex tree", () => {
     global.fetch = mock;
 
     const client = replicateLDES(
-      intoConfig({
+      {
         url: base,
-        fetch: retry_fetch(fetch, [408, 425, 429, 500, 502, 503, 504], 100, 2),
-      }),
-      undefined,
-      undefined,
+        fetch: retry_fetch(fetch, {
+          codes: [408, 425, 429, 500, 502, 503, 504],
+          base: 100,
+          maxRetries: 5,
+        }),
+      },
       "none",
     );
 
+    let errorCb = false;
     let thrown = false;
 
+    client.on("error", () => (errorCb = true));
     try {
-      const members = await read(client.stream());
-      console.log("Here", members);
+      await read(client.stream());
     } catch (ex) {
-      console.log("Throw", ex);
       thrown = true;
     }
 
     expect(thrown).toBeTruthy();
+    expect(errorCb).toBeTruthy();
   });
 });

@@ -23,18 +23,6 @@ export type FetchedPage = {
   data: RdfStore;
 };
 
-// At most concurrentRequests + maxFetched pages will be stored in memory
-// First maxFetched can be ready, but already concurrentRequests are sent out
-export type FetcherConfig = {
-  concurrentRequests: number;
-  maxFetched: number;
-};
-
-export const DefaultFetcherConfig: FetcherConfig = {
-  concurrentRequests: 10,
-  maxFetched: 10,
-};
-
 export type LongPromise = {
   waiting: Promise<void>;
   callback: () => void;
@@ -77,6 +65,8 @@ export class Fetcher {
   private after?: Date;
   private before?: Date;
 
+  private closed = false;
+
   constructor(
     dereferencer: RdfDereferencer,
     loose: boolean,
@@ -89,6 +79,10 @@ export class Fetcher {
     this.fetch_f = fetch_f;
     if (after) this.after = after;
     if (before) this.before = before;
+  }
+
+  close() {
+    this.closed = true;
   }
 
   async fetch<S>(node: Node, state: S, notifier: Notifier<FetchEvent, S>) {
@@ -123,7 +117,9 @@ export class Fetcher {
       }
 
       if (!cache.immutable) {
-        notifier.scheduleFetch(node, state);
+        if (!this.closed) {
+          notifier.scheduleFetch(node, state);
+        }
       }
 
       logger("Cache for  %s %o", node.target, cache);
@@ -139,8 +135,8 @@ export class Fetcher {
           .on("end", resolve)
           .on("error", reject);
       });
-      logger("Got data %s (%d quads)", node.target, quadCount);
 
+      logger("Got data %s (%d quads)", node.target, quadCount);
       for (let rel of extractRelations(
         data,
         namedNode(resp.url),
@@ -149,13 +145,17 @@ export class Fetcher {
         this.before,
       )) {
         if (!node.expected.some((x) => x == rel.node)) {
-          notifier.relationFound({ from: node, target: rel }, state);
+          if (!this.closed) {
+            notifier.relationFound({ from: node, target: rel }, state);
+          }
         }
       }
 
-      // TODO check this, is node.target correct?
-      notifier.pageFetched({ data, url: resp.url }, state);
+      if (!this.closed) {
+        notifier.pageFetched({ data, url: resp.url }, state);
+      }
     } catch (ex) {
+      logger("Fetch failed %o", ex);
       notifier.error(ex, state);
     }
   }
