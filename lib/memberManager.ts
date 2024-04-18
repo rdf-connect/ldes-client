@@ -21,9 +21,16 @@ export type ExtractedMember = {
   member: Member;
 };
 
+export type ExtractError = {
+  type: "extract";
+  memberId: Term;
+  error: any;
+};
+export type Error = ExtractError;
 export type MemberEvents = {
   extracted: Member;
   done: Member[];
+  error: Error;
 };
 
 export class Manager {
@@ -66,11 +73,18 @@ export class Manager {
     return this.state.size;
   }
 
+  private async extractMemberQuads(
+    member: Term,
+    data: RdfStore,
+  ): Promise<Quad[]> {
+    return await this.extractor.extract(data, member, this.shapeId);
+  }
+
   private async extractMember(
     member: Term,
     data: RdfStore,
   ): Promise<Member | undefined> {
-    const quads = await this.extractor.extract(data, member, this.shapeId);
+    const quads: Quad[] = await this.extractMemberQuads(member, data);
 
     if (this.state.has(member.value)) {
       return;
@@ -104,7 +118,6 @@ export class Manager {
         )?.object.value;
       }
 
-      // HEAD
       return { id: member, quads, timestamp, isVersionOf };
     }
   }
@@ -120,16 +133,23 @@ export class Manager {
 
     logger("%d members", members.length);
 
-    const promises: Promise<Member | undefined>[] = [];
+    const promises: Promise<Member | undefined | void>[] = [];
 
     for (let member of members) {
       if (!this.state.has(member.value)) {
-        const promise = this.extractMember(member, page.data).then((member) => {
-          if (member) {
-            notifier.extracted(member, state);
-          }
-          return member;
-        });
+        const promise = this.extractMember(member, page.data)
+          .then((member) => {
+            if (member) {
+              notifier.extracted(member, state);
+            }
+            return member;
+          })
+          .catch((ex) => {
+            notifier.error(
+              { error: ex, type: "extract", memberId: member },
+              state,
+            );
+          });
 
         promises.push(promise);
       }
