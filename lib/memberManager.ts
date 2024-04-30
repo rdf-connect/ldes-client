@@ -44,6 +44,8 @@ export class Manager {
   private extractor: CBDShapeExtractor;
   private shapeId?: Term;
 
+  private members: Array<Term>;
+
   private timestampPath?: Term;
   private isVersionOfPath?: Term;
 
@@ -67,7 +69,7 @@ export class Manager {
   ) {
     const logger = log.extend("extract");
     const members = getObjects(page.data, this.ldesId, TREE.terms.member, null);
-
+    this.members = members;
     logger("%d members", members.length);
 
     const promises: Promise<Member | undefined | void>[] = [];
@@ -125,6 +127,16 @@ export class Manager {
     data: RdfStore,
   ): Promise<Quad[]> {
     return await this.extractor.extract(data, member, this.shapeId);
+  }
+
+  private async extractMember(
+    member: Term,
+    data: RdfStore,
+  ): Promise<Member | undefined> {
+    const quads: Quad[] = await this.extractMemberQuads(member, data);
+
+    // let the extractor do it's thing
+    return await this.extractor.extract(data, member);
   }
 
   private async extractMember(
