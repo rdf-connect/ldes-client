@@ -95,6 +95,7 @@ export class OrderedStrategy {
         this.handleFetched(page, chain);
       },
       relationFound: ({ from, target }, { chain }) => {
+        this.notifier.relation(target, {});
         from.expected.push(target.node);
         logger("Relation found %s", target.node);
         const newChain = chain.push(target.node, this.extractRelation(target));
@@ -119,7 +120,7 @@ export class OrderedStrategy {
         logger("Member done %s", rel.target);
         const found = this.findOrDefault(rel);
         found.extracting -= 1;
-        this.notifier.fragment({}, {});
+        this.notifier.fragment({ url: rel.target }, {});
         this.checkEmit();
       },
       extracted: (member) => {

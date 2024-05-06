@@ -27,7 +27,7 @@
     "@types/debug": "^4.1.12",
     "commander": "^11.1.0",
     "debug": "^4.3.4",
-    "extract-cbd-shape": "^0.1.5",
+    "extract-cbd-shape": "^0.1.6",
     "heap-js": "^2.3.0",
     "n3": "^1.17.3",
     "rdf-data-factory": "^1.1.2",

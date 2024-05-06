@@ -1,4 +1,4 @@
-import { Member } from "../page";
+import { Member, Relation } from "../page";
 import { FetchedPage } from "../pageFetcher";
 import { RelationChain } from "../relation";
 import { TREE } from "@treecg/types";
@@ -28,8 +28,9 @@ export type PageAndRelation = {
 };
 
 export type StrategyEvents = {
+  relation: Relation;
   member: Member;
-  fragment: {};
+  fragment: { url: string };
   mutable: {};
   pollCycle: {};
   close: {};
