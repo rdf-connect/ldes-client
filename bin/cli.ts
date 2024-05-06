@@ -144,7 +144,26 @@ async function main() {
     ordered,
   );
 
+  if (!quiet) {
+    client.on("description", (info) => {
+      if (info.extractor.shapesGraph) {
+        try {
+          const mermaid = info.extractor.shapesGraph!.toMermaid(info.shape);
+          console.log("mermaid:");
+          console.log(mermaid);
+        } catch (ex) {
+          console.log("Failed mermaid extract");
+        }
+      } else {
+        console.log("No mermaid extracted");
+      }
+    });
+  }
+
   if (verbose) {
+    client.on("relation", (xs) =>
+      console.log("Relation", xs.source, xs.type.value, xs.node),
+    );
     client.on("fragment", () => {
       console.error("Fragment!");
     });

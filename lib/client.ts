@@ -1,5 +1,5 @@
 import { Config, intoConfig } from "./config";
-import { Member } from "./page";
+import { Member, Relation } from "./page";
 import rdfDereference, { RdfDereferencer } from "rdf-dereference";
 import { FileStateFactory, NoStateFactory, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
@@ -10,7 +10,6 @@ import { Quad_Object, Term } from "@rdfjs/types";
 import {
   enhanced_fetch,
   extractMainNodeShape,
-  FetchConfig,
   getObjects,
   ModulatorFactory,
   Notifier,
@@ -24,7 +23,7 @@ import debug from "debug";
 import type { Writer } from "@ajuvercr/js-runner";
 
 export { intoConfig } from "./config";
-export { retry_fetch, extractMainNodeShape } from "./utils";
+export { extractMainNodeShape, retry_fetch } from "./utils";
 export type { Member, Page, Relation } from "./page";
 export type { Config, ShapeConfig } from "./config";
 
@@ -66,7 +65,7 @@ async function getInfo(
 
     const resp = await rdfDereference.dereference(config.shapeFile, {
       localFiles: true,
-      fetch: config.fetch
+      fetch: config.fetch,
     });
     const quads = await streamToArray(resp.data);
     config.shape = {
@@ -113,7 +112,7 @@ async function getInfo(
         timestampPaths.length,
         isVersionOfPaths.length,
       );
-    } catch (ex: any) { }
+    } catch (ex: any) {}
   }
 
   if (shapeIds.length > 1) {
@@ -164,6 +163,8 @@ type EventKey<T extends EventMap> = string & keyof T;
 type EventReceiver<T> = (params: T) => void;
 
 export type ClientEvents = {
+  relation: Relation;
+  description: LDESInfo;
   fragment: void;
   mutable: void;
   poll: void;
@@ -297,6 +298,7 @@ export class Client {
     );
 
     const notifier: Notifier<StrategyEvents, {}> = {
+      relation: (event) => this.emit("relation", event),
       error: (ex: any) => this.emit("error", ex),
       fragment: () => this.emit("fragment", undefined),
       member: (m) => {
@@ -336,25 +338,26 @@ export class Client {
     this.strategy =
       this.ordered !== "none"
         ? new OrderedStrategy(
-          this.memberManager,
-          this.fetcher,
-          notifier,
-          factory,
-          this.ordered,
-          this.config.polling,
-          this.config.pollInterval,
-        )
+            this.memberManager,
+            this.fetcher,
+            notifier,
+            factory,
+            this.ordered,
+            this.config.polling,
+            this.config.pollInterval,
+          )
         : new UnorderedStrategy(
-          this.memberManager,
-          this.fetcher,
-          notifier,
-          factory,
-          this.config.polling,
-          this.config.pollInterval,
-        );
+            this.memberManager,
+            this.fetcher,
+            notifier,
+            factory,
+            this.config.polling,
+            this.config.pollInterval,
+          );
 
     logger("Found %d views, choosing %s", viewQuads.length, ldesId.value);
     this.strategy.start(ldesId.value);
+    this.emit("description", info);
   }
 
   stream(strategy?: {
@@ -523,4 +526,3 @@ export async function processor(
     }
   };
 }
-

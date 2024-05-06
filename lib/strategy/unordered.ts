@@ -16,7 +16,7 @@ export class UnorderedStrategy {
   private inFlight: number = 0;
 
   private fetchNotifier: Notifier<FetchEvent, { index: number }>;
-  private memberNotifier: Notifier<MemberEvents, {}>;
+  private memberNotifier: Notifier<MemberEvents, { url: string }>;
 
   private modulator: Modulator<Node>;
 
@@ -61,6 +61,7 @@ export class UnorderedStrategy {
         this.handleFetched(page, index);
       },
       relationFound: ({ from, target }) => {
+        this.notifier.relation(target, {});
         from.expected.push(target.node);
         this.inFlight += 1;
         this.modulator.push({ target: target.node, expected: [from.target] });
@@ -75,11 +76,11 @@ export class UnorderedStrategy {
       error: (error) => {
         this.notifier.error(error, {});
       },
-      done: () => {
+      done: (_, url) => {
         memberLogger("Members on page done");
         this.inFlight -= 1;
         this.checkEnd();
-        this.notifier.fragment({}, {});
+        this.notifier.fragment(url, {});
       },
       extracted: (mem) => this.notifier.member(mem, {}),
     };
@@ -108,7 +109,7 @@ export class UnorderedStrategy {
 
   private handleFetched(page: FetchedPage, index: number) {
     this.modulator.finished(index);
-    this.manager.extractMembers(page, {}, this.memberNotifier);
+    this.manager.extractMembers(page, { url: page.url }, this.memberNotifier);
   }
 
   private checkEnd() {
