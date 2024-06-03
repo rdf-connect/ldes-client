@@ -3,13 +3,14 @@ import { RDF, TREE } from "@treecg/types";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { State } from "./state";
 import { RdfStore } from "rdf-stores";
-import { getObjects } from "./utils";
+import { getObjects, memberFromQuads } from "./utils";
 
 export interface Member {
   id: Term;
   quads: Quad[];
   timestamp?: string | Date;
   isVersionOf?: string;
+  type?: Term;
 }
 
 export interface Relation {
@@ -36,27 +37,10 @@ export function extractMembers(
   isVersionOfPath?: Term,
 ): Promise<void>[] {
   const members = getObjects(store, stream, TREE.terms.member, null);
-
-  const extractMember = async (member: Term) => {
-    state.add(member.value);
+  async function extractMember(member: Term) {
     const quads = await extractor.extract(store, member, shapeId);
-    // Get timestamp
-    let timestamp: string | undefined;
-    if (timestampPath) {
-      timestamp = quads.find(
-        (x) => x.subject.equals(member) && x.predicate.equals(timestampPath),
-      )?.object.value;
-    }
-
-    let isVersionOf: string | undefined;
-    if (isVersionOfPath) {
-      isVersionOf = quads.find(
-        (x) => x.subject.equals(member) && x.predicate.equals(isVersionOfPath),
-      )?.object.value;
-    }
-    // Get isVersionof
-    cb({ quads, id: member, isVersionOf, timestamp });
-  };
+    cb(memberFromQuads(member, quads, timestampPath, isVersionOfPath));
+  }
 
   const out: Promise<void>[] = [];
   for (let member of members) {
@@ -88,7 +72,7 @@ export function extractRelations(
 
   for (let relationId of relationIds) {
     const node = getObjects(store, relationId, TREE.terms.node, null)[0];
-    const ty = getObjects(store, relationId, RDF.terms.type, null);
+    const ty = getObjects(store, relationId, RDF.terms.type, null)[0] || TREE.Relation;
     const path = getObjects(store, relationId, TREE.terms.path, null)[0];
     const value = getObjects(store, relationId, TREE.terms.value, null);
 
@@ -97,12 +81,19 @@ export function extractRelations(
       const assessableRelations = [];
 
       if (after) {
-        assessableRelations.push(...[TREE.LessThanRelation, TREE.LessThanOrEqualToRelation]);
+        assessableRelations.push(
+          ...[TREE.LessThanRelation, TREE.LessThanOrEqualToRelation]
+        );
         if (before) {
-          assessableRelations.push(...[TREE.GreaterThanRelation, TREE.GreaterThanOrEqualToRelation]);
+          assessableRelations.push(
+            ...[TREE.GreaterThanRelation, TREE.GreaterThanOrEqualToRelation]
+          );
           // This filter applies for all cardinal relations
-          if (assessableRelations.includes(ty[0].value)) {
-            if (ty[0].value === TREE.LessThanRelation && after >= new Date(value[0].value)) {
+          if (assessableRelations.includes(ty.value)) {
+            if (
+              ty.value === TREE.LessThanRelation &&
+              after >= new Date(value[0].value)
+            ) {
               filteredNodes.add(node.value);
               if (allowedNodes.has(node.value)) {
                 // In case a permissive relation had allowed this node before
@@ -110,7 +101,10 @@ export function extractRelations(
               }
               continue;
             }
-            if (ty[0].value === TREE.LessThanOrEqualToRelation && after > new Date(value[0].value)) {
+            if (
+              ty.value === TREE.LessThanOrEqualToRelation &&
+              after > new Date(value[0].value)
+            ) {
               filteredNodes.add(node.value);
               if (allowedNodes.has(node.value)) {
                 // In case a permissive relation had allowed this node before
@@ -118,7 +112,10 @@ export function extractRelations(
               }
               continue;
             }
-            if (ty[0].value === TREE.GreaterThanRelation && before <= new Date(value[0].value)) {
+            if (
+              ty.value === TREE.GreaterThanRelation &&
+              before <= new Date(value[0].value)
+            ) {
               filteredNodes.add(node.value);
               if (allowedNodes.has(node.value)) {
                 // In case a permissive relation had allowed this node before
@@ -126,7 +123,10 @@ export function extractRelations(
               }
               continue;
             }
-            if (ty[0].value === TREE.GreaterThanOrEqualToRelation && before < new Date(value[0].value)) {
+            if (
+              ty.value === TREE.GreaterThanOrEqualToRelation &&
+              before < new Date(value[0].value)
+            ) {
               filteredNodes.add(node.value);
               if (allowedNodes.has(node.value)) {
                 // In case a permissive relation had allowed this node before
@@ -137,8 +137,11 @@ export function extractRelations(
           }
         } else {
           // This filter only applies for tree:LessThanRelation and tree:LessThanOrEqualToRelation
-          if (assessableRelations.includes(ty[0].value)) {
-            if (ty[0].value === TREE.LessThanRelation && after >= new Date(value[0].value)) {
+          if (assessableRelations.includes(ty.value)) {
+            if (
+              ty.value === TREE.LessThanRelation &&
+              after >= new Date(value[0].value)
+            ) {
               filteredNodes.add(node.value);
               if (allowedNodes.has(node.value)) {
                 // In case a permissive relation had allowed this node before
@@ -146,7 +149,10 @@ export function extractRelations(
               }
               continue;
             }
-            if (ty[0].value === TREE.LessThanOrEqualToRelation && after > new Date(value[0].value)) {
+            if (
+              ty.value === TREE.LessThanOrEqualToRelation &&
+              after > new Date(value[0].value)
+            ) {
               filteredNodes.add(node.value);
               if (allowedNodes.has(node.value)) {
                 // In case a permissive relation had allowed this node before
@@ -158,10 +164,15 @@ export function extractRelations(
         }
       } else {
         if (before) {
-          assessableRelations.push(...[TREE.GreaterThanRelation, TREE.GreaterThanOrEqualToRelation]);
+          assessableRelations.push(
+            ...[TREE.GreaterThanRelation, TREE.GreaterThanOrEqualToRelation]
+          );
           // This filter only applies for tree:GreaterThanRelation and tree:GreaterThanOrEqualToRelation
-          if (assessableRelations.includes(ty[0].value)) {
-            if (ty[0].value === TREE.GreaterThanRelation && before <= new Date(value[0].value)) {
+          if (assessableRelations.includes(ty.value)) {
+            if (
+              ty.value === TREE.GreaterThanRelation &&
+              before <= new Date(value[0].value)
+            ) {
               filteredNodes.add(node.value);
               if (allowedNodes.has(node.value)) {
                 // In case a permissive relation had allowed this node before
@@ -169,7 +180,10 @@ export function extractRelations(
               }
               continue;
             }
-            if (ty[0].value === TREE.GreaterThanOrEqualToRelation && before < new Date(value[0].value)) {
+            if (
+              ty.value === TREE.GreaterThanOrEqualToRelation &&
+              before < new Date(value[0].value)
+            ) {
               filteredNodes.add(node.value);
               if (allowedNodes.has(node.value)) {
                 // In case a permissive relation had allowed this node before
@@ -178,7 +192,9 @@ export function extractRelations(
               continue;
             }
           }
-        } else { /* No filters, everything is allowed */ }
+        } else {
+          /* No filters, everything is allowed */
+        }
       }
     }
 
@@ -186,7 +202,7 @@ export function extractRelations(
       allowedNodes.set(node.value, {
         source,
         node: node.value,
-        type: ty[0],
+        type: ty,
         path,
         value,
       });
