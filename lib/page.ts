@@ -72,11 +72,7 @@ export function extractRelations(
 
   for (let relationId of relationIds) {
     const node = getObjects(store, relationId, TREE.terms.node, null)[0];
-    const ty = getObjects(store, relationId, RDF.terms.type, null)[0];
-    if (!ty) {
-      console.error(`No type for relation id ${relationId.value}`);
-      continue;
-    }
+    const ty = getObjects(store, relationId, RDF.terms.type, null)[0] || TREE.Relation;
     const path = getObjects(store, relationId, TREE.terms.path, null)[0];
     const value = getObjects(store, relationId, TREE.terms.value, null);
 
