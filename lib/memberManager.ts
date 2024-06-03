@@ -5,7 +5,11 @@ import { CBDShapeExtractor } from "extract-cbd-shape";
 import { RDF, TREE } from "@treecg/types";
 import { LDESInfo } from "./client";
 import debug from "debug";
-import { getObjects, Notifier } from "./utils";
+import {
+  getObjects,
+  memberFromQuads,
+  Notifier,
+} from "./utils";
 import { RdfStore } from "rdf-stores";
 
 const log = debug("manager");
@@ -131,41 +135,18 @@ export class Manager {
     member: Term,
     data: RdfStore,
   ): Promise<Member | undefined> {
-    const quads: Quad[] = await this.extractMemberQuads(member, data);
+    if (this.state.has(member.value)) return;
 
-    if (this.state.has(member.value)) {
-      return;
-    }
+    const quads: Quad[] = await this.extractMemberQuads(member, data);
 
     if (quads.length > 0) {
       this.state.add(member.value);
-
-      // Get timestamp
-      let timestamp: Date | string | undefined;
-      if (this.timestampPath) {
-        const ts = quads.find(
-          (x) =>
-            x.subject.equals(member) && x.predicate.equals(this.timestampPath),
-        )?.object.value;
-        if (ts) {
-          try {
-            timestamp = new Date(ts);
-          } catch (ex: any) {
-            timestamp = ts;
-          }
-        }
-      }
-
-      let isVersionOf: string | undefined;
-      if (this.isVersionOfPath) {
-        isVersionOf = quads.find(
-          (x) =>
-            x.subject.equals(member) &&
-            x.predicate.equals(this.isVersionOfPath),
-        )?.object.value;
-      }
-
-      return { id: member, quads, timestamp, isVersionOf };
+      return memberFromQuads(
+        member,
+        quads,
+        this.timestampPath,
+        this.isVersionOfPath
+      );
     }
   }
 

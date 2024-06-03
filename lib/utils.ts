@@ -1,9 +1,10 @@
-import { NamedNode, Stream, Term } from "@rdfjs/types";
+import { NamedNode, Quad, Stream, Term } from "@rdfjs/types";
 import { BaseQuad } from "n3";
 import { StateFactory, StateT } from "./state";
 import { RdfStore } from "rdf-stores";
 import { RDF, SHACL } from "@treecg/types";
 import debug from "debug";
+import { Member } from "./page";
 
 export type Notifier<Events, S> = {
   [K in keyof Events]: (event: Events[K], state: S) => void;
@@ -448,4 +449,41 @@ export function retry_fetch(
   };
 
   return retry;
+}
+
+export function memberFromQuads(
+  member: Term,
+  quads: Quad[],
+  timestampPath: Term | undefined,
+  isVersionOfPath: Term | undefined,
+): Member {
+  // Get timestamp
+  let timestamp: string | Date | undefined;
+  if (timestampPath) {
+    const ts = quads.find(
+      (x) => x.subject.equals(member) && x.predicate.equals(timestampPath)
+    )?.object.value;
+    if (ts) {
+      try {
+        timestamp = new Date(ts);
+      } catch (ex: any) {
+        timestamp = ts;
+      }
+    }
+  }
+
+  // Get isVersionof
+  let isVersionOf: string | undefined;
+  if (isVersionOfPath) {
+    isVersionOf = quads.find(
+      (x) => x.subject.equals(member) && x.predicate.equals(isVersionOfPath)
+    )?.object.value;
+  }
+
+  // Get type
+  let type: Term | undefined;
+  type = quads.find(
+    (x) => x.subject.equals(member) && x.predicate.value === RDF.type
+  )?.object;
+  return { quads, id: member, isVersionOf, timestamp, type };
 }

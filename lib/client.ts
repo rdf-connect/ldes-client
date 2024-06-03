@@ -10,7 +10,6 @@ import { Quad_Object, Term } from "@rdfjs/types";
 import {
   enhanced_fetch,
   extractMainNodeShape,
-  FetchConfig,
   getObjects,
   ModulatorFactory,
   Notifier,
@@ -23,6 +22,7 @@ import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
 import debug from "debug";
 import type { Writer } from "@ajuvercr/js-runner";
 
+import { ReadableStream } from "stream/web";
 export { intoConfig } from "./config";
 export { retry_fetch, extractMainNodeShape } from "./utils";
 export type { Member, Page, Relation } from "./page";
@@ -359,7 +359,7 @@ export class Client {
 
   stream(strategy?: {
     highWaterMark?: number;
-    size?: (chunk: Member) => number;
+    size?: (chunk: Member | undefined) => number;
   }): ReadableStream<Member> {
     const emitted = longPromise();
     const config: UnderlyingDefaultSource = {
