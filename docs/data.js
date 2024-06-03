@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714133905153,
+  "lastUpdate": 1717427201283,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -184,6 +184,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6.15,
             "range": "±1.90%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1544429+MPvHarmelen@users.noreply.github.com",
+            "name": "Martin",
+            "username": "MPvHarmelen"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5bb915f211795f3e88d9fdb24088276f73921e0c",
+          "message": "Add `rdf:type` information to Member and fix ReadableStream types (#34)\n\n* Add `rdf:type` information to Member and fix ReadableStream types\r\n\r\n* Default to tree:Relation for a tree relation\r\n\r\n---------\r\n\r\nCo-authored-by: ajuvercr <arthur.vercruysse@ugent.be>",
+          "timestamp": "2024-06-03T17:05:18+02:00",
+          "tree_id": "055c0f96fef6a4b0a752e91b05db306b20f9044b",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/5bb915f211795f3e88d9fdb24088276f73921e0c"
+        },
+        "date": 1717427200623,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 5.75,
+            "range": "±12.54%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
