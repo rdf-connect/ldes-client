@@ -5,6 +5,7 @@ import debug from "debug";
 import { SimpleRelation } from "./relation";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
+import { Condition } from "./condition";
 const log = debug("fetcher");
 const { namedNode } = new DataFactory();
 
@@ -62,23 +63,20 @@ export class Fetcher {
   private dereferencer: RdfDereferencer;
   private loose: boolean;
   private fetch_f?: typeof fetch;
-  private after?: Date;
-  private before?: Date;
+  private condition: Condition;
 
   private closed = false;
 
   constructor(
     dereferencer: RdfDereferencer,
     loose: boolean,
+    condition: Condition,
     fetch_f?: typeof fetch,
-    after?: Date,
-    before?: Date,
   ) {
     this.dereferencer = dereferencer;
     this.loose = loose;
     this.fetch_f = fetch_f;
-    if (after) this.after = after;
-    if (before) this.before = before;
+    this.condition = condition;
   }
 
   close() {
@@ -141,8 +139,7 @@ export class Fetcher {
         data,
         namedNode(resp.url),
         this.loose,
-        this.after,
-        this.before,
+        this.condition,
       )) {
         if (!node.expected.some((x) => x == rel.node)) {
           if (!this.closed) {

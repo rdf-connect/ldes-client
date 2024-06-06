@@ -5,12 +5,15 @@ import { intoConfig } from "../lib/config";
 import { Command, Option } from "commander";
 import { Writer } from "n3";
 import { enhanced_fetch, FetchConfig } from "../lib/utils";
+import { Condition, empty_condition, parse_condition } from "../lib/condition";
+import { readFile } from "fs/promises";
 
 const program = new Command();
 let paramURL: string = "";
 let polling: boolean = false;
-let after: Date | undefined;
-let before: Date | undefined;
+// let after: Date | undefined;
+// let before: Date | undefined;
+let conditionFile: string | undefined;
 let paramPollInterval: number;
 let urlIsView = false;
 let noShape = false;
@@ -34,13 +37,17 @@ program
       .default("none"),
   )
   .option("-f, --follow", "follow the LDES, the client stays in sync")
+  // .option(
+  //   "--after <after>",
+  //   "follow only relations including members after a certain point in time",
+  // )
+  // .option(
+  //   "--before <before>",
+  //   "follow only relations including members before a certain point in time",
+  // )
   .option(
-    "--after <after>",
-    "follow only relations including members after a certain point in time",
-  )
-  .option(
-    "--before <before>",
-    "follow only relations including members before a certain point in time",
+    "--condition <condition_file>",
+    "turtle file including the conditions for extracting a member",
   )
   .option("--poll-interval <number>", "specify poll interval")
   .option("--shape-file <shapeFile>", "specify a shapefile")
@@ -91,6 +98,7 @@ program
     verbose = program.verbose;
     loose = program.loose;
     onlyDefaultGraph = program.onlyDefaultGraph;
+    conditionFile = program.condition;
 
     fetch_config.concurrent = parseInt(program.concurrent);
     if (program.basicAuth) {
@@ -105,27 +113,39 @@ program
       fetch_config.retry!.codes = program.httpCodes.map(parseInt);
     }
 
-    if (program.after) {
-      if (!isNaN(new Date(program.after).getTime())) {
-        after = new Date(program.after);
-      } else {
-        console.error(`--after ${program.after} is not a valid date`);
-        process.exit();
-      }
-    }
-    if (program.before) {
-      if (!isNaN(new Date(program.before).getTime())) {
-        before = new Date(program.before);
-      } else {
-        console.error(`--before ${program.before} is not a valid date`);
-        process.exit();
-      }
-    }
+    // if (program.after) {
+    //   if (!isNaN(new Date(program.after).getTime())) {
+    //     after = new Date(program.after);
+    //   } else {
+    //     console.error(`--after ${program.after} is not a valid date`);
+    //     process.exit();
+    //   }
+    // }
+    // if (program.before) {
+    //   if (!isNaN(new Date(program.before).getTime())) {
+    //     before = new Date(program.before);
+    //   } else {
+    //     console.error(`--before ${program.before} is not a valid date`);
+    //     process.exit();
+    //   }
+    // }
   });
 
 program.parse(process.argv);
 
 async function main() {
+  let condition = empty_condition();
+  if (conditionFile) {
+    const source = await readFile(conditionFile, { encoding: "utf8" });
+    try {
+      condition = parse_condition(source, conditionFile);
+    } catch (ex) {
+      console.error(ex);
+      throw (ex);
+    }
+    console.log("Found me some condition", !!condition);
+    console.log( condition.toString());
+  }
   const client = replicateLDES(
     intoConfig({
       loose,
@@ -137,8 +157,7 @@ async function main() {
       urlIsView: urlIsView,
       shapeFile,
       onlyDefaultGraph,
-      after,
-      before,
+      condition,
       fetch: enhanced_fetch(fetch_config),
     }),
     ordered,

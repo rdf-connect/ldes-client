@@ -1,4 +1,5 @@
 import { NamedNode, Quad } from "@rdfjs/types";
+import { Condition, empty_condition as emptyCondition } from "./condition";
 
 export interface ShapeConfig {
   quads: Quad[];
@@ -13,8 +14,7 @@ export interface Config {
   noShape: boolean;
   stateFile?: string;
   pollInterval: number;
-  before?: Date;
-  after?: Date;
+  condition: Condition;
   shape?: ShapeConfig;
   shapeFile?: string;
   onlyDefaultGraph?: boolean;
@@ -28,6 +28,7 @@ export interface WithTarget {
 const defaultConfig: Config = {
   urlIsView: false,
   noShape: false,
+  condition: emptyCondition(),
   loose: false,
   polling: false,
   url: "",

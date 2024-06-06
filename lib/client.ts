@@ -24,7 +24,7 @@ import type { Writer } from "@ajuvercr/js-runner";
 
 import { ReadableStream } from "stream/web";
 export { intoConfig } from "./config";
-export { retry_fetch, extractMainNodeShape } from "./utils";
+export { extractMainNodeShape, retry_fetch } from "./utils";
 export type { Member, Page, Relation } from "./page";
 export type { Config, ShapeConfig } from "./config";
 
@@ -66,7 +66,7 @@ async function getInfo(
 
     const resp = await rdfDereference.dereference(config.shapeFile, {
       localFiles: true,
-      fetch: config.fetch
+      fetch: config.fetch,
     });
     const quads = await streamToArray(resp.data);
     config.shape = {
@@ -181,7 +181,7 @@ export class Client {
   public streamId?: Term;
   private ordered: Ordered;
 
-  private modulatorFactory;
+  private modulatorFactory: ModulatorFactory;
 
   private stateFactory: StateFactory;
 
@@ -227,7 +227,7 @@ export class Client {
     key: K,
     data: ClientEvents[K],
   ) {
-    (this.listeners[key] || []).forEach(function (fn) {
+    (this.listeners[key] || []).forEach(function(fn) {
       fn(data);
     });
   }
@@ -291,35 +291,17 @@ export class Client {
     this.fetcher = new Fetcher(
       this.dereferencer,
       this.config.loose,
+      this.config.condition,
       this.config.fetch,
-      this.config.after,
-      this.config.before,
     );
 
     const notifier: Notifier<StrategyEvents, {}> = {
       error: (ex: any) => this.emit("error", ex),
       fragment: () => this.emit("fragment", undefined),
       member: (m) => {
-        // Check if member is within date constraints (if any)
-        if (this.config.before) {
-          if (
-            m.timestamp &&
-            m.timestamp instanceof Date &&
-            m.timestamp > this.config.before
-          ) {
-            return;
-          }
+        if (this.config.condition.matchMember(m)) {
+          emit(m);
         }
-        if (this.config.after) {
-          if (
-            m.timestamp &&
-            m.timestamp instanceof Date &&
-            m.timestamp < this.config.after
-          ) {
-            return;
-          }
-        }
-        emit(m);
       },
       pollCycle: () => {
         this.emit("poll", undefined);
@@ -467,12 +449,11 @@ export async function processor(
       shapeFile: shape,
       polling: follow,
       url: url,
-      after,
-      before,
       stateFile: save,
       pollInterval: pollInterval,
       urlIsView,
       fetch: fetch_config ? enhanced_fetch(fetch_config) : fetch,
+      // condition: todo
     },
     <Ordered>ordered || "none",
   );
@@ -523,4 +504,3 @@ export async function processor(
     }
   };
 }
-
