@@ -22,9 +22,15 @@ import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
 import debug from "debug";
 import type { Writer } from "@ajuvercr/js-runner";
 
-import { ReadableStream } from "stream/web";
+// import { ReadableStream } from "stream/web";
 export { intoConfig } from "./config";
 export { extractMainNodeShape, retry_fetch } from "./utils";
+export {
+  Condition,
+  empty_condition,
+  parse_condition,
+  Range,
+} from "./condition/index";
 export type { Member, Page, Relation } from "./page";
 export type { Config, ShapeConfig } from "./config";
 
@@ -341,7 +347,7 @@ export class Client {
 
   stream(strategy?: {
     highWaterMark?: number;
-    size?: (chunk: Member | undefined) => number;
+    size?: (chunk: Member) => number;
   }): ReadableStream<Member> {
     const emitted = longPromise();
     const config: UnderlyingDefaultSource = {

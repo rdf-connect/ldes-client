@@ -5,7 +5,7 @@ import { intoConfig } from "../lib/config";
 import { Command, Option } from "commander";
 import { Writer } from "n3";
 import { enhanced_fetch, FetchConfig } from "../lib/utils";
-import { Condition, empty_condition, parse_condition } from "../lib/condition";
+import { empty_condition, parse_condition } from "../lib/condition";
 import { readFile } from "fs/promises";
 
 const program = new Command();

@@ -5,11 +5,7 @@ import { CBDShapeExtractor } from "extract-cbd-shape";
 import { RDF, TREE } from "@treecg/types";
 import { LDESInfo } from "./client";
 import debug from "debug";
-import {
-  getObjects,
-  memberFromQuads,
-  Notifier,
-} from "./utils";
+import { getObjects, memberFromQuads, Notifier } from "./utils";
 import { RdfStore } from "rdf-stores";
 
 const log = debug("manager");
@@ -93,6 +89,8 @@ export class Manager {
               { error: ex, type: "extract", memberId: member },
               state,
             );
+            var err = new Error();
+            console.log(err.stack);
           });
 
         promises.push(promise);
@@ -145,7 +143,7 @@ export class Manager {
         member,
         quads,
         this.timestampPath,
-        this.isVersionOfPath
+        this.isVersionOfPath,
       );
     }
   }

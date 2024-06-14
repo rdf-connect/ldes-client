@@ -78,7 +78,6 @@ export const SHAPES = `
     sh:path tree:value;
     sh:datatype xsd:string;
     sh:maxCount 1;
-    sh:minCount 1;
     sh:name "value";
   ], [
     sh:path tree:compareType;
@@ -87,5 +86,4 @@ export const SHAPES = `
     sh:maxCount 1;
     sh:in ("string" "date" "integer" "float");
   ].
-
 `;

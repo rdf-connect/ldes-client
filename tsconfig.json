@@ -4,7 +4,7 @@
       "es2023",
       "dom"
     ],
-    "module": "commonjs",
+    "module": "esnext",
     "target": "es2022",
     "strict": true,
     // "esModuleInterop": true,

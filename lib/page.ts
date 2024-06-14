@@ -112,5 +112,6 @@ export function extractRelations(
     }
   }
 
+  console.log("allowed", allowed.map(x => x.node))
   return allowed;
 }

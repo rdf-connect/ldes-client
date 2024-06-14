@@ -44,7 +44,7 @@ export function cbdEquals(a: Path, b: Path): boolean {
 
 type PathRange = {
   cbdEntry: Term;
-  range: Range;
+  range?: Range;
 };
 
 export class RelationCondition {
@@ -57,13 +57,16 @@ export class RelationCondition {
   }
 
   allowed(condition: Condition): boolean {
-    return this.ranges.every((x) =>
-      condition.matchRelation(
+    return this.ranges.every((x) => {
+      if (!x.range) {
+        console.log("range is undefined!", condition);
+      }
+      return condition.matchRelation(
         x.range,
         { id: x.cbdEntry, store: this.store },
         // true,
-      ),
-    );
+      );
+    });
   }
 
   addRelation(relationId: Term) {
@@ -73,7 +76,7 @@ export class RelationCondition {
     const path = getObjects(this.store, relationId, TREE.terms.path, null)[0];
     const value = getObjects(this.store, relationId, TREE.terms.value, null)[0];
 
-    if(!value) return;
+    console.log("Add relation", { ty, path, value });
 
     let range = this.ranges.find((range) =>
       cbdEquals(
@@ -91,6 +94,11 @@ export class RelationCondition {
       range = newRange;
     }
 
-    range.range.add(new Date(value.value.replaceAll("99", "59")), ty.value);
+    if (!value) {
+      range.range = undefined;
+      return;
+    }
+
+    range.range?.add(value.value, ty.value);
   }
 }

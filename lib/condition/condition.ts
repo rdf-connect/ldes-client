@@ -1,5 +1,5 @@
 import { Quad, Term } from "@rdfjs/types";
-import { NamedNode, Parser } from "n3";
+import { NamedNode, Parser, Writer } from "n3";
 import { BasicLensM, Cont, extractShapes } from "rdf-lens";
 import { RdfStore } from "rdf-stores";
 import { Member } from "../page";
@@ -13,7 +13,11 @@ type RdfThing = {
 };
 
 export interface Condition {
-  matchRelation(range: Range, cbdId: Path, verbose?: boolean): boolean;
+  matchRelation(
+    range: Range | undefined,
+    cbdId: Path,
+    verbose?: boolean,
+  ): boolean;
   matchMember(member: Member): boolean;
   toString(): string;
 }
@@ -154,7 +158,7 @@ export class Range {
   }
 }
 
-class LeafCondition implements Condition {
+export class LeafCondition implements Condition {
   relationType: Term;
   value: string;
   compareType: CompareTypes;
@@ -203,14 +207,20 @@ class LeafCondition implements Condition {
     }
   }
 
-  matchRelation(range: Range, cbdId: Path, verbose?: boolean): boolean {
+  matchRelation(
+    range: Range | undefined,
+    cbdId: Path,
+    verbose?: boolean,
+  ): boolean {
     if (!cbdEquals(this.pathQuads, cbdId)) {
       return true;
     }
+    if (!range) console.log("Rangee is here also undefined, returning false");
+    if (!range) return false;
 
-    const vts =
-      this.compareType === "date" ? (x: Date) => x.toISOString() : undefined;
     if (verbose) {
+      const vts =
+        this.compareType === "date" ? (x: Date) => x.toISOString() : undefined;
       console.log(
         this.range.toString(vts),
         "contains",
@@ -238,7 +248,11 @@ abstract class BiCondition implements Condition {
 
   abstract combine(alpha: boolean, beta: boolean): boolean;
 
-  matchRelation(range: Range, cbdId: Path, verbose?: boolean): boolean {
+  matchRelation(
+    range: Range | undefined,
+    cbdId: Path,
+    verbose?: boolean,
+  ): boolean {
     const alpha = this.alpha.matchRelation(range, cbdId, verbose);
     const beta = this.beta.matchRelation(range, cbdId, verbose);
     if (verbose) {
@@ -254,7 +268,7 @@ abstract class BiCondition implements Condition {
   }
 }
 
-class AndCondition extends BiCondition {
+export class AndCondition extends BiCondition {
   combine(alpha: boolean, beta: boolean): boolean {
     return alpha && beta; // TODO those might be null if something cannot make a statement about it, important for not condition
   }
@@ -262,7 +276,7 @@ class AndCondition extends BiCondition {
     return `(${this.alpha.toString()} ^ ${this.beta.toString()})`;
   }
 }
-class OrCondition extends BiCondition {
+export class OrCondition extends BiCondition {
   combine(alpha: boolean, beta: boolean): boolean {
     return alpha || beta; // TODO those might be null if something cannot make a statement about it, important for not condition
   }
@@ -271,7 +285,7 @@ class OrCondition extends BiCondition {
   }
 }
 
-class EmptyCondition implements Condition {
+export class EmptyCondition implements Condition {
   matchRelation(_range: Range, _cbdId: Path, verbose?: boolean): boolean {
     if (verbose) console.log("Returning true");
     return true;
