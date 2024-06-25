@@ -211,7 +211,7 @@ export class Client {
       : new NoStateFactory();
     this.modulatorFactory = new ModulatorFactory(this.stateFactory);
 
-    if (process) {
+    if (typeof process !== 'undefined' ) {
       process.on("SIGINT", () => {
         console.log("Caught interrupt signal, saving");
         this.stateFactory.write();

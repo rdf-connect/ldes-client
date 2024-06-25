@@ -91,6 +91,11 @@ js:LdesClient a js:JsProcess;
     sh:path js:retry;
     sh:name "retry";
     sh:maxCount 1;
+  ], [
+    sh:datatype xsd:boolean;
+    sh:path js:safe;
+    sh:name "safe";
+    sh:maxCount 1;
   ].
 
 [ ] a sh:NodeShape;

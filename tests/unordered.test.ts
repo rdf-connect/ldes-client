@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, test } from "@jest/globals";
 import { read, Tree } from "./helper";
 
 import { replicateLDES, retry_fetch } from "../lib/client";
-import { intoConfig } from "../lib/config";
 import { Parser } from "n3";
 import { TREE } from "@treecg/types";
 import { rmSync } from "fs";

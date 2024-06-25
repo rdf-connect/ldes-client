@@ -42,6 +42,7 @@ describe("Tests for js:LdesClient processor", async () => {
           js:code 404, 403;
           js:maxRetry 5;
         ];
+js:safe true;
         js:auth [
           js:auth "test";
           js:type "basic"
@@ -112,6 +113,7 @@ describe("Tests for js:LdesClient processor", async () => {
       type: "basic",
       auth: "test",
     });
+    expect(fetch_config.safe).toBe(false);
 
     await checkProc(env.file, env.func);
   });

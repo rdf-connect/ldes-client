@@ -223,8 +223,8 @@ class ModulatorInstance<T> implements Modulator<T> {
     this.state = state;
     const readd = [...this.state.item.todo, ...this.state.item.inflight];
     this.state.item.todo.push(...this.state.item.inflight);
-    while (this.state.item.inflight.pop()) {}
-    while (this.state.item.todo.pop()) {}
+    while (this.state.item.inflight.pop()) { }
+    while (this.state.item.todo.pop()) { }
     this.ranker = ranker;
     this.notifier = notifier;
     this.factory = factory;
@@ -320,15 +320,31 @@ export type FetchConfig = {
   auth?: AuthConfig;
   concurrent?: number;
   retry?: Partial<RetryConfig>;
+  safe?: boolean;
 };
 
 export function enhanced_fetch(
   config: FetchConfig,
   start?: typeof fetch,
 ): typeof fetch {
-  const fetch_f = config.auth
-    ? handle_basic_auth(start || fetch, config.auth)
-    : fetch;
+  const start_f = start || fetch;
+  const safe_f = config.safe
+    ? ((async (a, b) => {
+      while (true) {
+        try {
+          return await start_f(a, b);
+        } catch (ex) {
+          console.error(
+            "This should not happen, it will not happen this is saf",
+            ex,
+          );
+        }
+      }
+    }) as typeof fetch)
+    : start_f;
+
+  const fetch_f = config.auth ? handle_basic_auth(safe_f, config.auth) : safe_f;
+
   return limit_fetch_per_domain(
     retry_fetch(fetch_f, config.retry || {}),
     config.concurrent,
@@ -461,7 +477,7 @@ export function memberFromQuads(
   let timestamp: string | Date | undefined;
   if (timestampPath) {
     const ts = quads.find(
-      (x) => x.subject.equals(member) && x.predicate.equals(timestampPath)
+      (x) => x.subject.equals(member) && x.predicate.equals(timestampPath),
     )?.object.value;
     if (ts) {
       try {
@@ -476,14 +492,14 @@ export function memberFromQuads(
   let isVersionOf: string | undefined;
   if (isVersionOfPath) {
     isVersionOf = quads.find(
-      (x) => x.subject.equals(member) && x.predicate.equals(isVersionOfPath)
+      (x) => x.subject.equals(member) && x.predicate.equals(isVersionOfPath),
     )?.object.value;
   }
 
   // Get type
   let type: Term | undefined;
   type = quads.find(
-    (x) => x.subject.equals(member) && x.predicate.value === RDF.type
+    (x) => x.subject.equals(member) && x.predicate.value === RDF.type,
   )?.object;
   return { quads, id: member, isVersionOf, timestamp, type };
 }

@@ -10,7 +10,12 @@ let storage: Storage;
 
 if (typeof window === "undefined") {
   // Node.js environment
-  const fs = require("fs");
+  let fs: any;
+  if (typeof require === "undefined") {
+    import('fs').then(mod => fs = mod);
+  } else {
+    fs = require("fs");
+  }
 
   storage = {
     getItem: (key: string): string => {

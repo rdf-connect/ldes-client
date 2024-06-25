@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, test } from "@jest/globals";
+import { describe, expect, it } from "@jest/globals";
 import { Range } from "../lib/condition";
 import { TREE } from "@treecg/types";
 
