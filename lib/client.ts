@@ -20,13 +20,12 @@ import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
 import { Manager } from "./memberManager";
 import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
 import debug from "debug";
-import type { Writer } from "@ajuvercr/js-runner";
+import type { Writer } from "@rdfc/js-runner";
 
-// import { ReadableStream } from "stream/web";
 export { intoConfig } from "./config";
 export { extractMainNodeShape, retry_fetch } from "./utils";
 export {
-  Condition,
+  type Condition,
   empty_condition,
   parse_condition,
   Range,

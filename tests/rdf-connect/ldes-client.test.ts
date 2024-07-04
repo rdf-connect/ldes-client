@@ -1,5 +1,5 @@
 import { describe, test, expect } from "@jest/globals";
-import { SimpleStream } from "@ajuvercr/js-runner";
+import { SimpleStream } from "@rdfc/js-runner";
 import { Parser } from "n3";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";

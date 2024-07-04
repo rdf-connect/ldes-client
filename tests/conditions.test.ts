@@ -27,7 +27,6 @@ const equals = [
   new Range(5, TREE.GreaterThanOrEqualToRelation),
   new Range(4, TREE.GreaterThanOrEqualToRelation),
   new Range(4, TREE.GreaterThanRelation),
-
   new Range(5, TREE.EqualToRelation),
 ];
 
@@ -128,11 +127,11 @@ describe("range", () => {
   describe("things 6 or more)", () => {
     const tests = [
       new Range(6, TREE.EqualToRelation),
-      new Range(6, TREE.GreaterThanRelation),
+      new Range(6, TREE.GreaterThanOrEqualToRelation),
     ];
 
     describe("overlaps", () => {
-      greater.forEach((x) => {
+      greaters.forEach((x) => {
         tests.forEach((y) => {
           it(`${x.toString()} overlaps ${y.toString()}`, () => {
             expect(x.overlaps(y)).toBeTruthy();

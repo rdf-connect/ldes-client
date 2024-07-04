@@ -1,5 +1,5 @@
 import { Quad, Term } from "@rdfjs/types";
-import { NamedNode, Parser, Writer } from "n3";
+import { NamedNode, Parser } from "n3";
 import { BasicLensM, Cont, extractShapes } from "rdf-lens";
 import { RdfStore } from "rdf-stores";
 import { Member } from "../page";

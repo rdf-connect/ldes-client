@@ -1,5 +1,5 @@
 import { describe, expect, test } from "@jest/globals";
-import { extractProcessors, extractSteps, Source } from "@ajuvercr/js-runner";
+import { extractProcessors, extractSteps, Source } from "@rdfc/js-runner";
 
 describe("Tests for js:LdesClient processor", async () => {
   const pipeline = `
@@ -11,7 +11,7 @@ describe("Tests for js:LdesClient processor", async () => {
         @prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
         @prefix sh: <http://www.w3.org/ns/shacl#>.
 
-        <> owl:imports <./node_modules/@ajuvercr/js-runner/ontology.ttl>, <./processor.ttl>.
+        <> owl:imports <./node_modules/@rdfc/js-runner/ontology.ttl>, <./processor.ttl>.
 
         [ ] a :Channel;
             :writer <jw>.

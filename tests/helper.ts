@@ -2,7 +2,6 @@ import { Quad } from "@rdfjs/types";
 import { Parser, Writer } from "n3";
 import { Member } from "../lib/page";
 import { TREE } from "@treecg/types";
-import { ReadableStream } from "stream/web";
 
 export type FragmentId = number;
 
