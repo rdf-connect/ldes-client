@@ -1,6 +1,6 @@
 import { Config, intoConfig } from "./config";
 import { Member } from "./page";
-import rdfDereference, { RdfDereferencer } from "rdf-dereference";
+import { rdfDereferencer, RdfDereferencer } from "rdf-dereference";
 import { FileStateFactory, NoStateFactory, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { RdfStore } from "rdf-stores";
@@ -70,7 +70,7 @@ async function getInfo(
       ? config.shapeFile
       : "file://" + config.shapeFile;
 
-    const resp = await rdfDereference.dereference(config.shapeFile, {
+    const resp = await dereferencer.dereference(config.shapeFile, {
       localFiles: true,
       fetch: config.fetch,
     });
@@ -202,7 +202,7 @@ export class Client {
     stream?: Term,
   ) {
     this.config = config;
-    this.dereferencer = dereferencer ?? rdfDereference;
+    this.dereferencer = dereferencer ?? rdfDereferencer;
 
     this.streamId = stream;
     this.ordered = ordered;
