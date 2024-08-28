@@ -29,16 +29,16 @@ export function empty_condition(): Condition {
 export function parse_condition(source: string, baseIRI: string): Condition {
   const shapeQuads = new Parser().parse(SHAPES);
   const output = extractShapes(shapeQuads, {
-    "https://w3id.org/tree#And": (obj) => new AndCondition(obj),
-    "https://w3id.org/tree#Or": (obj) => new OrCondition(obj),
-    "https://w3id.org/tree#Condition": (obj) => new LeafCondition(obj),
+    "https://w3id.org/tree#And": (obj: any) => new AndCondition(obj),
+    "https://w3id.org/tree#Or": (obj: any) => new OrCondition(obj),
+    "https://w3id.org/tree#Condition": (obj: any) => new LeafCondition(obj),
   });
 
   const dataQuads = new Parser({ baseIRI: baseIRI }).parse(source);
 
-  return output.lenses[
-    "https://w3id.org/rdf-lens/ontology#TypedExtract"
-  ].execute({
+  return <Condition>output.lenses[
+      "https://w3id.org/rdf-lens/ontology#TypedExtract"
+      ].execute({
     quads: dataQuads,
     id: new NamedNode(baseIRI),
   });

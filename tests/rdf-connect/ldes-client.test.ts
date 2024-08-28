@@ -249,7 +249,7 @@ describe("Functional tests for the js:LdesClient Connector Architecture function
         outputStream.data(record => {
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach(q => store.addQuad(q));
-            
+
             // Check which classes we got
             for (const classSuffix of observedClasses.keys()) {
                 if (record.includes(classSuffix)) {
@@ -263,13 +263,13 @@ describe("Functional tests for the js:LdesClient Connector Architecture function
                 !record.includes("<https://www.w3.org/ns/activitystreams#Delete>")
             ) {
                 expect(store.getQuads(
-                    null, 
-                    RDF.terms.type, 
+                    null,
+                    RDF.terms.type,
                     df.namedNode("http://www.opengis.net/ont/geosparql#Geometry")
                 ).length).toBe(1);
                 expect(store.getQuads(
-                    null, 
-                    df.namedNode(GSP.custom("asWKT")) 
+                    null,
+                    df.namedNode(GSP.custom("asWKT"))
                 ).length).toBe(1);
             }
             count++;
@@ -318,7 +318,7 @@ describe("Functional tests for the js:LdesClient Connector Architecture function
         outputStream.data(record => {
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach(q => store.addQuad(q));
-            
+
             // Check which classes we got
             for (const classSuffix of observedClasses.keys()) {
                 if (record.includes(classSuffix)) {
@@ -332,13 +332,13 @@ describe("Functional tests for the js:LdesClient Connector Architecture function
                 !record.includes("<https://www.w3.org/ns/activitystreams#Delete>")
             ) {
                 expect(store.getQuads(
-                    null, 
-                    RDF.terms.type, 
+                    null,
+                    RDF.terms.type,
                     df.namedNode(GSP.custom("Geometry"))
                 ).length).toBe(1);
                 expect(store.getQuads(
-                    null, 
-                    df.namedNode(GSP.custom("asWKT")) 
+                    null,
+                    df.namedNode(GSP.custom("asWKT"))
                 ).length).toBe(1);
             }
             count++;
@@ -386,7 +386,7 @@ describe("Functional tests for the js:LdesClient Connector Architecture function
         outputStream.data(record => {
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach(q => store.addQuad(q));
-            
+
             // Check which classes we got
             for (const classSuffix of observedClasses.keys()) {
                 if (record.includes(classSuffix)) {
@@ -400,8 +400,8 @@ describe("Functional tests for the js:LdesClient Connector Architecture function
                 !record.includes("<https://www.w3.org/ns/activitystreams#Delete>")
             ) {
                 expect(store.getQuads(
-                    null, 
-                    RDF.terms.type, 
+                    null,
+                    RDF.terms.type,
                     df.namedNode("http://www.opengis.net/ont/geosparql#Geometry")
                 ).length).toBe(0);
             }
