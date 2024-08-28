@@ -132,7 +132,7 @@ describe("range", () => {
     ];
 
     describe("overlaps", () => {
-      greater.forEach((x) => {
+      greaters.forEach((x) => {
         tests.forEach((y) => {
           it(`${x.toString()} overlaps ${y.toString()}`, () => {
             expect(x.overlaps(y)).toBeTruthy();

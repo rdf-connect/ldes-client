@@ -20,7 +20,7 @@ import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
 import { Manager } from "./memberManager";
 import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
 import debug from "debug";
-import type { Writer } from "@ajuvercr/js-runner";
+import type { Writer } from "@rdfc/js-runner";
 
 // import { ReadableStream } from "stream/web";
 export { intoConfig } from "./config";
@@ -468,8 +468,14 @@ export async function processor(
     client.on("fragment", () => console.error("Fragment!"));
   }
 
+  const reader = client.stream({ highWaterMark: 10 }).getReader();
+
+  writer.on("end", async () => {
+      await reader.cancel();
+      console.log("Writer closed, so closing reader as well.");
+  });
+
   return async () => {
-    const reader = client.stream({ highWaterMark: 10 }).getReader();
     let el = await reader.read();
     const seen = new Set();
     while (el) {
