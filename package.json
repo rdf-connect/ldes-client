@@ -39,7 +39,8 @@
     "rdf-data-factory": "^1.1.2",
     "rdf-dereference": "^3.0.0",
     "rdf-lens": "^1.2.8",
-    "rdf-stores": "^1.0.0"
+    "rdf-stores": "^1.0.0",
+    "winston": "^3.14.2"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",

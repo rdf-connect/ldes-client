@@ -65,12 +65,8 @@ js:LdesClient a js:JsProcess;
       fnom:implementationParameterPosition "11"^^xsd:int;
     ], [
       a fnom:PositionParameterMapping;
-      fnom:functionParameter "verbose";
-      fnom:implementationParameterPosition "12"^^xsd:int;
-    ], [
-      a fnom:PositionParameterMapping;
       fnom:functionParameter "fetchConfig";
-      fnom:implementationParameterPosition "13"^^xsd:int;
+      fnom:implementationParameterPosition "12"^^xsd:int;
     ];
   ].
 
@@ -189,11 +185,6 @@ js:LdesClient a js:JsProcess;
     sh:datatype xsd:boolean;
     sh:path js:urlIsView;
     sh:name "UrlIsView";
-    sh:maxCount 1;
-  ], [
-    sh:datatype xsd:boolean;
-    sh:path js:verbose;
-    sh:name "verbose";
     sh:maxCount 1;
   ], [
     sh:class js:FetchConfig;

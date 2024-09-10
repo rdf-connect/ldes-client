@@ -12,7 +12,8 @@
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node",
     "outDir": "dist",
-    "declaration": true
+    "declaration": true,
+    "allowSyntheticDefaultImports": true
   },
   "tsc-alias": {
     "resolveFullPaths": true,
