@@ -208,7 +208,7 @@ export class LeafCondition implements Condition {
             return false;
         }
 
-        const vts = this.compareType === "date" ? (x: Date) => x.toISOString() : undefined;
+        const vts = this.compareType === "date" ? (x: Date) => new Date(x).toISOString() : undefined;
         this.logger.verbose(`${this.range.toString(vts)} contains ${range.toString(vts)}. Overlaps: ${this.range.overlaps(range)}`);
 
         return this.range.overlaps(range);

@@ -23,6 +23,7 @@ export {
     empty_condition,
     parse_condition,
     Range,
+    LeafCondition,
 } from "./condition/index";
 export type { Member, Page, Relation } from "./page";
 export type { Config, ShapeConfig } from "./config";
