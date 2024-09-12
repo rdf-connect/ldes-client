@@ -17,7 +17,7 @@ import { getLoggerFor } from "./utils/logUtil";
 
 // import { ReadableStream } from "stream/web";
 export { intoConfig } from "./config";
-export { extractMainNodeShape, retry_fetch } from "./utils";
+export { extractMainNodeShape, retry_fetch, enhanced_fetch } from "./utils";
 export {
     Condition,
     empty_condition,
