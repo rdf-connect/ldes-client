@@ -1,4 +1,4 @@
-import Heap from "heap-js";
+import { Heap } from "heap-js";
 import { Manager, MemberEvents } from "../memberManager";
 import { Member, Relation } from "../page";
 import { FetchedPage, Fetcher, FetchEvent } from "../pageFetcher";
@@ -185,6 +185,7 @@ export class OrderedStrategy {
                 if (a.timestamp! < b.timestamp!) return 1;
                 return -1;
             });
+
         }
     }
 

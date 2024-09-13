@@ -63,7 +63,7 @@ async function getInfo(
             ? config.shapeFile
             : "file://" + config.shapeFile;
 
-        const resp = await dereferencer.dereference(config.shapeFile, {
+        const resp = await rdfDereferencer.dereference(config.shapeFile, {
             localFiles: true,
             fetch: config.fetch,
         });

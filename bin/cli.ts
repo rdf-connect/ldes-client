@@ -141,11 +141,12 @@ async function main() {
             condition = parse_condition(source, conditionFile);
         } catch (ex) {
             logger.error(ex);
-            throw (ex);
+            throw ex;
         }
         logger.info(`Found me some condition ${!!condition}`);
         logger.info(condition.toString());
     }
+    let fragmentCount = 0;
     const client = replicateLDES(
         intoConfig({
             loose,
@@ -162,6 +163,10 @@ async function main() {
         }),
         ordered,
     );
+
+    client.on("fragment", () => {
+        fragmentCount += 1;
+    });
 
     client.on("fragment", () => {
         logger.verbose("Fragment!");
@@ -184,7 +189,9 @@ async function main() {
                 logger.debug(new Writer().quadsToString(el.value.quads));
 
                 if (count % 100 == 1) {
-                    logger.verbose(`Got member ${count} with ${el.value.quads.length} quads`);
+                    logger.verbose(
+                        `Got member ${count} with ${el.value.quads.length} quads`,
+                    );
                 }
             }
         }
@@ -197,10 +204,11 @@ async function main() {
     }
 
     if (!quiet) {
-        logger.info(`Found ${count} members`);
+        console.error("Found", count, "members in", fragmentCount, "fragments");
     }
 }
 
-main().catch(() => {
+main().catch((e) => {
+    console.error(e);
     process.exit(1);
 });
