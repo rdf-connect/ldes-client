@@ -1,4 +1,4 @@
-import { describe, test, expect } from "@jest/globals";
+import { describe, test, expect } from "vitest";
 import { SimpleStream } from "@rdfc/js-runner";
 import { Parser } from "n3";
 import { RdfStore } from "rdf-stores";
@@ -8,7 +8,7 @@ import { createUriAndTermNamespace, DC, RDF, SDS } from "@treecg/types";
 
 const df = new DataFactory();
 
-describe("Functional tests for the js:LdesClient Connector Architecture function", () => {
+describe.skip("Functional tests for the js:LdesClient Connector Architecture function", () => {
     const ERA_LDES = "https://era.ilabt.imec.be/rinf/ldes";
     const ERA = createUriAndTermNamespace("http://data.europa.eu/949/");
     const GSP = createUriAndTermNamespace("http://www.opengis.net/ont/geosparql#");

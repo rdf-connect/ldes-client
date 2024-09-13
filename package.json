@@ -13,7 +13,7 @@
   },
   "scripts": {
     "build": "tsc && tsc-alias && rollup ./dist/lib/client.js --file ./dist/lib/client.cjs --format cjs",
-    "test": "bun test tests/*.ts"
+    "test": "vitest run --coverage --coverage.include lib"
   },
   "files": [
     "dist/**/*",
@@ -43,7 +43,6 @@
     "winston": "^3.14.2"
   },
   "devDependencies": {
-    "@jest/globals": "^29.7.0",
     "@rdfc/js-runner": "^1.0.0-alpha.0",
     "@rdfjs/types": "^1.1.0",
     "@types/n3": "^1.16.4",
@@ -59,7 +58,10 @@
     "prettier": "^3.3.3",
     "ts-jest": "^29.1.2",
     "tsc-alias": "^1.8.10",
-    "typescript": "^5.4.3"
+    "typescript": "^5.4.3",
+    "vite-tsconfig-paths": "^5.0.1",
+    "vitest": "^2.1.1",
+    "@vitest/coverage-v8": "^2.1.1"
   },
   "browser": {
     "fs": false,

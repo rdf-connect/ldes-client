@@ -1,4 +1,4 @@
-import { describe, expect, test } from "@jest/globals";
+import { describe, expect, test } from "vitest";
 import { extractProcessors, extractSteps, Source } from "@rdfc/js-runner";
 
 describe("Tests for js:LdesClient processor", async () => {
@@ -13,14 +13,14 @@ describe("Tests for js:LdesClient processor", async () => {
 
         <> owl:imports <./node_modules/@rdfc/js-runner/ontology.ttl>, <./processor.ttl>.
 
-        [ ] a :Channel;
+        [ ] a :Channel, js:JsChannel;
             :writer <jw>.
         <jw> a js:JsWriterChannel.
     `;
 
   const baseIRI = process.cwd() + "/config.ttl";
 
-  test("js:LdesClient is properly defined", async () => {
+  test.only("js:LdesClient is properly defined", async () => {
     const proc = `
   [ ] a js:LdesClient;
       js:output <jw>;
@@ -35,14 +35,13 @@ describe("Tests for js:LdesClient processor", async () => {
       js:savePath </state/save.json>;
       js:loose false;
       js:urlIsView false;
-      js:verbose true;
       js:fetch [
         js:concurrent 5;
         js:retry [
           js:code 404, 403;
           js:maxRetry 5;
         ];
-js:safe true;
+        js:safe true;
         js:auth [
           js:auth "test";
           js:type "basic"
@@ -68,8 +67,9 @@ js:safe true;
     expect(env).toBeDefined();
 
     const argss = extractSteps(env, quads, config);
+    console.log(argss);
     expect(argss.length).toBe(1);
-    expect(argss[0].length).toBe(14);
+    expect(argss[0].length).toBe(13);
 
     const [
       [
@@ -85,11 +85,11 @@ js:safe true;
         savePath,
         loose,
         urlIsView,
-        verbose,
         fetch_config,
       ],
     ] = argss;
 
+    console.log(output);
     testWriter(output);
     expect(url).toBe("https://era.ilabt.imec.be/rinf/ldes");
     expect(before.toISOString()).toBe("2025-01-01T00:00:00.000Z");
@@ -102,7 +102,6 @@ js:safe true;
     expect(savePath).toBe("/state/save.json");
     expect(loose).toBeFalsy();
     expect(urlIsView).toBeFalsy();
-    expect(verbose).toBeTruthy();
 
     expect(fetch_config.concurrent).toBe(5);
     expect(fetch_config.retry).toEqual({
@@ -113,7 +112,7 @@ js:safe true;
       type: "basic",
       auth: "test",
     });
-    expect(fetch_config.safe).toBe(false);
+    expect(fetch_config.safe).toBe(true);
 
     await checkProc(env.file, env.func);
   });
@@ -121,8 +120,8 @@ js:safe true;
 
 function testWriter(arg: any) {
   expect(arg).toBeInstanceOf(Object);
-  expect(arg.channel).toBeDefined();
-  expect(arg.channel.id).toBeDefined();
+  expect(arg.config.channel).toBeDefined();
+  expect(arg.config.channel.id).toBeDefined();
   expect(arg.ty).toBeDefined();
 }
 

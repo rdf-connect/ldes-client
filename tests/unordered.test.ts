@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "@jest/globals";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { read, Tree } from "./helper";
 
 import { replicateLDES, retry_fetch } from "../lib/client";

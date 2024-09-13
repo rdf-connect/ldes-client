@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@jest/globals";
+import { describe, expect, it } from "vitest";
 import { Range } from "../lib/condition";
 import { TREE } from "@treecg/types";
 
@@ -128,7 +128,7 @@ describe("range", () => {
   describe("things 6 or more)", () => {
     const tests = [
       new Range(6, TREE.EqualToRelation),
-      new Range(6, TREE.GreaterThanRelation),
+      new Range(6, TREE.GreaterThanOrEqualToRelation),
     ];
 
     describe("overlaps", () => {

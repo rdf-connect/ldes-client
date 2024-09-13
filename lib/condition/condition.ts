@@ -31,9 +31,12 @@ export function empty_condition(): Condition {
 export function parse_condition(source: string, baseIRI: string): Condition {
   const shapeQuads = new Parser().parse(SHAPES);
   const output = extractShapes(shapeQuads, {
-    "https://w3id.org/tree#And": (obj: any) => new AndCondition(obj),
-    "https://w3id.org/tree#Or": (obj: any) => new OrCondition(obj),
-    "https://w3id.org/tree#Condition": (obj: any) => new LeafCondition(obj),
+    "https://w3id.org/tree#And": (obj) =>
+      new AndCondition(<ConstructorParameters<typeof AndCondition>[0]>obj),
+    "https://w3id.org/tree#Or": (obj) =>
+      new OrCondition(<ConstructorParameters<typeof OrCondition>[0]>obj),
+    "https://w3id.org/tree#Condition": (obj) =>
+      new LeafCondition(<ConstructorParameters<typeof LeafCondition>[0]>obj),
   });
 
   const dataQuads = new Parser({ baseIRI: baseIRI }).parse(source);
