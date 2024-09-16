@@ -20,7 +20,7 @@ describe("Tests for js:LdesClient processor", async () => {
 
   const baseIRI = process.cwd() + "/config.ttl";
 
-  test.only("js:LdesClient is properly defined", async () => {
+  test("js:LdesClient is properly defined", async () => {
     const proc = `
   [ ] a js:LdesClient;
       js:output <jw>;
