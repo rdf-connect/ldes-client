@@ -63,6 +63,7 @@ export function extractRelations(
   node: Term,
   loose: boolean,
   condition: Condition,
+  defaultTimezone: string,
 ): Relation[] {
   const logger = getLoggerFor("extractRelations");
 
@@ -95,7 +96,7 @@ export function extractRelations(
         id: relationId,
       };
       conditions.set(node.value, {
-        cond: new RelationCondition(store),
+        cond: new RelationCondition(store, defaultTimezone),
         relation,
       });
     }

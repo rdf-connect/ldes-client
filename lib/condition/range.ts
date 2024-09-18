@@ -1,4 +1,4 @@
-import { Quad, Term } from "@rdfjs/types";
+import { Literal, Quad, Term } from "@rdfjs/types";
 import { RdfStore } from "rdf-stores";
 import { getObjects } from "../utils";
 import { RDF, TREE } from "@treecg/types";
@@ -51,12 +51,15 @@ type PathRange = {
 export class RelationCondition {
   store: RdfStore<any, Quad>;
 
+  defaultTimezone: string;
+
   ranges: PathRange[] = [];
 
   private logger = getLoggerFor(this);
 
-  constructor(store: RdfStore<any, Quad>) {
+  constructor(store: RdfStore<any, Quad>, defaultTimezone: string) {
     this.store = store;
+    this.defaultTimezone = defaultTimezone;
   }
 
   allowed(condition: Condition): boolean {
@@ -89,7 +92,7 @@ export class RelationCondition {
     if (!range) {
       const newRange: PathRange = {
         cbdEntry: path,
-        range: Range.empty(),
+        range: Range.empty(this.defaultTimezone),
       };
       this.ranges.push(newRange);
       range = newRange;
@@ -100,6 +103,6 @@ export class RelationCondition {
       return;
     }
 
-    range.range?.add(value.value, ty.value);
+    range.range?.add(value.value, ty.value, (value as Literal)?.datatype?.value);
   }
 }

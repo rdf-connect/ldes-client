@@ -24,6 +24,7 @@ let quiet: boolean = false;
 let save: string | undefined;
 let onlyDefaultGraph: boolean = false;
 let loose: boolean = false;
+let defaultTimezone: string | undefined;
 
 let fetch_config: FetchConfig = {
     retry: {},
@@ -84,6 +85,7 @@ program
         "3",
     )
     .option("--http-codes [codes...]", "What HTTP codes to retry")
+    .option("-t --default-timezone <timezone>", "Default timezone for dates in tree:InBetweenRelation", "AoE")
     .action((url: string, program) => {
         urlIsView = program.urlIsView;
         noShape = !program.shape;
@@ -97,6 +99,7 @@ program
         loose = program.loose;
         onlyDefaultGraph = program.onlyDefaultGraph;
         conditionFile = program.condition;
+        defaultTimezone = program.defaultTimezone;
 
         fetch_config.concurrent = parseInt(program.concurrent);
         if (program.basicAuth) {
@@ -159,6 +162,7 @@ async function main() {
             shapeFile,
             onlyDefaultGraph,
             condition,
+            defaultTimezone,
             fetch: enhanced_fetch(fetch_config),
         }),
         ordered,

@@ -66,6 +66,7 @@ export class Fetcher {
     private loose: boolean;
     private fetch_f?: typeof fetch;
     private condition: Condition;
+    private defaultTimezone: string;
 
     private closed = false;
 
@@ -75,12 +76,14 @@ export class Fetcher {
         dereferencer: RdfDereferencer,
         loose: boolean,
         condition: Condition,
+        defaultTimezone: string,
         fetch_f?: typeof fetch,
     ) {
         this.dereferencer = dereferencer;
         this.loose = loose;
         this.fetch_f = fetch_f;
         this.condition = condition;
+        this.defaultTimezone = defaultTimezone;
     }
 
     close() {
@@ -143,6 +146,7 @@ export class Fetcher {
                 namedNode(resp.url),
                 this.loose,
                 this.condition,
+                this.defaultTimezone,
             )) {
                 if (!node.expected.some((x) => x == rel.node)) {
                     if (!this.closed) {

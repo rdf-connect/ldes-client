@@ -285,6 +285,7 @@ export class Client {
       this.dereferencer,
       this.config.loose,
       this.config.condition,
+      this.config.defaultTimezone,
       this.config.fetch,
     );
 

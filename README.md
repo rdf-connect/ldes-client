@@ -20,7 +20,8 @@ ldes-client <url> [-f] [--save <path>] [--pollInterval <number>] [--shape <shape
 - `-s` `--state`: filepath to the save state file to use, used both to resume and to update
 - `--pollInterval`: time to wait between polling the LDES when the client is following the LDES.
 - `--shape`: shape file to which LDES members should conform (overwrite LDES configured shape)
-- Others soon comming
+- `-t` `--default-timezone`: default timezone to use for dates in tree:InBetweenRelation. `AoE|Z|±HH:mm` Default: `AoE`.
+- Others soon coming
 
 
 You can also use this as a library in your TS/JS projects. See the [client.ts](lib/client.ts) file for documentation.
