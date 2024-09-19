@@ -1,64 +1,64 @@
 {
-  "name": "ldes-client",
-  "description": "This package provides common tooling to work with LDESes.",
-  "version": "0.0.10-alpha.8",
-  "main": "dist/lib/client.js",
-  "exports": {
-    "import": "./dist/lib/client.js",
-    "require": "./dist/lib/client.cjs"
-  },
-  "type": "module",
-  "bin": {
-    "ldes-client": "dist/bin/cli.js"
-  },
-  "scripts": {
-    "build": "tsc && tsc-alias && rollup ./dist/lib/client.js --file ./dist/lib/client.cjs --format cjs",
-    "test": "bun test tests/*.ts"
-  },
-  "files": [
-    "dist/**/*",
-    "shapes/**/*",
-    "dist/bin/**/*",
-    "processor.ttl"
-  ],
-  "directories": {
-    "lib": "lib",
-    "bin": "bin",
-    "test": "tests"
-  },
-  "author": "Arthur Vercruysse",
-  "license": "MIT",
-  "dependencies": {
-    "@treecg/types": "^0.4.6",
-    "@types/debug": "^4.1.12",
-    "commander": "^12.1.0",
-    "debug": "^4.3.6",
-    "extract-cbd-shape": "^0.1.8",
-    "heap-js": "^2.5.0",
-    "n3": "^1.20.4",
-    "rdf-data-factory": "^1.1.2",
-    "rdf-dereference": "^3.0.0",
-    "rdf-lens": "^1.2.8",
-    "rdf-stores": "^1.0.0"
-  },
-  "devDependencies": {
-    "@fastify/static": "^7.0.4",
-    "@jest/globals": "^29.7.0",
-    "@rdfc/js-runner": "^0.2.2",
-    "@rdfjs/types": "^1.1.0",
-    "@types/n3": "^1.16.4",
-    "@types/node": "^22.1.0",
-    "benchmark": "^2.1.4",
-    "fastify": "^4.28.1",
-    "jest": "^29.7.0",
-    "prettier": "^3.3.3",
-    "ts-jest": "^29.2.4",
-    "tsc-alias": "^1.8.10",
-    "typescript": "^5.5.4"
-  },
-  "browser": {
-    "fs": false,
-    "path": false,
-    "os": false
-  }
+    "name": "ldes-client",
+    "description": "This package provides common tooling to work with LDESes.",
+    "version": "0.0.10-alpha.8",
+    "main": "dist/lib/client.js",
+    "exports": {
+        "import": "./dist/lib/client.js",
+        "require": "./dist/lib/client.cjs"
+    },
+    "type": "module",
+    "bin": {
+        "ldes-client": "dist/bin/cli.js"
+    },
+    "scripts": {
+        "build": "tsc && tsc-alias && rollup ./dist/lib/client.js --file ./dist/lib/client.cjs --format cjs",
+        "test": "bun test tests/*.ts"
+    },
+    "files": [
+        "dist/**/*",
+        "shapes/**/*",
+        "dist/bin/**/*",
+        "processor.ttl"
+    ],
+    "directories": {
+        "lib": "lib",
+        "bin": "bin",
+        "test": "tests"
+    },
+    "author": "Arthur Vercruysse",
+    "license": "MIT",
+    "dependencies": {
+        "@treecg/types": "^0.4.6",
+        "@types/debug": "^4.1.12",
+        "commander": "^12.1.0",
+        "debug": "^4.3.6",
+        "extract-cbd-shape": "^0.1.8",
+        "heap-js": "^2.5.0",
+        "n3": "^1.20.4",
+        "rdf-data-factory": "^1.1.2",
+        "rdf-dereference": "^3.0.0",
+        "rdf-lens": "^1.2.8",
+        "rdf-stores": "^1.0.0"
+    },
+    "devDependencies": {
+        "@fastify/static": "^7.0.4",
+        "@jest/globals": "^29.7.0",
+        "@rdfc/js-runner": "^0.2.2",
+        "@rdfjs/types": "^1.1.0",
+        "@types/n3": "^1.16.4",
+        "@types/node": "^22.1.0",
+        "benchmark": "^2.1.4",
+        "fastify": "^4.28.1",
+        "jest": "^29.7.0",
+        "prettier": "^3.3.3",
+        "ts-jest": "^29.2.4",
+        "tsc-alias": "^1.8.10",
+        "typescript": "^5.5.4"
+    },
+    "browser": {
+        "fs": false,
+        "path": false,
+        "os": false
+    }
 }

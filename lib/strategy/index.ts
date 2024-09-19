@@ -10,28 +10,28 @@ export { OrderedStrategy } from "./ordered";
  * Predicates representing greater than relations
  */
 export const GTRs = [
-  TREE.terms.GreaterThanRelation,
-  TREE.terms.GreaterThanOrEqualToRelation,
+    TREE.terms.GreaterThanRelation,
+    TREE.terms.GreaterThanOrEqualToRelation,
 ];
 
 /**
  * Predicates representing less than relations
  */
 export const LTR = [
-  TREE.terms.LessThanRelation,
-  TREE.terms.LessThanOrEqualToRelation,
+    TREE.terms.LessThanRelation,
+    TREE.terms.LessThanOrEqualToRelation,
 ];
 
 export type PageAndRelation = {
-  page: FetchedPage;
-  relation: RelationChain;
+    page: FetchedPage;
+    relation: RelationChain;
 };
 
 export type StrategyEvents = {
-  member: Member;
-  fragment: {};
-  mutable: {};
-  pollCycle: {};
-  close: {};
-  error: any;
+    member: Member;
+    fragment: {};
+    mutable: {};
+    pollCycle: {};
+    close: {};
+    error: any;
 };

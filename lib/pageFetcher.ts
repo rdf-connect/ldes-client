@@ -15,145 +15,145 @@ const { namedNode } = new DataFactory();
  *   examples are the originating url
  */
 export type Node = {
-  target: string;
-  expected: string[];
+    target: string;
+    expected: string[];
 };
 
 export type FetchedPage = {
-  url: string;
-  data: RdfStore;
+    url: string;
+    data: RdfStore;
 };
 
 export type LongPromise = {
-  waiting: Promise<void>;
-  callback: () => void;
+    waiting: Promise<void>;
+    callback: () => void;
 };
 
 export function longPromise(): LongPromise {
-  const out = {} as LongPromise;
-  out.waiting = new Promise((res) => (out.callback = res));
-  return out;
+    const out = {} as LongPromise;
+    out.waiting = new Promise((res) => (out.callback = res));
+    return out;
 }
 
 export function resetPromise(promise: LongPromise) {
-  const cb = promise.callback;
-  promise.waiting = new Promise((res) => (promise.callback = res));
-  cb();
+    const cb = promise.callback;
+    promise.waiting = new Promise((res) => (promise.callback = res));
+    cb();
 }
 
 export interface Helper {
-  extractRelation(relation: Relation): { rel: SimpleRelation; node: string };
-  handleFetchedPage(page: FetchedPage, marker?: any): void | Promise<void>;
-  close(): void | Promise<void>;
+    extractRelation(relation: Relation): { rel: SimpleRelation; node: string };
+    handleFetchedPage(page: FetchedPage, marker?: any): void | Promise<void>;
+    close(): void | Promise<void>;
 }
 
 export type FetchEvent = {
-  relationFound: { from: Node; target: Relation };
-  pageFetched: FetchedPage;
-  scheduleFetch: Node;
-  error: any;
+    relationFound: { from: Node; target: Relation };
+    pageFetched: FetchedPage;
+    scheduleFetch: Node;
+    error: any;
 };
 
 export type Cache = {
-  immutable?: boolean;
-  maxAge?: number;
+    immutable?: boolean;
+    maxAge?: number;
 };
 
 export class Fetcher {
-  private dereferencer: RdfDereferencer;
-  private loose: boolean;
-  private fetch_f?: typeof fetch;
-  private condition: Condition;
+    private dereferencer: RdfDereferencer;
+    private loose: boolean;
+    private fetch_f?: typeof fetch;
+    private condition: Condition;
 
-  private closed = false;
+    private closed = false;
 
-  constructor(
-    dereferencer: RdfDereferencer,
-    loose: boolean,
-    condition: Condition,
-    fetch_f?: typeof fetch,
-  ) {
-    this.dereferencer = dereferencer;
-    this.loose = loose;
-    this.fetch_f = fetch_f;
-    this.condition = condition;
-  }
-
-  close() {
-    this.closed = true;
-  }
-
-  async fetch<S>(node: Node, state: S, notifier: Notifier<FetchEvent, S>) {
-    const logger = log.extend("fetch");
-
-    try {
-      const resp = await this.dereferencer.dereference(node.target, {
-        localFiles: true,
-        fetch: this.fetch_f,
-      });
-
-      node.target = resp.url;
-
-      const cache = {} as Cache;
-      if (resp.headers) {
-        const cacheControlCandidate = resp.headers.get("cache-control");
-        if (cacheControlCandidate) {
-          const controls = cacheControlCandidate
-            .split(",")
-            .map((x) => x.split("=", 2).map((x) => x.trim()));
-
-          for (let control of controls) {
-            if (control[0] == "max-age") {
-              cache.maxAge = parseInt(control[1]);
-            }
-
-            if (control[0] == "immutable") {
-              cache.immutable = true;
-            }
-          }
-        }
-      }
-
-      if (!cache.immutable) {
-        if (!this.closed) {
-          notifier.scheduleFetch(node, state);
-        }
-      }
-
-      logger("Cache for  %s %o", node.target, cache);
-
-      const data = RdfStore.createDefault();
-      let quadCount = 0;
-      await new Promise((resolve, reject) => {
-        resp.data
-          .on("data", (quad) => {
-            data.addQuad(quad);
-            quadCount++;
-          })
-          .on("end", resolve)
-          .on("error", reject);
-      });
-
-      logger("Got data %s (%d quads)", node.target, quadCount);
-      for (let rel of extractRelations(
-        data,
-        namedNode(resp.url),
-        this.loose,
-        this.condition,
-      )) {
-        if (!node.expected.some((x) => x == rel.node)) {
-          if (!this.closed) {
-            notifier.relationFound({ from: node, target: rel }, state);
-          }
-        }
-      }
-
-      if (!this.closed) {
-        notifier.pageFetched({ data, url: resp.url }, state);
-      }
-    } catch (ex) {
-      logger("Fetch failed %o", ex);
-      notifier.error(ex, state);
+    constructor(
+        dereferencer: RdfDereferencer,
+        loose: boolean,
+        condition: Condition,
+        fetch_f?: typeof fetch,
+    ) {
+        this.dereferencer = dereferencer;
+        this.loose = loose;
+        this.fetch_f = fetch_f;
+        this.condition = condition;
     }
-  }
+
+    close() {
+        this.closed = true;
+    }
+
+    async fetch<S>(node: Node, state: S, notifier: Notifier<FetchEvent, S>) {
+        const logger = log.extend("fetch");
+
+        try {
+            const resp = await this.dereferencer.dereference(node.target, {
+                localFiles: true,
+                fetch: this.fetch_f,
+            });
+
+            node.target = resp.url;
+
+            const cache = {} as Cache;
+            if (resp.headers) {
+                const cacheControlCandidate = resp.headers.get("cache-control");
+                if (cacheControlCandidate) {
+                    const controls = cacheControlCandidate
+                        .split(",")
+                        .map((x) => x.split("=", 2).map((x) => x.trim()));
+
+                    for (let control of controls) {
+                        if (control[0] == "max-age") {
+                            cache.maxAge = parseInt(control[1]);
+                        }
+
+                        if (control[0] == "immutable") {
+                            cache.immutable = true;
+                        }
+                    }
+                }
+            }
+
+            if (!cache.immutable) {
+                if (!this.closed) {
+                    notifier.scheduleFetch(node, state);
+                }
+            }
+
+            logger("Cache for  %s %o", node.target, cache);
+
+            const data = RdfStore.createDefault();
+            let quadCount = 0;
+            await new Promise((resolve, reject) => {
+                resp.data
+                    .on("data", (quad) => {
+                        data.addQuad(quad);
+                        quadCount++;
+                    })
+                    .on("end", resolve)
+                    .on("error", reject);
+            });
+
+            logger("Got data %s (%d quads)", node.target, quadCount);
+            for (let rel of extractRelations(
+                data,
+                namedNode(resp.url),
+                this.loose,
+                this.condition,
+            )) {
+                if (!node.expected.some((x) => x == rel.node)) {
+                    if (!this.closed) {
+                        notifier.relationFound({ from: node, target: rel }, state);
+                    }
+                }
+            }
+
+            if (!this.closed) {
+                notifier.pageFetched({ data, url: resp.url }, state);
+            }
+        } catch (ex) {
+            logger("Fetch failed %o", ex);
+            notifier.error(ex, state);
+        }
+    }
 }
