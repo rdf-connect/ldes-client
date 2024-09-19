@@ -71,6 +71,18 @@ js:LdesClient a js:JsProcess;
       a fnom:PositionParameterMapping;
       fnom:functionParameter "fetchConfig";
       fnom:implementationParameterPosition "13"^^xsd:int;
+    ], [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "conditionFile";
+      fnom:implementationParameterPosition "14"^^xsd:int;
+    ], [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "materialize";
+      fnom:implementationParameterPosition "15"^^xsd:int;
+    ], [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "lastVersionOnly";
+      fnom:implementationParameterPosition "16"^^xsd:int;
     ];
   ].
 
@@ -199,6 +211,21 @@ js:LdesClient a js:JsProcess;
     sh:class js:FetchConfig;
     sh:path js:fetch;
     sh:name "fetchConfig";
+    sh:maxCount 1;
+  ], [
+    sh:datatype xsd:string;
+    sh:path js:conditionFile;
+    sh:name "conditionFile";
+    sh:maxCount 1;
+  ], [
+    sh:datatype xsd:boolean;
+    sh:path js:materialize;
+    sh:name "materialize";
+    sh:maxCount 1;
+  ], [
+    sh:datatype xsd:boolean;
+    sh:path js:lastVersionOnly;
+    sh:name "lastVersionOnly";
     sh:maxCount 1;
   ].
 

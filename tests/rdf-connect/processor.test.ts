@@ -2,7 +2,7 @@ import { describe, expect, test } from "@jest/globals";
 import { extractProcessors, extractSteps, Source } from "@rdfc/js-runner";
 
 describe("Tests for js:LdesClient processor", async () => {
-  const pipeline = `
+    const pipeline = `
         @prefix js: <https://w3id.org/conn/js#>.
         @prefix ws: <https://w3id.org/conn/ws#>.
         @prefix : <https://w3id.org/conn#>.
@@ -15,14 +15,15 @@ describe("Tests for js:LdesClient processor", async () => {
 
         [ ] a :Channel;
             :writer <jw>.
+
         <jw> a js:JsWriterChannel.
     `;
 
-  const baseIRI = process.cwd() + "/config.ttl";
+    const baseIRI = process.cwd() + "/config.ttl";
 
-  test("js:LdesClient is properly defined", async () => {
-    const proc = `
-  [ ] a js:LdesClient;
+    test("js:LdesClient is properly defined", async () => {
+        const proc = `
+    [ ] a js:LdesClient;
       js:output <jw>;
       js:url <https://era.ilabt.imec.be/rinf/ldes>;
       js:before "2025-01-01T00:00:00.000Z"^^xsd:dateTime;
@@ -42,91 +43,101 @@ describe("Tests for js:LdesClient processor", async () => {
           js:code 404, 403;
           js:maxRetry 5;
         ];
-js:safe true;
-        js:auth [
-          js:auth "test";
-          js:type "basic"
-        ];
-      ].
-        `;
+        js:safe true;
+          js:auth [
+            js:auth "test";
+            js:type "basic"
+          ]
+      ];
+      js:conditionFile </path/to/condition.ttl>;
+      js:materialize true;
+      js:lastVersionOnly true.
+    `;
 
-    const source: Source = {
-      value: pipeline + proc,
-      baseIRI,
-      type: "memory",
-    };
+        const source: Source = {
+            value: pipeline + proc,
+            baseIRI,
+            type: "memory",
+        };
 
-    const {
-      processors,
-      quads,
-      shapes: config,
-    } = await extractProcessors(source);
+        const {
+            processors,
+            quads,
+            shapes: config,
+        } = await extractProcessors(source);
 
-    const env = processors.find(
-      (x) => x.ty.value === "https://w3id.org/conn/js#LdesClient",
-    )!;
-    expect(env).toBeDefined();
+        const env = processors.find(
+            (x) => x.ty.value === "https://w3id.org/conn/js#LdesClient",
+        )!;
+        expect(env).toBeDefined();
 
-    const argss = extractSteps(env, quads, config);
-    expect(argss.length).toBe(1);
-    expect(argss[0].length).toBe(14);
+        const argss = extractSteps(env, quads, config);
+        expect(argss.length).toBe(1);
+        expect(argss[0].length).toBe(17);
 
-    const [
-      [
-        output,
-        url,
-        before,
-        after,
-        ordered,
-        follow,
-        pollInterval,
-        shapeFile,
-        noShape,
-        savePath,
-        loose,
-        urlIsView,
-        verbose,
-        fetch_config,
-      ],
-    ] = argss;
+        const [
+            [
+                output,
+                url,
+                before,
+                after,
+                ordered,
+                follow,
+                pollInterval,
+                shapeFile,
+                noShape,
+                savePath,
+                loose,
+                urlIsView,
+                verbose,
+                fetch_config,
+                conditionFile,
+                materialize,
+                lastVersionOnly
+            ],
+        ] = argss;
 
-    testWriter(output);
-    expect(url).toBe("https://era.ilabt.imec.be/rinf/ldes");
-    expect(before.toISOString()).toBe("2025-01-01T00:00:00.000Z");
-    expect(after.toISOString()).toBe("2023-12-31T23:59:59.000Z");
-    expect(ordered).toBe("ascending");
-    expect(follow).toBeTruthy();
-    expect(pollInterval).toBe(5);
-    expect(shapeFile).toBe("/path/to/shape.ttl");
-    expect(noShape).toBeFalsy();
-    expect(savePath).toBe("/state/save.json");
-    expect(loose).toBeFalsy();
-    expect(urlIsView).toBeFalsy();
-    expect(verbose).toBeTruthy();
+        testWriter(output);
+        expect(url).toBe("https://era.ilabt.imec.be/rinf/ldes");
+        expect(before.toISOString()).toBe("2025-01-01T00:00:00.000Z");
+        expect(after.toISOString()).toBe("2023-12-31T23:59:59.000Z");
+        expect(ordered).toBe("ascending");
+        expect(follow).toBeTruthy();
+        expect(pollInterval).toBe(5);
+        expect(shapeFile).toBe("/path/to/shape.ttl");
+        expect(noShape).toBeFalsy();
+        expect(savePath).toBe("/state/save.json");
+        expect(loose).toBeFalsy();
+        expect(urlIsView).toBeFalsy();
+        expect(verbose).toBeTruthy();
 
-    expect(fetch_config.concurrent).toBe(5);
-    expect(fetch_config.retry).toEqual({
-      codes: [404, 403],
-      maxRetries: 5,
+        expect(fetch_config.concurrent).toBe(5);
+        expect(fetch_config.retry).toEqual({
+            codes: [404, 403],
+            maxRetries: 5,
+        });
+        expect(fetch_config.auth).toEqual({
+            type: "basic",
+            auth: "test",
+        });
+        expect(fetch_config.safe).toBeTruthy();
+
+        expect(conditionFile).toBe("/path/to/condition.ttl");
+        expect(materialize).toBeTruthy();
+        expect(lastVersionOnly).toBeTruthy();
+
+        await checkProc(env.file, env.func);
     });
-    expect(fetch_config.auth).toEqual({
-      type: "basic",
-      auth: "test",
-    });
-    expect(fetch_config.safe).toBe(false);
-
-    await checkProc(env.file, env.func);
-  });
 });
 
 function testWriter(arg: any) {
-  expect(arg).toBeInstanceOf(Object);
-  expect(arg.channel).toBeDefined();
-  expect(arg.channel.id).toBeDefined();
-  expect(arg.ty).toBeDefined();
+    expect(arg).toBeInstanceOf(Object);
+    expect(arg.ty).toBeDefined();
+    expect(arg.config.channel).toBeDefined();
+    expect(arg.config.channel.id).toBeDefined();
 }
 
 async function checkProc(location: string, func: string) {
-  const mod = await import("file://" + location);
-  expect(mod[func]).toBeDefined();
+    const mod = await import("file://" + location);
+    expect(mod[func]).toBeDefined();
 }

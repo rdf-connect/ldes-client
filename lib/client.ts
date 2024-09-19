@@ -14,6 +14,9 @@ import {
   ModulatorFactory,
   Notifier,
   streamToArray,
+  maybeVersionMaterialize,
+  handleConditions,
+  processConditionFile,
 } from "./utils";
 import { LDES, SDS, TREE } from "@treecg/types";
 import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
@@ -58,6 +61,7 @@ export type LDESInfo = {
 
 async function getInfo(
   ldesId: Term,
+  viewId: Term,
   store: RdfStore,
   dereferencer: RdfDereferencer,
   config: Config,
@@ -100,8 +104,8 @@ async function getInfo(
       isVersionOfPaths.length === 0)
   ) {
     try {
-      logger("Maybe find more info at %s", ldesId.value);
-      const resp = await dereferencer.dereference(ldesId.value, {
+      logger("Maybe find more info at %s", viewId.value);
+      const resp = await dereferencer.dereference(viewId.value, {
         localFiles: true,
         fetch: config.fetch,
       });
@@ -143,9 +147,7 @@ async function getInfo(
       shapeConfigStore.addQuad(quad);
     }
     // Make sure the shapeId is as defined in the given shape file
-    if (config.shape.shapeId.value.startsWith("file://")) {
-      config.shape.shapeId = extractMainNodeShape(shapeConfigStore);
-    }
+    config.shape.shapeId = extractMainNodeShape(shapeConfigStore);
   }
 
   return {
@@ -210,7 +212,7 @@ export class Client {
       : new NoStateFactory();
     this.modulatorFactory = new ModulatorFactory(this.stateFactory);
 
-    if (typeof process !== 'undefined' ) {
+    if (typeof process !== 'undefined') {
       process.on("SIGINT", () => {
         console.log("Caught interrupt signal, saving");
         this.stateFactory.write();
@@ -232,7 +234,7 @@ export class Client {
     key: K,
     data: ClientEvents[K],
   ) {
-    (this.listeners[key] || []).forEach(function(fn) {
+    (this.listeners[key] || []).forEach(function (fn) {
       fn(data);
     });
   }
@@ -249,28 +251,31 @@ export class Client {
       this.dereferencer,
       this.config.fetch,
     );
-    // Try to get a shape
+    const ldesId: Term = df.namedNode(this.config.url);
+
     // TODO Choose a view
     const viewQuads = root.data.getQuads(null, TREE.terms.view, null, null);
+    let viewId: Term = ldesId;
 
-    let ldesId: Term = df.namedNode(this.config.url);
     if (!this.config.urlIsView) {
       if (viewQuads.length === 0) {
         console.error(
           "Did not find tree:view predicate, this is required to interpret the LDES",
         );
       } else {
-        ldesId = viewQuads[0].object;
+        viewId = viewQuads[0].object;
       }
     }
 
     const info = await getInfo(
       ldesId,
+      viewId,
       root.data,
       this.dereferencer,
       this.config,
     );
 
+    // Build factory to keep track of the replication state
     const state = this.stateFactory.build<Set<string>>(
       "members",
       (set) => {
@@ -280,7 +285,21 @@ export class Client {
       (inp) => new Set(JSON.parse(inp)),
       () => new Set(),
     );
+
+    // Build factory to keep track of member versions
+    const versionState = this.config.lastVersionOnly ?
+      this.stateFactory.build<Map<string, Date>>(
+        "versions",
+        (map) => {
+          const arr = [...map.entries()];
+          return JSON.stringify(arr);
+        },
+        (inp) => new Map(JSON.parse(inp)),
+        () => new Map(),
+      ) : undefined;
+
     this.streamId = this.streamId || viewQuads[0].subject;
+    
     this.memberManager = new Manager(
       this.streamId || viewQuads[0].subject,
       state.item,
@@ -292,6 +311,14 @@ export class Client {
     if (this.ordered !== "none" && !info.timestampPath) {
       throw "Can only emit members in order, if LDES is configured with timestampPath";
     }
+
+    // Handle and assemble condition object if needed
+    this.config.condition = handleConditions(
+        this.config.condition,
+        this.config.before,
+        this.config.after,
+        info.timestampPath
+    );
 
     this.fetcher = new Fetcher(
       this.dereferencer,
@@ -305,7 +332,27 @@ export class Client {
       fragment: () => this.emit("fragment", undefined),
       member: (m) => {
         if (this.config.condition.matchMember(m)) {
-          emit(m);
+
+          // Check if this is a newer version of this member (if we are extracting the last version only)
+          if (m.isVersionOf && m.timestamp && versionState) {
+            const versions = versionState.item;
+
+            if (versions.has(m.isVersionOf)) {
+              const registeredDate = <Date>versions.get(m.isVersionOf);
+              if (<Date>m.timestamp > registeredDate) {
+                // We got a newer version
+                versions.set(m.isVersionOf, <Date>m.timestamp);
+              } else {
+                // This is an older version, so we ignore it
+                return;
+              }
+            } else {
+              // First time we see this member
+              versions.set(m.isVersionOf, <Date>m.timestamp);
+            }
+          }
+          // Check if versioned member is to be materialized
+          emit(maybeVersionMaterialize(m, this.config.materialize === true, info));
         }
       },
       pollCycle: () => {
@@ -319,6 +366,9 @@ export class Client {
         close();
       },
     };
+
+    // Opt for descending order strategy if last version only is true, to start reading at the newest end.
+    if (this.config.lastVersionOnly) this.ordered = "descending";
 
     this.strategy =
       this.ordered !== "none"
@@ -340,8 +390,9 @@ export class Client {
           this.config.pollInterval,
         );
 
-    logger("Found %d views, choosing %s", viewQuads.length, ldesId.value);
-    this.strategy.start(ldesId.value);
+    logger("Found %d views, choosing %s", viewQuads.length, viewId.value);
+
+    this.strategy.start(viewId.value);
   }
 
   stream(strategy?: {
@@ -395,8 +446,7 @@ export class Client {
       },
     };
 
-    const out = new ReadableStream(config, strategy);
-    return out;
+    return new ReadableStream(config, strategy);
   }
 }
 
@@ -443,6 +493,9 @@ export async function processor(
       maxRetries: number;
     };
   },
+  condition?: string,
+  materialize?: boolean,
+  lastVersionOnly?: boolean,
 ) {
   if (fetch_config?.auth) {
     fetch_config.auth.host = new URL(url).host;
@@ -457,8 +510,12 @@ export async function processor(
       stateFile: save,
       pollInterval: pollInterval,
       urlIsView,
+      after,
+      before,
       fetch: fetch_config ? enhanced_fetch(fetch_config) : fetch,
-      // condition: todo
+      materialize,
+      lastVersionOnly,
+      condition: await processConditionFile(condition)
     },
     <Ordered>ordered || "none",
   );
@@ -490,8 +547,8 @@ export async function processor(
         const blank = df.blankNode();
         const quads = el.value.quads.slice();
         quads.push(
-          df.quad(blank, SDS.terms.stream, <Quad_Object>client.streamId!),
-          df.quad(blank, SDS.terms.payload, <Quad_Object>el.value.id!),
+          df.quad(blank, SDS.terms.stream, <Quad_Object>client.streamId!, SDS.terms.custom("DataDescription")),
+          df.quad(blank, SDS.terms.payload, <Quad_Object>el.value.id!, SDS.terms.custom("DataDescription")),
         );
 
         await writer.push(new NWriter().quadsToString(quads));
