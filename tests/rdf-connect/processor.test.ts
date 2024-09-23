@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { extractProcessors, extractSteps, Source } from "@rdfc/js-runner";
 
 describe("Tests for js:LdesClient processor", async () => {
-  const pipeline = `
+    const pipeline = `
         @prefix js: <https://w3id.org/conn/js#>.
         @prefix ws: <https://w3id.org/conn/ws#>.
         @prefix : <https://w3id.org/conn#>.
@@ -15,14 +15,15 @@ describe("Tests for js:LdesClient processor", async () => {
 
         [ ] a :Channel, js:JsChannel;
             :writer <jw>.
+
         <jw> a js:JsWriterChannel.
     `;
 
-  const baseIRI = process.cwd() + "/config.ttl";
+    const baseIRI = process.cwd() + "/config.ttl";
 
-  test("js:LdesClient is properly defined", async () => {
-    const proc = `
-  [ ] a js:LdesClient;
+    test("js:LdesClient is properly defined", async () => {
+        const proc = `
+    [ ] a js:LdesClient;
       js:output <jw>;
       js:url <https://era.ilabt.imec.be/rinf/ldes>;
       js:before "2025-01-01T00:00:00.000Z"^^xsd:dateTime;
@@ -42,90 +43,104 @@ describe("Tests for js:LdesClient processor", async () => {
           js:maxRetry 5;
         ];
         js:safe true;
-        js:auth [
-          js:auth "test";
-          js:type "basic"
-        ];
-      ].
-        `;
+          js:auth [
+            js:auth "test";
+            js:type "basic"
+          ]
+      ];
+      js:conditionFile </path/to/condition.ttl>;
+      js:materialize true;
+      js:lastVersionOnly true.
+    `;
 
-    const source: Source = {
-      value: pipeline + proc,
-      baseIRI,
-      type: "memory",
-    };
+        const source: Source = {
+            value: pipeline + proc,
+            baseIRI,
+            type: "memory",
+        };
 
-    const {
-      processors,
-      quads,
-      shapes: config,
-    } = await extractProcessors(source);
+        const {
+            processors,
+            quads,
+            shapes: config,
+        } = await extractProcessors(source);
 
-    const env = processors.find(
-      (x) => x.ty.value === "https://w3id.org/conn/js#LdesClient",
-    )!;
-    expect(env).toBeDefined();
+        const env = processors.find(
+            (x) => x.ty.value === "https://w3id.org/conn/js#LdesClient",
+        )!;
+        expect(env).toBeDefined();
 
-    const argss = extractSteps(env, quads, config);
-    console.log(argss);
-    expect(argss.length).toBe(1);
-    expect(argss[0].length).toBe(13);
+        const argss = extractSteps(env, quads, config);
+        expect(argss.length).toBe(1);
+        expect(argss[0].length).toBe(16);
 
-    const [
-      [
-        output,
-        url,
-        before,
-        after,
-        ordered,
-        follow,
-        pollInterval,
-        shapeFile,
-        noShape,
-        savePath,
-        loose,
-        urlIsView,
-        fetch_config,
-      ],
-    ] = argss;
+        const [
+            [
+                output,
+                url,
+                before,
+                after,
+                ordered,
+                follow,
+                pollInterval,
+                shapeFile,
+                noShape,
+                savePath,
+                loose,
+                urlIsView,
+                fetch_config,
+                conditionFile,
+                materialize,
+                lastVersionOnly
+            ],
+        ] = argss;
 
-    console.log(output);
-    testWriter(output);
-    expect(url).toBe("https://era.ilabt.imec.be/rinf/ldes");
-    expect(before.toISOString()).toBe("2025-01-01T00:00:00.000Z");
-    expect(after.toISOString()).toBe("2023-12-31T23:59:59.000Z");
-    expect(ordered).toBe("ascending");
-    expect(follow).toBeTruthy();
-    expect(pollInterval).toBe(5);
-    expect(shapeFile).toBe("/path/to/shape.ttl");
-    expect(noShape).toBeFalsy();
-    expect(savePath).toBe("/state/save.json");
-    expect(loose).toBeFalsy();
-    expect(urlIsView).toBeFalsy();
+        testWriter(output);
+        expect(url).toBe("https://era.ilabt.imec.be/rinf/ldes");
+        expect(before.toISOString()).toBe("2025-01-01T00:00:00.000Z");
+        expect(after.toISOString()).toBe("2023-12-31T23:59:59.000Z");
+        expect(ordered).toBe("ascending");
+        expect(follow).toBeTruthy();
+        expect(pollInterval).toBe(5);
+        expect(shapeFile).toBe("/path/to/shape.ttl");
+        expect(noShape).toBeFalsy();
+        expect(savePath).toBe("/state/save.json");
+        expect(loose).toBeFalsy();
+        expect(urlIsView).toBeFalsy();
 
-    expect(fetch_config.concurrent).toBe(5);
-    expect(fetch_config.retry).toEqual({
-      codes: [404, 403],
-      maxRetries: 5,
+        expect(fetch_config.concurrent).toBe(5);
+        expect(fetch_config.retry).toEqual({
+            codes: [404, 403],
+            maxRetries: 5,
+        });
+        expect(fetch_config.auth).toEqual({
+            type: "basic",
+            auth: "test",
+        });
+        expect(fetch_config.safe).toBeTruthy();
+
+        expect(conditionFile).toBe("/path/to/condition.ttl");
+        expect(materialize).toBeTruthy();
+        expect(lastVersionOnly).toBeTruthy();
+
+        await checkProc(env.file, env.func);
     });
-    expect(fetch_config.auth).toEqual({
-      type: "basic",
-      auth: "test",
-    });
-    expect(fetch_config.safe).toBe(true);
-
-    await checkProc(env.file, env.func);
-  });
 });
 
-function testWriter(arg: any) {
-  expect(arg).toBeInstanceOf(Object);
-  expect(arg.config.channel).toBeDefined();
-  expect(arg.config.channel.id).toBeDefined();
-  expect(arg.ty).toBeDefined();
+// FIXME: This type should be imported from the JS runner
+type ChannelArg = {
+    config: { channel: { id: string } };
+    ty: string;
+};
+
+function testWriter(arg: unknown) {
+    expect(arg).toBeInstanceOf(Object);
+    expect((<ChannelArg>arg).ty).toBeDefined();
+    expect((<ChannelArg>arg).config.channel).toBeDefined();
+    expect((<ChannelArg>arg).config.channel.id).toBeDefined();
 }
 
 async function checkProc(location: string, func: string) {
-  const mod = await import("file://" + location);
-  expect(mod[func]).toBeDefined();
+    const mod = await import("file://" + location);
+    expect(mod[func]).toBeDefined();
 }

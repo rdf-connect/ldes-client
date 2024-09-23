@@ -185,7 +185,6 @@ export class OrderedStrategy {
                 if (a.timestamp! < b.timestamp!) return 1;
                 return -1;
             });
-
         }
     }
 

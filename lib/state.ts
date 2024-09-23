@@ -76,7 +76,6 @@ export class NoStateFactory implements StateFactory {
     ): StateT<T> {
         return new StateT<any>(deserialize, create);
     }
-
     write(): void {
     }
 }
@@ -130,7 +129,6 @@ export class FileStateFactory implements StateFactory {
 
 export class StateT<T> {
     item: T;
-
     constructor(
         deserialize: (item: string) => T | undefined,
         create: () => T,

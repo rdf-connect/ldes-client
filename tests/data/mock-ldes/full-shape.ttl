@@ -1,0 +1,18 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+
+[ ] a sh:NodeShape ;
+    sh:targetClass ex:Clazz1 ;
+    sh:property [
+        a sh:PropertyShape ;
+        sh:path ex:modified ;
+        sh:datatype xsd:dateTime
+    ], [
+        a sh:PropertyShape ;
+        sh:path ex:prop1 ;
+        sh:node [
+            a sh:NodeShape ;
+            sh:targetClass ex:Clazz2
+        ]
+    ] .

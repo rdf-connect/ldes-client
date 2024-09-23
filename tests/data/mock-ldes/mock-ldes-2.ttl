@@ -1,0 +1,90 @@
+@prefix ldes: <https://w3id.org/ldes#> .
+@prefix tree: <https://w3id.org/tree#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+@prefix : <http://localhost:3000/> .
+
+<mock-ldes.ttl> a ldes:EventStream ;
+    ldes:timestampPath ex:modified ;
+    ldes:versionOfPath ex:isVersionOf ;
+    tree:shape [
+        a sh:NodeShape ;
+        sh:targetClass ex:Clazz1 ;
+        sh:property [
+            a sh:PropertyShape ;
+            sh:path ex:modified ;
+            sh:datatype xsd:dateTime
+        ], [
+            a sh:PropertyShape ;
+            sh:path ex:prop1 ;
+            sh:node [
+                a sh:NodeShape ;
+                sh:targetClass ex:Clazz2
+            ]
+        ]
+    ] ;
+    tree:view <mock-ldes-0.ttl> ;
+    tree:member <mem1#1>, <mem2#1>, <mem3#1>, <mem4#1>, <mem5#1>, <mem6#1>.
+
+<mock-ldes-2.ttl> a tree:Node ;
+    tree:relation [
+        a tree:LessThanRelation ;
+        tree:node <mock-ldes-1.ttl> ;
+        tree:path ex:modified ;
+        tree:value "2024-07-14T10:00:00.000Z"^^xsd:dateTime
+    ] .
+
+<mem1#1> a ex:Clazz1 ;
+    ex:prop1 <submem1> ;
+    ex:prop2 "value" ;
+    ex:isVersionOf <mem1> ;
+    ex:modified "2024-07-14T10:00:00.000Z"^^xsd:dateTime .
+
+<submem1> a ex:Clazz2 ;
+    ex:subprop "sub-value" .
+
+<mem2#1> a ex:Clazz1 ;
+    ex:prop1 <submem2> ;
+    ex:prop2 "value" ;
+    ex:isVersionOf <mem2> ;
+    ex:modified "2024-07-14T10:30:00.000Z"^^xsd:dateTime .
+
+<submem2> a ex:Clazz2 ;
+    ex:subprop "sub-value" .
+
+<mem3#1> a ex:Clazz1 ;
+    ex:prop1 <submem3> ;
+    ex:prop2 "value" ;
+    ex:isVersionOf <mem3> ;
+    ex:modified "2024-07-14T10:50:00.000Z"^^xsd:dateTime .
+
+<submem3> a ex:Clazz2 ;
+    ex:subprop "sub-value" .
+
+<mem4#1> a ex:Clazz1 ;
+    ex:prop1 <submem4> ;
+    ex:prop2 "value" ;
+    ex:isVersionOf <mem4> ;
+    ex:modified "2024-07-14T10:51:00.000Z"^^xsd:dateTime .
+
+<submem4> a ex:Clazz2 ;
+    ex:subprop "sub-value" .
+
+<mem5#1> a ex:Clazz1 ;
+    ex:prop1 <submem5> ;
+    ex:prop2 "value" ;
+    ex:isVersionOf <mem5> ;
+    ex:modified "2024-07-14T10:52:00.000Z"^^xsd:dateTime .
+
+<submem5> a ex:Clazz2 ;
+    ex:subprop "sub-value" .
+
+<mem6#1> a ex:Clazz1 ;
+    ex:prop1 <submem6> ;
+    ex:prop2 "value" ;
+    ex:isVersionOf <mem6> ;
+    ex:modified "2024-07-14T10:53:00.000Z"^^xsd:dateTime .
+
+<submem6> a ex:Clazz2 ;
+    ex:subprop "sub-value" .
