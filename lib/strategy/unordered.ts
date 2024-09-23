@@ -3,10 +3,7 @@ import { FetchedPage, Fetcher, FetchEvent, Node } from "../pageFetcher";
 import { Modulator, ModulatorFactory, Notifier } from "../utils";
 
 import { StrategyEvents } from ".";
-
-import debug from "debug";
-
-const log = debug("strategy");
+import { getLoggerFor } from "../utils/logUtil";
 
 export class UnorderedStrategy {
     private manager: Manager;
@@ -24,7 +21,9 @@ export class UnorderedStrategy {
     private polling: boolean;
     private pollInterval?: number;
 
-    private cancled = false;
+    private canceled = false;
+
+    private logger = getLoggerFor(this);
 
     constructor(
         memberManager: Manager,
@@ -40,7 +39,6 @@ export class UnorderedStrategy {
         this.fetcher = fetcher;
         this.polling = polling;
 
-        const fetchLogger = log.extend("fetch");
         // Callbacks for the fetcher
         // - seen: the strategy wanted to fetch an uri, but it was already seen
         //         so one fetch request is terminated, inFlight -= 1
@@ -49,7 +47,7 @@ export class UnorderedStrategy {
         // - relationFound: a relation has been found, inFlight += 1 and put it in the queue
         this.fetchNotifier = {
             error: (error: any) => {
-                fetchLogger("error %o", error);
+                this.logger.error(`[fetch] Error: ${JSON.stringify(error)}`);
                 this.notifier.error(error, {});
             },
             scheduleFetch: (node: Node) => {
@@ -57,7 +55,7 @@ export class UnorderedStrategy {
                 this.notifier.mutable({}, {});
             },
             pageFetched: (page, { index }) => {
-                fetchLogger("Paged fetched %s", page.url);
+                this.logger.debug(`Paged fetched ${page.url}`);
                 this.handleFetched(page, index);
             },
             relationFound: ({ from, target }) => {
@@ -67,7 +65,6 @@ export class UnorderedStrategy {
             },
         };
 
-        const memberLogger = log.extend("member");
         // Callbacks for the member extractor
         // - done: all members have been extracted, we are finally done with a page inFlight -= 1
         // - extracted: a member has been found, yeet it
@@ -76,7 +73,7 @@ export class UnorderedStrategy {
                 this.notifier.error(error, {});
             },
             done: () => {
-                memberLogger("Members on page done");
+                this.logger.debug("[member] Members on page done");
                 this.inFlight -= 1;
                 this.checkEnd();
                 this.notifier.fragment({}, {});
@@ -91,19 +88,18 @@ export class UnorderedStrategy {
     }
 
     start(url: string) {
-        const logger = log.extend("start");
         this.inFlight = this.modulator.length();
         if (this.inFlight < 1) {
             this.inFlight = 1;
             this.modulator.push({ target: url, expected: [] });
-            logger("Nothing in flight, adding start url");
+            this.logger.debug("[start] Nothing in flight, adding start url");
         } else {
-            logger("Things are already inflight, not adding start url");
+            this.logger.debug("[start] Things are already inflight, not adding start url");
         }
     }
 
     cancel() {
-        this.cancled = true;
+        this.canceled = true;
     }
 
     private handleFetched(page: FetchedPage, index: number) {
@@ -112,11 +108,11 @@ export class UnorderedStrategy {
     }
 
     private checkEnd() {
-        if (this.cancled) return;
+        if (this.canceled) return;
         if (this.inFlight == 0) {
             if (this.polling) {
                 setTimeout(() => {
-                    if (this.cancled) return;
+                    if (this.canceled) return;
 
                     this.notifier.pollCycle({}, {});
                     const cl = this.cacheList.slice();
@@ -127,8 +123,8 @@ export class UnorderedStrategy {
                     }
                 }, this.pollInterval || 1000);
             } else {
-                log("Closing the notifier, polling is not set");
-                this.cancled = true;
+                this.logger.debug("Closing the notifier, polling is not set");
+                this.canceled = true;
                 this.notifier.close({}, {});
             }
         }

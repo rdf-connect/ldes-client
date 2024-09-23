@@ -7,9 +7,13 @@ export interface ClientState {
 
 export interface State {
     init(): Promise<void>;
+
     seen(id: string): boolean;
+
     filter<T>(ids: T[], getId: (item: T) => string): T[];
+
     add(id: string): void;
+
     save(): Promise<void>;
 }
 
@@ -45,6 +49,7 @@ export class SimpleState implements State {
         // Save state into location
     }
 }
+
 export type FileStateFactoryItem<T> = {
     name: string;
     state: StateT<T>;
@@ -88,7 +93,8 @@ export class FileStateFactory implements StateFactory {
         try {
             const item = storage.getItem(location);
             this.found = JSON.parse(item);
-        } catch (ex: any) { }
+        } catch (ex: any) {
+        }
     }
 
     write() {

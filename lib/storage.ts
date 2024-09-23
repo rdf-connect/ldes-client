@@ -2,7 +2,9 @@
 
 interface Storage {
     getItem(key: string): string;
+
     setItem(key: string, value: string): void;
+
     removeItem(key: string): void;
 }
 
@@ -12,7 +14,7 @@ if (typeof window === "undefined") {
     // Node.js environment
     let fs: any;
     if (typeof require === "undefined") {
-        import('fs').then(mod => fs = mod);
+        import("fs").then(mod => fs = mod);
     } else {
         fs = require("fs");
     }

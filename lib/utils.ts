@@ -4,7 +4,6 @@ import { StateFactory, StateT } from "./state";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
 import { RDF, SHACL, TREE } from "@treecg/types";
-import debug from "debug";
 import { Member } from "./page";
 import { LDESInfo } from "./client";
 import { pred } from "rdf-lens";
@@ -17,6 +16,10 @@ import {
     LeafCondition,
     parse_condition
 } from "./condition/index";
+
+import { getLoggerFor } from "./utils/logUtil";
+
+const logger = getLoggerFor("Utils");
 
 const df = new DataFactory();
 
@@ -76,7 +79,7 @@ export function streamToArray<T extends BaseQuad>(
             out.push(x);
         });
         stream.on("error", (ex) => {
-            console.error("Stream to Array failed");
+            logger.error("[streamToArray] Stream to Array failed");
             rej(ex);
         });
     });
@@ -204,7 +207,9 @@ export class ModulatorFactory {
  */
 export interface Modulator<T> {
     push(item: T): void;
+
     finished(index: number): void;
+
     length(): number;
 }
 
@@ -228,6 +233,8 @@ class ModulatorInstance<T> implements Modulator<T> {
     private notifier: Notifier<ModulartorEvents<T>, {}>;
     private factory: ModulatorFactory;
 
+    private logger = getLoggerFor(this);
+
     constructor(
         state: StateT<ModulatorInstanceState<T>>,
         ranker: Ranker<Indexed<T>>,
@@ -237,8 +244,10 @@ class ModulatorInstance<T> implements Modulator<T> {
         this.state = state;
         const readd = [...this.state.item.todo, ...this.state.item.inflight];
         this.state.item.todo.push(...this.state.item.inflight);
-        while (this.state.item.inflight.pop()) { }
-        while (this.state.item.todo.pop()) { }
+        while (this.state.item.inflight.pop()) {
+        }
+        while (this.state.item.todo.pop()) {
+        }
         this.ranker = ranker;
         this.notifier = notifier;
         this.factory = factory;
@@ -266,7 +275,7 @@ class ModulatorInstance<T> implements Modulator<T> {
         if (removeIdx >= 0) {
             this.state.item.inflight.splice(removeIdx, 1);
         } else {
-            console.error("Expected to be able to remove inflight item");
+            this.logger.error("[finished] Expected to be able to remove inflight item");
         }
 
         this.at -= 1;
@@ -289,7 +298,7 @@ class ModulatorInstance<T> implements Modulator<T> {
                 if (removeIdx >= 0) {
                     this.state.item.todo.splice(removeIdx, 1);
                 } else {
-                    console.error("Expected to be able to remove inflight item");
+                    this.logger.error("[checkReady] Expected to be able to remove inflight item");
                 }
 
                 // This item is now inflight
@@ -315,8 +324,6 @@ function urlToUrl(input: Parameters<typeof fetch>[0]): URL {
         throw "Not a real url";
     }
 }
-
-const log = debug("fetch");
 
 export type AuthConfig = {
     type: "basic";
@@ -348,10 +355,7 @@ export function enhanced_fetch(
                 try {
                     return await start_f(a, b);
                 } catch (ex) {
-                    console.error(
-                        "This should not happen, it will not happen this is saf",
-                        ex,
-                    );
+                    logger.error(`This should not happen, it will not happen this is safe. ${JSON.stringify(ex)}`);
                 }
             }
         }) as typeof fetch)
@@ -369,7 +373,6 @@ export function limit_fetch_per_domain(
     fetch_f: typeof fetch,
     concurrent: number = 10,
 ): typeof fetch {
-    const logger = log.extend("limit");
     const domain_dict: { [domain: string]: Array<(value: void) => void> } = {};
 
     const out: typeof fetch = async (input, init) => {
@@ -382,7 +385,7 @@ export function limit_fetch_per_domain(
 
         const requests = domain_dict[domain];
         await new Promise((res) => {
-            logger("%s capacity %d/%d", domain, requests.length, concurrent);
+            logger.debug(`[limit] ${domain} capacity ${requests.length}/${concurrent}`);
             if (requests.length < concurrent) {
                 requests.push(res);
                 res({});
@@ -409,7 +412,6 @@ export function handle_basic_auth(
     fetch_f: typeof fetch,
     config: AuthConfig,
 ): typeof fetch {
-    const logger = log.extend("auth");
     let authRequired = false;
 
     const basicAuthValue = `Basic ${Buffer.from(config.auth).toString("base64")}`;
@@ -429,7 +431,7 @@ export function handle_basic_auth(
 
         const resp = await fetch_f(input, init);
         if (resp.status === 401) {
-            logger("Unauthorized, adding basic auth");
+            logger.debug("[auth] Unauthorized, adding basic auth");
             if (url.host === config.host) {
                 authRequired = true;
                 return await fetch_f(input, setHeader(init));
@@ -455,7 +457,6 @@ export function retry_fetch(
         partial_config,
     );
 
-    const logger = log.extend("retry");
     const retry: typeof fetch = async (input, init) => {
         let tryCount = 0;
         let retryTime = config.maxRetries;
@@ -463,7 +464,7 @@ export function retry_fetch(
             const resp = await fetch_f(input, init);
             if (!resp.ok) {
                 if (config.codes.some((x) => x == resp.status)) {
-                    logger("Retry %s %d/%d", input, tryCount, config.maxRetries);
+                    logger.debug(`[retry_fetch] Retry ${input} ${tryCount}/${config.maxRetries}`);
                     // Wait 500ms, 1 second, 2 seconds, 4 seconds, 8 seconds, fail
                     tryCount += 1;
                     await new Promise((res) => setTimeout(res, retryTime));
@@ -575,6 +576,7 @@ export async function processConditionFile(conditionFile?: string): Promise<Cond
  */
 export function handleConditions(
     condition: Condition,
+    defaultTimezone: string,
     before?: Date,
     after?: Date,
     timestampPath?: Term
@@ -593,7 +595,8 @@ export function handleConditions(
             value: before.toISOString(),
             compareType: "date",
             path: predLens,
-            pathQuads: { entry: timestampPath, quads: [] }
+            pathQuads: { entry: timestampPath, quads: [] },
+            defaultTimezone
         });
         if (after) {
             const afterCond = new LeafCondition({
@@ -601,7 +604,8 @@ export function handleConditions(
                 value: after.toISOString(),
                 compareType: "date",
                 path: predLens,
-                pathQuads: { entry: timestampPath, quads: [] }
+                pathQuads: { entry: timestampPath, quads: [] },
+                defaultTimezone
             });
             // Got bi-condition with before & after filters
             handledCondition = new AndCondition({
@@ -624,7 +628,8 @@ export function handleConditions(
             value: after.toISOString(),
             compareType: "date",
             path: predLens,
-            pathQuads: { entry: timestampPath, quads: [] }
+            pathQuads: { entry: timestampPath, quads: [] },
+            defaultTimezone
         });
     }
 

@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, test } from "@jest/globals";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { read, Tree } from "./helper";
 
 import { replicateLDES, retry_fetch } from "../lib/client";

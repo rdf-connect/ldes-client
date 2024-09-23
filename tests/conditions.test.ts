@@ -1,60 +1,60 @@
-import { describe, expect, it } from "@jest/globals";
+import { describe, expect, it } from "vitest";
 import { Range } from "../lib/condition";
 import { TREE } from "@treecg/types";
 
 const lessers = [
-    new Range(5, TREE.LessThanOrEqualToRelation),
-    new Range(5, TREE.LessThanRelation),
-    new Range(4, TREE.LessThanOrEqualToRelation),
-    new Range(4, TREE.GreaterThanOrEqualToRelation),
-    new Range(3, TREE.GreaterThanOrEqualToRelation),
-    new Range(3, TREE.GreaterThanRelation),
+    new Range(5, TREE.LessThanOrEqualToRelation, "AoE"),
+    new Range(5, TREE.LessThanRelation, "AoE"),
+    new Range(4, TREE.LessThanOrEqualToRelation, "AoE"),
+    new Range(4, TREE.GreaterThanOrEqualToRelation, "AoE"),
+    new Range(3, TREE.GreaterThanOrEqualToRelation, "AoE"),
+    new Range(3, TREE.GreaterThanRelation, "AoE"),
 
-    new Range(4, TREE.EqualToRelation),
+    new Range(4, TREE.EqualToRelation, "AoE"),
 ];
 
 const not_lessers = [
-    new Range(4, TREE.GreaterThanRelation),
-    new Range(5, TREE.GreaterThanRelation),
-    new Range(5, TREE.GreaterThanOrEqualToRelation),
-    new Range(5, TREE.EqualToRelation),
+    new Range(4, TREE.GreaterThanRelation, "AoE"),
+    new Range(5, TREE.GreaterThanRelation, "AoE"),
+    new Range(5, TREE.GreaterThanOrEqualToRelation, "AoE"),
+    new Range(5, TREE.EqualToRelation, "AoE"),
 ];
 
 const equals = [
-    new Range(6, TREE.LessThanOrEqualToRelation),
-    new Range(6, TREE.LessThanRelation),
-    new Range(5, TREE.LessThanOrEqualToRelation),
-    new Range(5, TREE.GreaterThanOrEqualToRelation),
-    new Range(4, TREE.GreaterThanOrEqualToRelation),
-    new Range(4, TREE.GreaterThanRelation),
-    new Range(5, TREE.EqualToRelation),
+    new Range(6, TREE.LessThanOrEqualToRelation, "AoE"),
+    new Range(6, TREE.LessThanRelation, "AoE"),
+    new Range(5, TREE.LessThanOrEqualToRelation, "AoE"),
+    new Range(5, TREE.GreaterThanOrEqualToRelation, "AoE"),
+    new Range(4, TREE.GreaterThanOrEqualToRelation, "AoE"),
+    new Range(4, TREE.GreaterThanRelation, "AoE"),
+    new Range(5, TREE.EqualToRelation, "AoE"),
 ];
 
 const not_equals = [
-    new Range(4, TREE.LessThanOrEqualToRelation),
-    new Range(5, TREE.GreaterThanRelation),
-    new Range(5, TREE.LessThanRelation),
-    new Range(6, TREE.GreaterThanOrEqualToRelation),
-    new Range(4, TREE.EqualToRelation),
-    new Range(6, TREE.EqualToRelation),
+    new Range(4, TREE.LessThanOrEqualToRelation, "AoE"),
+    new Range(5, TREE.GreaterThanRelation, "AoE"),
+    new Range(5, TREE.LessThanRelation, "AoE"),
+    new Range(6, TREE.GreaterThanOrEqualToRelation, "AoE"),
+    new Range(4, TREE.EqualToRelation, "AoE"),
+    new Range(6, TREE.EqualToRelation, "AoE"),
 ];
 
 const greaters = [
-    new Range(7, TREE.LessThanRelation),
-    new Range(7, TREE.LessThanOrEqualToRelation),
-    new Range(6, TREE.LessThanOrEqualToRelation),
-    new Range(6, TREE.GreaterThanOrEqualToRelation),
-    new Range(5, TREE.GreaterThanOrEqualToRelation),
-    new Range(5, TREE.GreaterThanRelation),
+    new Range(7, TREE.LessThanRelation, "AoE"),
+    new Range(7, TREE.LessThanOrEqualToRelation, "AoE"),
+    new Range(6, TREE.LessThanOrEqualToRelation, "AoE"),
+    new Range(6, TREE.GreaterThanOrEqualToRelation, "AoE"),
+    new Range(5, TREE.GreaterThanOrEqualToRelation, "AoE"),
+    new Range(5, TREE.GreaterThanRelation, "AoE"),
 
-    new Range(6, TREE.EqualToRelation),
+    new Range(6, TREE.EqualToRelation, "AoE"),
 ];
 
 const not_greater = [
-    new Range(6, TREE.LessThanRelation),
-    new Range(5, TREE.LessThanRelation),
-    new Range(5, TREE.LessThanOrEqualToRelation),
-    new Range(5, TREE.EqualToRelation),
+    new Range(6, TREE.LessThanRelation, "AoE"),
+    new Range(5, TREE.LessThanRelation, "AoE"),
+    new Range(5, TREE.LessThanOrEqualToRelation, "AoE"),
+    new Range(5, TREE.EqualToRelation, "AoE"),
 ];
 
 describe("contains", () => {
@@ -94,8 +94,8 @@ describe("contains", () => {
 describe("range", () => {
     describe("things 4 or less)", () => {
         const tests = [
-            new Range(4, TREE.EqualToRelation),
-            new Range(4, TREE.LessThanOrEqualToRelation),
+            new Range(4, TREE.EqualToRelation, "AoE"),
+            new Range(4, TREE.LessThanOrEqualToRelation, "AoE"),
         ];
 
         describe("overlaps", () => {
@@ -126,8 +126,8 @@ describe("range", () => {
 
     describe("things 6 or more)", () => {
         const tests = [
-            new Range(6, TREE.EqualToRelation),
-            new Range(6, TREE.GreaterThanOrEqualToRelation),
+            new Range(6, TREE.EqualToRelation, "AoE"),
+            new Range(6, TREE.GreaterThanOrEqualToRelation, "AoE"),
         ];
 
         describe("overlaps", () => {

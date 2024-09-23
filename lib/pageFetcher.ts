@@ -1,12 +1,12 @@
 import { RdfDereferencer } from "rdf-dereference";
 import { Notifier } from "./utils";
 import { extractRelations, Relation } from "./page";
-import debug from "debug";
 import { SimpleRelation } from "./relation";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
 import { Condition } from "./condition";
-const log = debug("fetcher");
+import { getLoggerFor } from "./utils/logUtil";
+
 const { namedNode } = new DataFactory();
 
 /**
@@ -43,7 +43,9 @@ export function resetPromise(promise: LongPromise) {
 
 export interface Helper {
     extractRelation(relation: Relation): { rel: SimpleRelation; node: string };
+
     handleFetchedPage(page: FetchedPage, marker?: any): void | Promise<void>;
+
     close(): void | Promise<void>;
 }
 
@@ -64,19 +66,24 @@ export class Fetcher {
     private loose: boolean;
     private fetch_f?: typeof fetch;
     private condition: Condition;
+    private defaultTimezone: string;
 
     private closed = false;
+
+    private logger = getLoggerFor(this);
 
     constructor(
         dereferencer: RdfDereferencer,
         loose: boolean,
         condition: Condition,
+        defaultTimezone: string,
         fetch_f?: typeof fetch,
     ) {
         this.dereferencer = dereferencer;
         this.loose = loose;
         this.fetch_f = fetch_f;
         this.condition = condition;
+        this.defaultTimezone = defaultTimezone;
     }
 
     close() {
@@ -84,7 +91,6 @@ export class Fetcher {
     }
 
     async fetch<S>(node: Node, state: S, notifier: Notifier<FetchEvent, S>) {
-        const logger = log.extend("fetch");
 
         try {
             const resp = await this.dereferencer.dereference(node.target, {
@@ -120,7 +126,7 @@ export class Fetcher {
                 }
             }
 
-            logger("Cache for  %s %o", node.target, cache);
+            this.logger.debug(`[fetch] Cache for ${node.target} ${JSON.stringify(cache)}`);
 
             const data = RdfStore.createDefault();
             let quadCount = 0;
@@ -134,12 +140,13 @@ export class Fetcher {
                     .on("error", reject);
             });
 
-            logger("Got data %s (%d quads)", node.target, quadCount);
+            this.logger.debug(`[fetch] Got data ${node.target} (${quadCount} quads)`);
             for (let rel of extractRelations(
                 data,
                 namedNode(resp.url),
                 this.loose,
                 this.condition,
+                this.defaultTimezone,
             )) {
                 if (!node.expected.some((x) => x == rel.node)) {
                     if (!this.closed) {
@@ -152,7 +159,7 @@ export class Fetcher {
                 notifier.pageFetched({ data, url: resp.url }, state);
             }
         } catch (ex) {
-            logger("Fetch failed %o", ex);
+            this.logger.error(`[fetch] Fetch failed ${JSON.stringify(ex)}`);
             notifier.error(ex, state);
         }
     }

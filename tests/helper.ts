@@ -31,24 +31,22 @@ function relationToQuads(rel: Relation): Quad[] {
 }
 
 export async function read(stream: ReadableStream<Member>): Promise<Member[]> {
-    return new Promise(async (res, rej) => {
-        try {
-            const out: Member[] = [];
-            const reader = stream.getReader();
+    try {
+        const out: Member[] = [];
+        const reader = stream.getReader();
 
-            let el = await reader.read();
-            while (el) {
-                if (el.done || !el.value) break;
-                out.push(el.value);
-                el = await reader.read();
-            }
-
-            res(out);
-        } catch (ex) {
-            console.log("expect", ex);
-            rej(ex);
+        let el = await reader.read();
+        while (el) {
+            if (el.done || !el.value) break;
+            out.push(el.value);
+            el = await reader.read();
         }
-    });
+
+        return out;
+    } catch (ex) {
+        console.log("expect", ex);
+        throw ex;
+    }
 }
 
 export class Fragment<T> {
@@ -72,11 +70,11 @@ export class Fragment<T> {
         }
 
         const out: Quad[] = [];
-        for (let rel of this.relations) {
+        for (const rel of this.relations) {
             out.push(...relationToQuads(rel));
         }
 
-        for (let { id, member } of this.members) {
+        for (const { id, member } of this.members) {
             out.push(...new Parser().parse(`<${ldesId}> <${TREE.member}> <${id}>.`));
             out.push(...memberToQuads(id, member));
         }

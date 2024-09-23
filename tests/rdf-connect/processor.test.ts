@@ -1,4 +1,4 @@
-import { describe, expect, test } from "@jest/globals";
+import { describe, expect, test } from "vitest";
 import { extractProcessors, extractSteps, Source } from "@rdfc/js-runner";
 
 describe("Tests for js:LdesClient processor", async () => {
@@ -13,7 +13,7 @@ describe("Tests for js:LdesClient processor", async () => {
 
         <> owl:imports <./node_modules/@rdfc/js-runner/ontology.ttl>, <./processor.ttl>.
 
-        [ ] a :Channel;
+        [ ] a :Channel, js:JsChannel;
             :writer <jw>.
 
         <jw> a js:JsWriterChannel.
@@ -36,7 +36,6 @@ describe("Tests for js:LdesClient processor", async () => {
       js:savePath </state/save.json>;
       js:loose false;
       js:urlIsView false;
-      js:verbose true;
       js:fetch [
         js:concurrent 5;
         js:retry [
@@ -73,7 +72,7 @@ describe("Tests for js:LdesClient processor", async () => {
 
         const argss = extractSteps(env, quads, config);
         expect(argss.length).toBe(1);
-        expect(argss[0].length).toBe(17);
+        expect(argss[0].length).toBe(16);
 
         const [
             [
@@ -89,7 +88,6 @@ describe("Tests for js:LdesClient processor", async () => {
                 savePath,
                 loose,
                 urlIsView,
-                verbose,
                 fetch_config,
                 conditionFile,
                 materialize,
@@ -109,7 +107,6 @@ describe("Tests for js:LdesClient processor", async () => {
         expect(savePath).toBe("/state/save.json");
         expect(loose).toBeFalsy();
         expect(urlIsView).toBeFalsy();
-        expect(verbose).toBeTruthy();
 
         expect(fetch_config.concurrent).toBe(5);
         expect(fetch_config.retry).toEqual({
@@ -130,11 +127,17 @@ describe("Tests for js:LdesClient processor", async () => {
     });
 });
 
-function testWriter(arg: any) {
+// FIXME: This type should be imported from the JS runner
+type ChannelArg = {
+    config: { channel: { id: string } };
+    ty: string;
+};
+
+function testWriter(arg: unknown) {
     expect(arg).toBeInstanceOf(Object);
-    expect(arg.ty).toBeDefined();
-    expect(arg.config.channel).toBeDefined();
-    expect(arg.config.channel.id).toBeDefined();
+    expect((<ChannelArg>arg).ty).toBeDefined();
+    expect((<ChannelArg>arg).config.channel).toBeDefined();
+    expect((<ChannelArg>arg).config.channel.id).toBeDefined();
 }
 
 async function checkProc(location: string, func: string) {

@@ -1,5 +1,5 @@
 import path from "path";
-import { describe, test, expect, beforeAll, afterAll } from "@jest/globals";
+import { describe, test, expect, beforeAll, afterAll } from "vitest";
 import { SimpleStream } from "@rdfc/js-runner";
 import { fastify, FastifyInstance } from "fastify";
 import { fastifyStatic } from "@fastify/static";
@@ -10,7 +10,6 @@ import { processor } from "../../lib/client";
 import { createUriAndTermNamespace, RDF, SDS } from "@treecg/types";
 
 const df = new DataFactory();
-
 
 describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
 
@@ -30,7 +29,7 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         try {
             server = fastify();
             server.register(fastifyStatic, {
-                root: path.join(__dirname, '../data/mock-ldes'),
+                root: path.join(__dirname, "../data/mock-ldes"),
             });
             await server.listen({ port: 3000 });
             console.log(`Mock server listening on ${server.addresses()[0].port}`);
@@ -67,7 +66,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             undefined,
-            false,
             false,
             false,
             undefined,
@@ -107,7 +105,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             false,
-            false,
             undefined,
             undefined,
             false,
@@ -140,7 +137,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             undefined,
-            false,
             false,
             false,
             undefined,
@@ -177,7 +173,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             false,
-            false,
             undefined,
             undefined,
             false,
@@ -212,7 +207,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             false,
-            false,
             undefined,
             undefined,
             false,
@@ -245,7 +239,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             undefined,
-            false,
             false,
             false,
             undefined,
@@ -294,7 +287,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             false,
-            false,
             undefined,
             undefined,
             false,
@@ -339,7 +331,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             undefined,
-            false,
             false,
             false,
             undefined,
@@ -389,7 +380,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             undefined,
-            false,
             false,
             false,
             undefined,
@@ -444,7 +434,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             false,
-            false,
             undefined,
             undefined,
             false,
@@ -496,7 +485,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             false,
-            false,
             undefined,
             undefined,
             false,
@@ -546,7 +534,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             undefined,
-            false,
             false,
             false,
             undefined,
@@ -607,7 +594,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             false,
-            false,
             undefined,
             undefined,
             false,
@@ -663,7 +649,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             undefined,
-            false,
             false,
             false,
             undefined,
@@ -724,7 +709,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             false,
-            false,
             undefined,
             undefined,
             false,
@@ -781,7 +765,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             "./tests/data/mock-ldes/partial-shape.ttl",
             false,
             undefined,
-            false,
             false,
             false,
             undefined,
@@ -843,7 +826,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             false,
-            false,
             undefined,
             undefined,
             false,
@@ -901,7 +883,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             "http://localhost:3000/full-shape.ttl",
             false,
             undefined,
-            false,
             false,
             false,
             undefined,
@@ -963,7 +944,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             false,
-            false,
             undefined,
             undefined,
             false,
@@ -1021,7 +1001,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             true, // No shape
             undefined,
-            false,
             false,
             false,
             undefined,
@@ -1085,7 +1064,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             "http://localhost:3000/full-shape.ttl",
             false,
             undefined,
-            false,
             false,
             false,
             undefined,
@@ -1154,7 +1132,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             false,
-            false,
             undefined,
             undefined,
             false,
@@ -1207,7 +1184,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             false,
-            false,
             undefined,
             undefined,
             true, // Materialize members
@@ -1255,7 +1231,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             undefined,
-            false,
             false,
             false,
             undefined,
@@ -1323,7 +1298,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             "./tests/data/mock-ldes/partial-shape.ttl",
             false,
             undefined,
-            false,
             false,
             false,
             undefined,
@@ -1398,7 +1372,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             false,
-            false,
             undefined,
             undefined,
             true, // Materialize members
@@ -1453,7 +1426,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             false,
-            false,
             undefined,
             undefined,
             false, 
@@ -1499,7 +1471,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             undefined,
             false,
             undefined,
-            false,
             false,
             false,
             undefined,
@@ -1568,7 +1539,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             "http://localhost:3000/full-shape.ttl",
             false,
             undefined,
-            false,
             false,
             false,
             undefined,
@@ -1642,7 +1612,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             "http://localhost:3000/full-shape.ttl",
             false,
             undefined,
-            false,
             false,
             false,
             undefined,

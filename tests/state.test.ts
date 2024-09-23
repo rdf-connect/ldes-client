@@ -1,6 +1,4 @@
-import { beforeEach, describe, expect, test } from "@jest/globals";
-import { RelationChain, SimpleRelation } from "../lib/relation";
-import Heap from "heap-js";
+import { beforeEach, describe, expect, test } from "vitest";
 import { readFileSync, rmSync } from "node:fs";
 import { FileStateFactory } from "../lib/state";
 

@@ -4,9 +4,9 @@ import { CBDShapeExtractor } from "extract-cbd-shape";
 import { State } from "./state";
 import { RdfStore } from "rdf-stores";
 import { getObjects, memberFromQuads } from "./utils";
-
 import { Condition } from "./condition";
 import { RelationCondition } from "./condition/range";
+import { getLoggerFor } from "./utils/logUtil";
 
 export interface Member {
     id: Term;
@@ -41,6 +41,7 @@ export function extractMembers(
     isVersionOfPath?: Term,
 ): Promise<void>[] {
     const members = getObjects(store, stream, TREE.terms.member, null);
+
     async function extractMember(member: Term) {
         const quads = await extractor.extract(store, member, shapeId);
         cb(memberFromQuads(member, quads, timestampPath, isVersionOfPath));
@@ -62,7 +63,10 @@ export function extractRelations(
     node: Term,
     loose: boolean,
     condition: Condition,
+    defaultTimezone: string,
 ): Relation[] {
+    const logger = getLoggerFor("extractRelations");
+
     const relationIds = loose
         ? getObjects(store, null, TREE.terms.relation, null)
         : getObjects(store, node, TREE.terms.relation, null);
@@ -79,7 +83,8 @@ export function extractRelations(
 
         if (!conditions.get(node.value)) {
             const node = getObjects(store, relationId, TREE.terms.node, null)[0];
-            const ty = getObjects(store, relationId, RDF.terms.type, null)[0] || TREE.Relation;
+            const ty = getObjects(store, relationId, RDF.terms.type, null)[0] ||
+                TREE.Relation;
             const path = getObjects(store, relationId, TREE.terms.path, null)[0];
             const value = getObjects(store, relationId, TREE.terms.value, null);
             const relation = {
@@ -91,7 +96,7 @@ export function extractRelations(
                 id: relationId,
             };
             conditions.set(node.value, {
-                cond: new RelationCondition(store),
+                cond: new RelationCondition(store, defaultTimezone),
                 relation,
             });
         }
@@ -106,6 +111,6 @@ export function extractRelations(
         }
     }
 
-    //console.log("allowed", allowed.map(x => x.node))
-    return allowed;
+  logger.debug(`allowed ${JSON.stringify(allowed.map((x) => x.node))}`);
+  return allowed;
 }

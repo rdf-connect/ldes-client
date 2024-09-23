@@ -15,6 +15,7 @@ export interface Config {
     stateFile?: string;
     pollInterval: number;
     condition: Condition;
+    defaultTimezone: string;
     after?: Date;
     before?: Date;
     shape?: ShapeConfig;
@@ -37,6 +38,7 @@ const defaultConfig: Config = {
     polling: false,
     url: "",
     pollInterval: 200,
+    defaultTimezone: "AoE",
     materialize: false,
     lastVersionOnly: false,
 };

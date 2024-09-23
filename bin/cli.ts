@@ -5,6 +5,7 @@ import { intoConfig } from "../lib/config";
 import { Command, Option } from "commander";
 import { Writer } from "n3";
 import { enhanced_fetch, FetchConfig, processConditionFile } from "../lib/utils";
+import { getLoggerFor } from "../lib/utils/logUtil";
 
 const program = new Command();
 let paramURL: string = "";
@@ -20,12 +21,12 @@ let noShape = false;
 let shapeFile: string | undefined;
 let ordered: Ordered = "none";
 let quiet: boolean = false;
-let verbose: boolean = false;
 let save: string | undefined;
 let onlyDefaultGraph: boolean = false;
 let loose: boolean = false;
+let defaultTimezone: string | undefined;
 
-let fetch_config: FetchConfig = {
+const fetch_config: FetchConfig = {
     retry: {},
 };
 
@@ -80,7 +81,6 @@ program
         "the url is the view url, don't try to find the correct view",
     )
     .option("-q --quiet", "be quiet")
-    .option("-v --verbose", "be verbose")
     .option("--basic-auth <username>:<password>", "HTTP basic auth information")
     .option(
         "--concurrent <requests>",
@@ -93,6 +93,7 @@ program
         "3",
     )
     .option("--http-codes [codes...]", "What HTTP codes to retry")
+    .option("-t --default-timezone <timezone>", "Default timezone for dates in tree:InBetweenRelation", "AoE")
     .action((url: string, program) => {
         urlIsView = program.urlIsView;
         noShape = !program.shape;
@@ -103,12 +104,12 @@ program
         paramPollInterval = program.pollInterval;
         ordered = program.ordered;
         quiet = program.quiet;
-        verbose = program.verbose;
         loose = program.loose;
         onlyDefaultGraph = program.onlyDefaultGraph;
         conditionFile = program.condition;
         materialize = program.materializeVersion;
         lastVersionOnly = program.lastVersionOnly;
+        defaultTimezone = program.defaultTimezone;
 
         fetch_config.concurrent = parseInt(program.concurrent);
         if (program.basicAuth) {
@@ -144,6 +145,9 @@ program
 program.parse(process.argv);
 
 async function main() {
+    const logger = getLoggerFor("cli");
+    let fragmentCount = 0;
+
     const client = replicateLDES(
         intoConfig({
             loose,
@@ -158,6 +162,7 @@ async function main() {
             shapeFile,
             onlyDefaultGraph,
             condition: await processConditionFile(conditionFile),
+            defaultTimezone,
             materialize,
             lastVersionOnly,
             fetch: enhanced_fetch(fetch_config),
@@ -165,11 +170,13 @@ async function main() {
         ordered,
     );
 
-    if (verbose) {
-        client.on("fragment", () => {
-            console.error("Fragment!");
-        });
-    }
+    client.on("fragment", () => {
+        fragmentCount += 1;
+    });
+
+    client.on("fragment", () => {
+        logger.verbose("Fragment!");
+    });
 
     if (!quiet) {
         client.on("error", (error) => {
@@ -185,17 +192,11 @@ async function main() {
             count += 1;
 
             if (!quiet) {
-                if (verbose) {
-                    console.log(new Writer().quadsToString(el.value.quads));
-                }
+                logger.debug(new Writer().quadsToString(el.value.quads));
 
                 if (count % 100 == 1) {
-                    console.error(
-                        "Got member",
-                        count,
-                        "with",
-                        el.value.quads.length,
-                        "quads",
+                    logger.verbose(
+                        `Got member ${count} with ${el.value.quads.length} quads`,
                     );
                 }
             }
@@ -209,10 +210,11 @@ async function main() {
     }
 
     if (!quiet) {
-        console.error("Found", count, "members");
+        console.error("Found", count, "members in", fragmentCount, "fragments");
     }
 }
 
-main().catch(() => {
+main().catch((e) => {
+    console.error(e);
     process.exit(1);
 });

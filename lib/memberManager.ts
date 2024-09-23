@@ -2,13 +2,11 @@ import { Quad, Term } from "@rdfjs/types";
 import { Member } from "./page";
 import { FetchedPage } from "./pageFetcher";
 import { CBDShapeExtractor } from "extract-cbd-shape";
-import { RDF, TREE } from "@treecg/types";
+import { TREE } from "@treecg/types";
 import { LDESInfo } from "./client";
-import debug from "debug";
 import { getObjects, memberFromQuads, Notifier } from "./utils";
 import { RdfStore } from "rdf-stores";
-
-const log = debug("manager");
+import { getLoggerFor } from "./utils/logUtil";
 
 export interface Options {
     ldesId?: Term;
@@ -47,8 +45,9 @@ export class Manager {
     private timestampPath?: Term;
     private isVersionOfPath?: Term;
 
+    private logger = getLoggerFor(this);
+
     constructor(ldesId: Term, state: Set<string>, info: LDESInfo) {
-        const logger = log.extend("constructor");
         this.ldesId = ldesId;
         this.state = state;
         this.extractor = info.extractor;
@@ -56,7 +55,12 @@ export class Manager {
         this.isVersionOfPath = info.isVersionOfPath;
         this.shapeId = info.shape;
 
-        logger("new %s %o", ldesId.value, info);
+        this.logger.debug(`new ${ldesId.value} ${JSON.stringify({
+            extractor: info.extractor.constructor.name,
+            shape: info.shape,
+            timestampPath: info.timestampPath,
+            isVersionOfPath: info.isVersionOfPath,
+        })}`);
     }
 
     // Extract members found in this page, this does not yet emit the members
@@ -65,10 +69,9 @@ export class Manager {
         state: S,
         notifier: Notifier<MemberEvents, S>,
     ) {
-        const logger = log.extend("extract");
         const members = getObjects(page.data, this.ldesId, TREE.terms.member, null);
 
-        logger("%d members", members.length);
+        this.logger.debug(`Extracting ${members.length} members`);
 
         const promises: Promise<Member | undefined | void>[] = [];
 
@@ -84,13 +87,12 @@ export class Manager {
                         return member;
                     })
                     .catch((ex) => {
-                        logger("Error %o", ex);
+                        this.logger.error(ex);
                         notifier.error(
                             { error: ex, type: "extract", memberId: member },
                             state,
                         );
                         var err = new Error();
-                        console.log(err.stack);
                     });
 
                 promises.push(promise);
@@ -98,7 +100,7 @@ export class Manager {
         }
 
         Promise.all(promises).then((members) => {
-            logger("All members extracted");
+            this.logger.debug("All members extracted");
             if (!this.closed) {
                 notifier.done(
                     members.flatMap((x) => (x ? [x] : [])),
@@ -109,17 +111,25 @@ export class Manager {
     }
 
     close() {
-        log("Closing");
+        this.logger.debug("Closing stream");
         if (this.resolve) {
             this.resolve();
             this.resolve = undefined;
         }
         this.closed = true;
-        log("this.resolve()");
+        this.logger.debug("this.resolve()");
     }
 
     length(): number {
         return this.state.size;
+    }
+
+    /// Only listen to this promise if a member is queued
+    reset(): Promise<void> {
+        this.logger.debug(`Resetting with ${this.queued} members in queue`);
+
+        this.queued = 0;
+        return new Promise((res) => (this.resolve = res));
     }
 
     private async extractMemberQuads(
@@ -146,14 +156,5 @@ export class Manager {
                 this.isVersionOfPath,
             );
         }
-    }
-
-    /// Only listen to this promise if a member is queued
-    reset(): Promise<void> {
-        const logger = log.extend("reset");
-        logger("Resetting with %d members in queue", this.queued);
-
-        this.queued = 0;
-        return new Promise((res) => (this.resolve = res));
     }
 }

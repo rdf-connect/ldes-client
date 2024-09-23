@@ -1,14 +1,13 @@
-import Heap from "heap-js";
+import { Heap } from "heap-js";
 import { Manager, MemberEvents } from "../memberManager";
 import { Member, Relation } from "../page";
 import { FetchedPage, Fetcher, FetchEvent } from "../pageFetcher";
 import { Modulator, ModulatorFactory, Notifier } from "../utils";
 import { RelationChain, SimpleRelation } from "../relation";
 
-import debug from "debug";
 import { Ordered } from "../client";
 import { GTRs, LTR, PageAndRelation, StrategyEvents } from ".";
-const log = debug("strategy");
+import { getLoggerFor } from "../utils/logUtil";
 
 export type StateItem = {
     rel: RelationChain;
@@ -52,6 +51,8 @@ export class OrderedStrategy {
 
     private cancled = false;
 
+    private logger = getLoggerFor(this);
+
     constructor(
         memberManager: Manager,
         fetcher: Fetcher,
@@ -61,7 +62,6 @@ export class OrderedStrategy {
         polling: boolean,
         pollInterval?: number,
     ) {
-        const logger = log.extend("constructor");
         this.ordered = ordered;
         this.manager = memberManager;
         this.fetcher = fetcher;
@@ -90,18 +90,18 @@ export class OrderedStrategy {
                 this.notifier.mutable({}, {});
             },
             pageFetched: (page, { chain, index }) => {
-                logger("Page fetched %s", page.url);
+                this.logger.debug(`Page fetched ${page.url}`);
                 this.modulator.finished(index);
                 this.handleFetched(page, chain);
             },
             relationFound: ({ from, target }, { chain }) => {
                 from.expected.push(target.node);
-                logger("Relation found %s", target.node);
+                this.logger.debug(`Relation found ${target.node}`);
                 const newChain = chain.push(target.node, this.extractRelation(target));
                 if (newChain.ordering(chain) >= 0) {
                     this.fetch(newChain, [from.target]);
                 } else {
-                    console.error(
+                    this.logger.error(
                         "Found relation backwards in time, this indicates wrong tree structure. Ignoring",
                     );
                 }
@@ -116,7 +116,7 @@ export class OrderedStrategy {
                 this.notifier.error(error, {});
             },
             done: (_member, rel) => {
-                logger("Member done %s", rel.target);
+                this.logger.debug(`Member done ${rel.target}`);
                 const found = this.findOrDefault(rel);
                 found.extracting -= 1;
                 this.notifier.fragment({}, {});
@@ -189,8 +189,7 @@ export class OrderedStrategy {
     }
 
     start(url: string) {
-        const logger = log.extend("start");
-        logger("Starting at %s", url);
+        this.logger.debug(`Starting at ${url}`);
         const cmp = (a: string, b: string) => {
             if (a > b) return 1;
             if (a < b) return -1;
@@ -224,6 +223,43 @@ export class OrderedStrategy {
 
     cancel() {
         this.cancled = true;
+    }
+
+    checkEnd() {
+        if (this.cancled) return;
+
+        // There are no relations more to be had, emit the other members
+        if (this.launchedRelations.isEmpty()) {
+            this.logger.debug("No more launched relations");
+            let member = this.members.pop();
+            while (member) {
+                this.notifier.member(member, {});
+                member = this.members.pop();
+            }
+
+            if (this.polling) {
+                this.logger.debug("Polling is enabled, settings timeout");
+                setTimeout(() => {
+                    if (this.cancled) return;
+
+                    this.notifier.pollCycle({}, {});
+                    const toPollArray = this.toPoll.toArray();
+                    this.logger.debug(`Let's repoll (${JSON.stringify(toPollArray.map((x) => x.chain.target))})`);
+                    this.toPoll.clear();
+
+                    for (let rel of toPollArray) {
+                        this.launchedRelations.push(rel.chain);
+                        this.findOrDefault(rel.chain).inFlight += 1;
+                        this.findOrDefault(rel.chain).closed = false;
+                        this.modulator.push(rel);
+                    }
+                }, this.pollInterval || 1000);
+            } else {
+                this.logger.debug("Closing the notifier, polling is not set");
+                this.cancled = true;
+                this.notifier.close({}, {});
+            }
+        }
     }
 
     private findOrDefault(chain: RelationChain): StateItem {
@@ -340,47 +376,5 @@ export class OrderedStrategy {
         }
 
         this.checkEnd();
-    }
-
-    checkEnd() {
-        if (this.cancled) return;
-
-        const logger = log.extend("checkEnd");
-
-        // There are no relations more to be had, emit the other members
-        if (this.launchedRelations.isEmpty()) {
-            logger("No more launched relations");
-            let member = this.members.pop();
-            while (member) {
-                this.notifier.member(member, {});
-                member = this.members.pop();
-            }
-
-            if (this.polling) {
-                logger("Polling is enabled, settings timeout");
-                setTimeout(() => {
-                    if (this.cancled) return;
-
-                    this.notifier.pollCycle({}, {});
-                    const toPollArray = this.toPoll.toArray();
-                    logger(
-                        "Let's repoll (%o)",
-                        toPollArray.map((x) => x.chain.target),
-                    );
-                    this.toPoll.clear();
-
-                    for (let rel of toPollArray) {
-                        this.launchedRelations.push(rel.chain);
-                        this.findOrDefault(rel.chain).inFlight += 1;
-                        this.findOrDefault(rel.chain).closed = false;
-                        this.modulator.push(rel);
-                    }
-                }, this.pollInterval || 1000);
-            } else {
-                logger("Closing the notifier, polling is not set");
-                this.cancled = true;
-                this.notifier.close({}, {});
-            }
-        }
     }
 }

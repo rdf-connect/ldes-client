@@ -1,6 +1,9 @@
-import { describe, expect, test } from "@jest/globals";
+import { describe, expect, test } from "vitest";
 import { RelationChain, SimpleRelation } from "../lib/relation";
 import Heap from "heap-js";
+
+// This probably should not be here
+type Comparable = number | string | Date;
 
 describe("Chain relations", () => {
     test("correct chaining", () => {
@@ -127,8 +130,8 @@ describe("Chain relations", () => {
         const params: [
             SimpleRelation[],
             SimpleRelation | undefined,
-            (a: any, b: any) => number,
-        ] = [[], undefined, (a: any, b: any) => (a == b ? 0 : a < b ? 1 : -1)];
+            (a: Comparable, b: Comparable) => number,
+        ] = [[], undefined, (a: Comparable, b: Comparable) => (a == b ? 0 : a < b ? 1 : -1)];
 
         let value1 = new RelationChain("", "", ...params).push("", {
             value: 0,
@@ -202,11 +205,11 @@ describe("Chain relations", () => {
         const params: [
             SimpleRelation[],
             SimpleRelation | undefined,
-            (a: any, b: any) => number,
-        ] = [[], undefined, (a: any, b: any) => (a == b ? 0 : a < b ? 1 : -1)];
+            (a: Comparable, b: Comparable) => number,
+        ] = [[], undefined, (a: Comparable, b: Comparable) => (a == b ? 0 : a < b ? 1 : -1)];
 
-        let value1 = new RelationChain("", "", ...params);
-        let value2 = new RelationChain("", "", ...params).push("", {
+        const value1 = new RelationChain("", "", ...params);
+        const value2 = new RelationChain("", "", ...params).push("", {
             value: new Date("2001-03-01T00:00:00.000Z"),
             important: true,
         });
@@ -219,7 +222,7 @@ describe("Chain relations", () => {
         expect(heap.length).toBe(2);
         expect(heap.toArray()).toEqual([value1, value2]);
 
-        let eq_value1 = new RelationChain("", "", ...params);
+        const eq_value1 = new RelationChain("", "", ...params);
         console.log(
             "Removed",
             heap.remove(eq_value1, (a, b) => a.ordering(b) === 0),
@@ -233,18 +236,18 @@ describe("Chain relations", () => {
         const params: [
             SimpleRelation[],
             SimpleRelation | undefined,
-            (a: any, b: any) => number,
-        ] = [[], undefined, (a: any, b: any) => (a == b ? 0 : a < b ? 1 : -1)];
+            (a: Comparable, b: Comparable) => number,
+        ] = [[], undefined, (a: Comparable, b: Comparable) => (a == b ? 0 : a < b ? 1 : -1)];
 
-        let value0 = new RelationChain("", "", ...params).push("", {
+        const value0 = new RelationChain("", "", ...params).push("", {
             value: new Date("2001-03-01T00:00:00.000Z"),
             important: true,
         });
-        let value1 = new RelationChain("", "", ...params).push("", {
+        const value1 = new RelationChain("", "", ...params).push("", {
             value: new Date("2001-03-01T00:01:00.000Z"),
             important: true,
         });
-        let value2 = new RelationChain("", "", ...params).push("", {
+        const value2 = new RelationChain("", "", ...params).push("", {
             value: new Date("2001-03-01T00:02:00.000Z"),
             important: true,
         });
