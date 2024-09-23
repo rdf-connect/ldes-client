@@ -12,10 +12,12 @@ let storage: Storage;
 
 if (typeof window === "undefined") {
     // Node.js environment
+    /* eslint-disable  @typescript-eslint/no-explicit-any */
     let fs: any;
     if (typeof require === "undefined") {
-        import("fs").then(mod => fs = mod);
+        import("fs").then((mod) => (fs = mod));
     } else {
+        /* eslint-disable  @typescript-eslint/no-require-imports */
         fs = require("fs");
     }
 

@@ -74,15 +74,14 @@ export class NoStateFactory implements StateFactory {
         deserialize: (item: string) => T | undefined,
         create: () => T,
     ): StateT<T> {
-        return new StateT<any>(deserialize, create);
+        return new StateT<T>(deserialize, create);
     }
-    write(): void {
-    }
+    write(): void {}
 }
 
 export class FileStateFactory implements StateFactory {
     private location: string;
-    private elements: FileStateFactoryItem<any>[];
+    private elements: FileStateFactoryItem<unknown>[];
     private found: { [label: string]: string };
 
     constructor(location: string) {
@@ -93,13 +92,14 @@ export class FileStateFactory implements StateFactory {
         try {
             const item = storage.getItem(location);
             this.found = JSON.parse(item);
-        } catch (ex: any) {
+        } catch (ex: unknown) {
+            // pass
         }
     }
 
     write() {
         const out: { [label: string]: string } = {};
-        for (let element of this.elements) {
+        for (const element of this.elements) {
             out[element.name] = element.serialize(element.state.item);
         }
 
@@ -113,13 +113,13 @@ export class FileStateFactory implements StateFactory {
         create: () => T,
     ): StateT<T> {
         const out = this.elements.find((x) => x.name == name);
-        if (out) return out.state;
+        if (out) return <StateT<T>>out.state;
 
         const found: string | undefined = this.found[name];
-        const state = new StateT<any>(deserialize, create, found);
+        const state = new StateT<T>(deserialize, create, found);
         this.elements.push({
             name,
-            serialize,
+            serialize: <(item: unknown) => string>serialize,
             state,
         });
 

@@ -5,8 +5,7 @@ const PROCESSOR_NAME = "ldes-client";
 const consoleTransport = new winston.transports.Console();
 consoleTransport.level =
     process.env.LOG_LEVEL ||
-    (process.env.DEBUG?.includes(PROCESSOR_NAME) ||
-    process.env.DEBUG === "*"
+    (process.env.DEBUG?.includes(PROCESSOR_NAME) || process.env.DEBUG === "*"
         ? "debug"
         : "info");
 

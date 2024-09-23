@@ -14,10 +14,7 @@ type RdfThing = {
 };
 
 export interface Condition {
-    matchRelation(
-        range: Range | undefined,
-        cbdId: Path,
-    ): boolean;
+    matchRelation(range: Range | undefined, cbdId: Path): boolean;
 
     matchMember(member: Member): boolean;
 
@@ -32,40 +29,52 @@ export function parse_condition(source: string, baseIRI: string): Condition {
     const shapeQuads = new Parser().parse(SHAPES);
     const output = extractShapes(shapeQuads, {
         "https://w3id.org/tree#And": (obj) =>
-            new AndCondition(<ConstructorParameters<typeof AndCondition>[0]>obj),
+            new AndCondition(
+                <ConstructorParameters<typeof AndCondition>[0]>obj,
+            ),
         "https://w3id.org/tree#Or": (obj) =>
             new OrCondition(<ConstructorParameters<typeof OrCondition>[0]>obj),
         "https://w3id.org/tree#Condition": (obj) =>
-            new LeafCondition(<ConstructorParameters<typeof LeafCondition>[0]>obj),
+            new LeafCondition(
+                <ConstructorParameters<typeof LeafCondition>[0]>obj,
+            ),
     });
 
     const dataQuads = new Parser({ baseIRI: baseIRI }).parse(source);
 
     return <Condition>output.lenses[
         "https://w3id.org/rdf-lens/ontology#TypedExtract"
-        ].execute({
+    ].execute({
         quads: dataQuads,
         id: new NamedNode(baseIRI),
     });
 }
 
 type CompareTypes = "string" | "date" | "integer" | "float";
+export type Value = string | Date | number;
 
 export class Range {
-    min?: any;
+    min?: Value;
     eqMin: boolean = true;
 
-    max?: any;
+    max?: Value;
     eqMax: boolean = true;
 
     private logger = getLoggerFor(this);
 
     private defaultTimezone: string;
 
-    constructor(value: any, type: string, defaultTimezone: string, dataType?: string) {
+    constructor(
+        value: Value,
+        type: string,
+        defaultTimezone: string,
+        dataType?: string,
+    ) {
         const tzRegex = /^(AoE|Z|[+-]((0[0-9]|1[0-3]):([0-5][0-9])|14:00))$/;
         if (!tzRegex.test(defaultTimezone)) {
-            this.logger.warn(`Invalid timezone: '${defaultTimezone}'. Using default Anywhere on Earth (AoE) instead.`);
+            this.logger.warn(
+                `Invalid timezone: '${defaultTimezone}'. Using default Anywhere on Earth (AoE) instead.`,
+            );
             this.defaultTimezone = "AoE";
         } else {
             this.defaultTimezone = defaultTimezone;
@@ -90,6 +99,12 @@ export class Range {
                 this.min = value;
                 return;
             case TREE.custom("InBetweenRelation"):
+                if (typeof value !== "string") {
+                    throw (
+                        "InBetweenRelation can only handle string values, not" +
+                        typeof value
+                    );
+                }
                 if (dataType === XSD.custom("gYear")) {
                     const result = this.gYearToMinMax(value);
                     if (!result) return;
@@ -121,10 +136,10 @@ export class Range {
     }
 
     static empty(defaultTimezone: string): Range {
-        return new Range(null, TREE.Relation, defaultTimezone);
+        return new Range("", TREE.Relation, defaultTimezone);
     }
 
-    add(value: any, type: string, dataType?: string) {
+    add(value: string, type: string, dataType?: string) {
         switch (type) {
             case TREE.EqualToRelation:
                 this.min = value;
@@ -207,7 +222,7 @@ export class Range {
         }
     }
 
-    contains(value: any): boolean {
+    contains(value: string | Date | number): boolean {
         if (this.min) {
             if (this.eqMin) {
                 if (this.min > value) return false;
@@ -245,8 +260,8 @@ export class Range {
         return true;
     }
 
-    toString(valueToString?: (value: any) => string): string {
-        const vts = valueToString || ((x: any) => x.toString());
+    toString(valueToString?: (value: Value) => string): string {
+        const vts = valueToString || ((x: Value) => x.toString());
         const comma = !!this.min && !!this.max ? "," : "";
         const start = this.min ? (this.eqMin ? "[" : "(") + vts(this.min) : "]";
         const end = this.max ? vts(this.max) + (this.eqMax ? "]" : ")") : "[";
@@ -254,7 +269,8 @@ export class Range {
     }
 
     private gYearToMinMax(value: string): [Date, Date] | undefined {
-        const regex = /^(-?[1-9][0-9]{3,}|-?0[0-9]{3})(Z|(\+|-)((0[0-9]|1[0-3]):([0-5][0-9])|14:00))?$/;
+        const regex =
+            /^(-?[1-9][0-9]{3,}|-?0[0-9]{3})(Z|(\+|-)((0[0-9]|1[0-3]):([0-5][0-9])|14:00))?$/;
         const match = value.match(regex);
         if (!match) {
             this.logger.warn(`Invalid gYear format: ${value}`);
@@ -276,11 +292,15 @@ export class Range {
             minOffset = offset;
             maxOffset = offset;
         }
-        return [new Date(Date.UTC(year, 0, 1) + minOffset * 60 * 1000), new Date(Date.UTC(year + 1, 0, 1) + maxOffset * 60 * 1000)];
+        return [
+            new Date(Date.UTC(year, 0, 1) + minOffset * 60 * 1000),
+            new Date(Date.UTC(year + 1, 0, 1) + maxOffset * 60 * 1000),
+        ];
     }
 
     private gYearMonthToMinMax(value: string): [Date, Date] | undefined {
-        const regex = /^(-?[1-9][0-9]{3,}|-?0[0-9]{3})-(0[1-9]|1[0-2])(Z|(\+|-)((0[0-9]|1[0-3]):([0-5][0-9])|14:00))?$/;
+        const regex =
+            /^(-?[1-9][0-9]{3,}|-?0[0-9]{3})-(0[1-9]|1[0-2])(Z|(\+|-)((0[0-9]|1[0-3]):([0-5][0-9])|14:00))?$/;
         const match = value.match(regex);
         if (!match) {
             this.logger.warn(`Invalid gYearMonth format: ${value}`);
@@ -303,11 +323,15 @@ export class Range {
             minOffset = offset;
             maxOffset = offset;
         }
-        return [new Date(Date.UTC(y, m - 1, 1) + minOffset * 60 * 1000), new Date(Date.UTC(y, m, 1) + maxOffset * 60 * 1000)];
+        return [
+            new Date(Date.UTC(y, m - 1, 1) + minOffset * 60 * 1000),
+            new Date(Date.UTC(y, m, 1) + maxOffset * 60 * 1000),
+        ];
     }
 
     private dateToMinMax(value: string): [Date, Date] | undefined {
-        const regex = /^(-?[1-9][0-9]{3,}|-?0[0-9]{3})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])(Z|(\+|-)((0[0-9]|1[0-3]):([0-5][0-9])|14:00))?$/;
+        const regex =
+            /^(-?[1-9][0-9]{3,}|-?0[0-9]{3})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])(Z|(\+|-)((0[0-9]|1[0-3]):([0-5][0-9])|14:00))?$/;
         const match = value.match(regex);
         if (!match) {
             this.logger.warn(`Invalid date format: ${value}`);
@@ -331,11 +355,15 @@ export class Range {
             minOffset = offset;
             maxOffset = offset;
         }
-        return [new Date(Date.UTC(y, m - 1, d) + minOffset * 60 * 1000), new Date(Date.UTC(y, m - 1, d + 1) + maxOffset * 60 * 1000)];
+        return [
+            new Date(Date.UTC(y, m - 1, d) + minOffset * 60 * 1000),
+            new Date(Date.UTC(y, m - 1, d + 1) + maxOffset * 60 * 1000),
+        ];
     }
 
     private partialDateTimeToMinMax(value: string): [Date, Date] | undefined {
-        const dateHourMinSecRegex = /^(-?[1-9][0-9]{3,}|-?0[0-9]{3})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9])(Z|(\+|-)((0[0-9]|1[0-3]):([0-5][0-9])|14:00))?$/;
+        const dateHourMinSecRegex =
+            /^(-?[1-9][0-9]{3,}|-?0[0-9]{3})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9])(Z|(\+|-)((0[0-9]|1[0-3]):([0-5][0-9])|14:00))?$/;
         const matchDHMS = value.match(dateHourMinSecRegex);
         if (matchDHMS) {
             const y = parseInt(matchDHMS[1]);
@@ -359,9 +387,18 @@ export class Range {
                 minOffset = offset;
                 maxOffset = offset;
             }
-            return [new Date(Date.UTC(y, m - 1, d, h, min, s) + minOffset * 60 * 1000), new Date(Date.UTC(y, m - 1, d, h, min, s + 1) + maxOffset * 60 * 1000)];
+            return [
+                new Date(
+                    Date.UTC(y, m - 1, d, h, min, s) + minOffset * 60 * 1000,
+                ),
+                new Date(
+                    Date.UTC(y, m - 1, d, h, min, s + 1) +
+                        maxOffset * 60 * 1000,
+                ),
+            ];
         }
-        const dateHourMinRegex = /^(-?[1-9][0-9]{3,}|-?0[0-9]{3})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):([0-5][0-9])(Z|(\+|-)((0[0-9]|1[0-3]):([0-5][0-9])|14:00))?$/;
+        const dateHourMinRegex =
+            /^(-?[1-9][0-9]{3,}|-?0[0-9]{3})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):([0-5][0-9])(Z|(\+|-)((0[0-9]|1[0-3]):([0-5][0-9])|14:00))?$/;
         const matchDHM = value.match(dateHourMinRegex);
         if (matchDHM) {
             const y = parseInt(matchDHM[1]);
@@ -384,9 +421,15 @@ export class Range {
                 minOffset = offset;
                 maxOffset = offset;
             }
-            return [new Date(Date.UTC(y, m - 1, d, h, min) + minOffset * 60 * 1000), new Date(Date.UTC(y, m - 1, d, h, min + 1) + maxOffset * 60 * 1000)];
+            return [
+                new Date(Date.UTC(y, m - 1, d, h, min) + minOffset * 60 * 1000),
+                new Date(
+                    Date.UTC(y, m - 1, d, h, min + 1) + maxOffset * 60 * 1000,
+                ),
+            ];
         }
-        const dateHourRegex = /^(-?[1-9][0-9]{3,}|-?0[0-9]{3})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3])(Z|(\+|-)((0[0-9]|1[0-3]):([0-5][0-9])|14:00))?$/;
+        const dateHourRegex =
+            /^(-?[1-9][0-9]{3,}|-?0[0-9]{3})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3])(Z|(\+|-)((0[0-9]|1[0-3]):([0-5][0-9])|14:00))?$/;
         const matchDH = value.match(dateHourRegex);
         if (matchDH) {
             const y = parseInt(matchDH[1]);
@@ -408,7 +451,10 @@ export class Range {
                 minOffset = offset;
                 maxOffset = offset;
             }
-            return [new Date(Date.UTC(y, m - 1, d, h) + minOffset * 60 * 1000), new Date(Date.UTC(y, m - 1, d, h + 1) + maxOffset * 60 * 1000)];
+            return [
+                new Date(Date.UTC(y, m - 1, d, h) + minOffset * 60 * 1000),
+                new Date(Date.UTC(y, m - 1, d, h + 1) + maxOffset * 60 * 1000),
+            ];
         }
     }
 }
@@ -444,20 +490,22 @@ export class LeafCondition implements Condition {
         this.pathQuads = { id: inp.pathQuads.entry, store };
         this.defaultTimezone = inp.defaultTimezone;
 
-        this.range = new Range(this.parseValue(inp.value), inp.relationType.value, this.defaultTimezone);
+        this.range = new Range(
+            this.parseValue(inp.value),
+            inp.relationType.value,
+            this.defaultTimezone,
+        );
     }
 
     toString(): string {
-        const vts = this.compareType === "date"
-            ? (x: Date) => x.toISOString()
-            : undefined;
+        const vts =
+            this.compareType === "date"
+                ? (x: Value) => (<Date>x).toISOString()
+                : undefined;
         return `${this.pathQuads.id.value} ∈ ${this.range.toString(vts)}`;
     }
 
-    matchRelation(
-        range: Range | undefined,
-        cbdId: Path,
-    ): boolean {
+    matchRelation(range: Range | undefined, cbdId: Path): boolean {
         if (!cbdEquals(this.pathQuads, cbdId)) {
             return true;
         }
@@ -468,13 +516,14 @@ export class LeafCondition implements Condition {
             return false;
         }
 
-        const vts = this.compareType === "date"
-            ? (x: Date) => new Date(x).toISOString()
-            : undefined;
+        const vts =
+            this.compareType === "date"
+                ? (x: Value) => new Date(x).toISOString()
+                : undefined;
         this.logger.verbose(
-            `${this.range.toString(vts)} contains ${range.toString(vts)}. Overlaps: ${
-                this.range.overlaps(range)
-            }`,
+            `${this.range.toString(vts)} contains ${range.toString(vts)}. Overlaps: ${this.range.overlaps(
+                range,
+            )}`,
         );
 
         return this.range.overlaps(range);
@@ -485,7 +534,7 @@ export class LeafCondition implements Condition {
         return this.range.contains(value);
     }
 
-    private parseValue(value: string): any {
+    private parseValue(value: string): string | Date | number {
         switch (this.compareType) {
             case "string":
                 return value;
@@ -514,10 +563,7 @@ abstract class BiCondition implements Condition {
 
     abstract combine(alpha: boolean, beta: boolean): boolean;
 
-    matchRelation(
-        range: Range | undefined,
-        cbdId: Path,
-    ): boolean {
+    matchRelation(range: Range | undefined, cbdId: Path): boolean {
         const alpha = this.alpha.matchRelation(range, cbdId);
         const beta = this.beta.matchRelation(range, cbdId);
 

@@ -22,7 +22,7 @@ export type ExtractedMember = {
 export type ExtractError = {
     type: "extract";
     memberId: Term;
-    error: any;
+    error: unknown;
 };
 export type Error = ExtractError;
 export type MemberEvents = {
@@ -55,12 +55,14 @@ export class Manager {
         this.isVersionOfPath = info.isVersionOfPath;
         this.shapeId = info.shape;
 
-        this.logger.debug(`new ${ldesId.value} ${JSON.stringify({
-            extractor: info.extractor.constructor.name,
-            shape: info.shape,
-            timestampPath: info.timestampPath,
-            isVersionOfPath: info.isVersionOfPath,
-        })}`);
+        this.logger.debug(
+            `new ${ldesId.value} ${JSON.stringify({
+                extractor: info.extractor.constructor.name,
+                shape: info.shape,
+                timestampPath: info.timestampPath,
+                isVersionOfPath: info.isVersionOfPath,
+            })}`,
+        );
     }
 
     // Extract members found in this page, this does not yet emit the members
@@ -69,13 +71,18 @@ export class Manager {
         state: S,
         notifier: Notifier<MemberEvents, S>,
     ) {
-        const members = getObjects(page.data, this.ldesId, TREE.terms.member, null);
+        const members = getObjects(
+            page.data,
+            this.ldesId,
+            TREE.terms.member,
+            null,
+        );
 
         this.logger.debug(`Extracting ${members.length} members`);
 
         const promises: Promise<Member | undefined | void>[] = [];
 
-        for (let member of members) {
+        for (const member of members) {
             if (!this.state.has(member.value)) {
                 const promise = this.extractMember(member, page.data)
                     .then((member) => {
@@ -92,7 +99,7 @@ export class Manager {
                             { error: ex, type: "extract", memberId: member },
                             state,
                         );
-                        var err = new Error();
+                        const err = new Error();
                     });
 
                 promises.push(promise);

@@ -11,12 +11,12 @@ import {
     enhanced_fetch,
     extractMainNodeShape,
     getObjects,
+    handleConditions,
+    maybeVersionMaterialize,
     ModulatorFactory,
     Notifier,
-    streamToArray,
-    maybeVersionMaterialize,
-    handleConditions,
     processConditionFile,
+    streamToArray,
 } from "./utils";
 import { LDES, SDS, TREE } from "@treecg/types";
 import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
@@ -112,11 +112,15 @@ async function getInfo(
             });
             shapeIds = getObjects(store, null, TREE.terms.shape);
             timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
-            isVersionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
+            isVersionOfPaths = getObjects(
+                store,
+                null,
+                LDES.terms.versionOfPath,
+            );
             logger.debug(
                 `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${isVersionOfPaths.length} isVersionOfPaths`,
             );
-        } catch (ex: any) {
+        } catch (ex: unknown) {
             logger.error(`Failed to fetch ${ldesId.value}`);
             logger.error(ex);
         }
@@ -128,13 +132,15 @@ async function getInfo(
 
     if (timestampPaths.length > 1) {
         logger.error(
-            "Expected at most one timestamp path, found " + timestampPaths.length,
+            "Expected at most one timestamp path, found " +
+                timestampPaths.length,
         );
     }
 
     if (isVersionOfPaths.length > 1) {
         logger.error(
-            "Expected at most one versionOf path, found " + isVersionOfPaths.length,
+            "Expected at most one versionOf path, found " +
+                isVersionOfPaths.length,
         );
     }
 
@@ -162,7 +168,7 @@ async function getInfo(
     };
 }
 
-type EventMap = Record<string, any>;
+type EventMap = Record<string, unknown>;
 
 type EventKey<T extends EventMap> = string & keyof T;
 type EventReceiver<T> = (params: T) => void;
@@ -171,7 +177,7 @@ export type ClientEvents = {
     fragment: void;
     mutable: void;
     poll: void;
-    error: any;
+    error: unknown;
 };
 
 export class Client {
@@ -222,9 +228,10 @@ export class Client {
         key: K,
         fn: EventReceiver<ClientEvents[K]>,
     ) {
-        this.listeners[key] = (
-            this.listeners[key] || <Array<(p: ClientEvents[K]) => void>>[]
-        ).concat(fn);
+        if (!this.listeners[key]) {
+            this.listeners[key] = [];
+        }
+        this.listeners[key].push(fn);
     }
 
     async init(
@@ -274,16 +281,17 @@ export class Client {
         );
 
         // Build factory to keep track of member versions
-        const versionState = this.config.lastVersionOnly ?
-            this.stateFactory.build<Map<string, Date>>(
-                "versions",
-                (map) => {
-                    const arr = [...map.entries()];
-                    return JSON.stringify(arr);
-                },
-                (inp) => new Map(JSON.parse(inp)),
-                () => new Map(),
-            ) : undefined;
+        const versionState = this.config.lastVersionOnly
+            ? this.stateFactory.build<Map<string, Date>>(
+                  "versions",
+                  (map) => {
+                      const arr = [...map.entries()];
+                      return JSON.stringify(arr);
+                  },
+                  (inp) => new Map(JSON.parse(inp)),
+                  () => new Map(),
+              )
+            : undefined;
 
         this.streamId = this.streamId || viewQuads[0].subject;
 
@@ -305,7 +313,7 @@ export class Client {
             this.config.defaultTimezone,
             this.config.before,
             this.config.after,
-            info.timestampPath
+            info.timestampPath,
         );
 
         this.fetcher = new Fetcher(
@@ -316,18 +324,19 @@ export class Client {
             this.config.fetch,
         );
 
-        const notifier: Notifier<StrategyEvents, {}> = {
-            error: (ex: any) => this.emit("error", ex),
+        const notifier: Notifier<StrategyEvents, unknown> = {
+            error: (ex: unknown) => this.emit("error", ex),
             fragment: () => this.emit("fragment", undefined),
             member: (m) => {
                 if (this.config.condition.matchMember(m)) {
-
                     // Check if this is a newer version of this member (if we are extracting the last version only)
                     if (m.isVersionOf && m.timestamp && versionState) {
                         const versions = versionState.item;
 
                         if (versions.has(m.isVersionOf)) {
-                            const registeredDate = <Date>versions.get(m.isVersionOf);
+                            const registeredDate = <Date>(
+                                versions.get(m.isVersionOf)
+                            );
                             if (<Date>m.timestamp > registeredDate) {
                                 // We got a newer version
                                 versions.set(m.isVersionOf, <Date>m.timestamp);
@@ -341,7 +350,13 @@ export class Client {
                         }
                     }
                     // Check if versioned member is to be materialized
-                    emit(maybeVersionMaterialize(m, this.config.materialize === true, info));
+                    emit(
+                        maybeVersionMaterialize(
+                            m,
+                            this.config.materialize === true,
+                            info,
+                        ),
+                    );
                 }
             },
             pollCycle: () => {
@@ -362,22 +377,22 @@ export class Client {
         this.strategy =
             this.ordered !== "none"
                 ? new OrderedStrategy(
-                    this.memberManager,
-                    this.fetcher,
-                    notifier,
-                    factory,
-                    this.ordered,
-                    this.config.polling,
-                    this.config.pollInterval,
-                )
+                      this.memberManager,
+                      this.fetcher,
+                      notifier,
+                      factory,
+                      this.ordered,
+                      this.config.polling,
+                      this.config.pollInterval,
+                  )
                 : new UnorderedStrategy(
-                    this.memberManager,
-                    this.fetcher,
-                    notifier,
-                    factory,
-                    this.config.polling,
-                    this.config.pollInterval,
-                );
+                      this.memberManager,
+                      this.fetcher,
+                      notifier,
+                      factory,
+                      this.config.polling,
+                      this.config.pollInterval,
+                  );
 
         this.logger.debug(
             `Found ${viewQuads.length} views, choosing ${viewId.value}`,
@@ -516,7 +531,7 @@ export async function processor(
             fetch: fetch_config ? enhanced_fetch(fetch_config) : fetch,
             materialize,
             lastVersionOnly,
-            condition: await processConditionFile(condition)
+            condition: await processConditionFile(condition),
         },
         <Ordered>ordered || "none",
     );
@@ -546,8 +561,18 @@ export async function processor(
                 const blank = df.blankNode();
                 const quads = el.value.quads.slice();
                 quads.push(
-                    df.quad(blank, SDS.terms.stream, <Quad_Object>client.streamId!, SDS.terms.custom("DataDescription")),
-                    df.quad(blank, SDS.terms.payload, <Quad_Object>el.value.id!, SDS.terms.custom("DataDescription")),
+                    df.quad(
+                        blank,
+                        SDS.terms.stream,
+                        <Quad_Object>client.streamId!,
+                        SDS.terms.custom("DataDescription"),
+                    ),
+                    df.quad(
+                        blank,
+                        SDS.terms.payload,
+                        <Quad_Object>el.value.id!,
+                        SDS.terms.custom("DataDescription"),
+                    ),
                 );
 
                 await writer.push(new NWriter().quadsToString(quads));

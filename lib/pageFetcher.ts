@@ -44,7 +44,10 @@ export function resetPromise(promise: LongPromise) {
 export interface Helper {
     extractRelation(relation: Relation): { rel: SimpleRelation; node: string };
 
-    handleFetchedPage(page: FetchedPage, marker?: any): void | Promise<void>;
+    handleFetchedPage(
+        page: FetchedPage,
+        marker?: unknown,
+    ): void | Promise<void>;
 
     close(): void | Promise<void>;
 }
@@ -53,7 +56,7 @@ export type FetchEvent = {
     relationFound: { from: Node; target: Relation };
     pageFetched: FetchedPage;
     scheduleFetch: Node;
-    error: any;
+    error: unknown;
 };
 
 export type Cache = {
@@ -91,7 +94,6 @@ export class Fetcher {
     }
 
     async fetch<S>(node: Node, state: S, notifier: Notifier<FetchEvent, S>) {
-
         try {
             const resp = await this.dereferencer.dereference(node.target, {
                 localFiles: true,
@@ -108,7 +110,7 @@ export class Fetcher {
                         .split(",")
                         .map((x) => x.split("=", 2).map((x) => x.trim()));
 
-                    for (let control of controls) {
+                    for (const control of controls) {
                         if (control[0] == "max-age") {
                             cache.maxAge = parseInt(control[1]);
                         }
@@ -126,7 +128,9 @@ export class Fetcher {
                 }
             }
 
-            this.logger.debug(`[fetch] Cache for ${node.target} ${JSON.stringify(cache)}`);
+            this.logger.debug(
+                `[fetch] Cache for ${node.target} ${JSON.stringify(cache)}`,
+            );
 
             const data = RdfStore.createDefault();
             let quadCount = 0;
@@ -140,8 +144,10 @@ export class Fetcher {
                     .on("error", reject);
             });
 
-            this.logger.debug(`[fetch] Got data ${node.target} (${quadCount} quads)`);
-            for (let rel of extractRelations(
+            this.logger.debug(
+                `[fetch] Got data ${node.target} (${quadCount} quads)`,
+            );
+            for (const rel of extractRelations(
                 data,
                 namedNode(resp.url),
                 this.loose,
@@ -150,7 +156,10 @@ export class Fetcher {
             )) {
                 if (!node.expected.some((x) => x == rel.node)) {
                     if (!this.closed) {
-                        notifier.relationFound({ from: node, target: rel }, state);
+                        notifier.relationFound(
+                            { from: node, target: rel },
+                            state,
+                        );
                     }
                 }
             }

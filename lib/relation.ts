@@ -1,6 +1,8 @@
+import { Value } from "./condition";
+
 export type SimpleRelation = {
     important: boolean;
-    value: any;
+    value: Value;
 };
 
 /**
@@ -13,14 +15,14 @@ export class RelationChain {
     source: string;
     relations: SimpleRelation[];
     target: string;
-    private cmp?: (a: any, b: any) => number;
+    private cmp?: (a: Value, b: Value) => number;
 
     constructor(
         source: string,
         target: string,
         relations: SimpleRelation[] = [],
         additional?: SimpleRelation,
-        cmp?: (a: any, b: any) => number,
+        cmp?: (a: Value, b: Value) => number,
     ) {
         this.source = source;
         this.target = target;
@@ -104,11 +106,16 @@ export class RelationChain {
 
             // Both are important
             if (this.cmp) {
-                const v = this.cmp(this.relations[i].value, other.relations[i].value);
+                const v = this.cmp(
+                    this.relations[i].value,
+                    other.relations[i].value,
+                );
                 if (v !== 0) return v;
             } else {
-                if (this.relations[i].value < other.relations[i].value) return -1;
-                if (this.relations[i].value > other.relations[i].value) return 1;
+                if (this.relations[i].value < other.relations[i].value)
+                    return -1;
+                if (this.relations[i].value > other.relations[i].value)
+                    return 1;
             }
         }
 

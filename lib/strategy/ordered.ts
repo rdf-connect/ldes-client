@@ -8,6 +8,7 @@ import { RelationChain, SimpleRelation } from "../relation";
 import { Ordered } from "../client";
 import { GTRs, LTR, PageAndRelation, StrategyEvents } from ".";
 import { getLoggerFor } from "../utils/logUtil";
+import { Value } from "../condition";
 
 export type StateItem = {
     rel: RelationChain;
@@ -23,7 +24,7 @@ export class OrderedStrategy {
     private fetcher: Fetcher;
 
     // This can be T: controller or something
-    private notifier: Notifier<StrategyEvents, {}>;
+    private notifier: Notifier<StrategyEvents, unknown>;
 
     // Contains a heap with all relations that have been launched
     // The heap will first handle unimportant relations,
@@ -56,7 +57,7 @@ export class OrderedStrategy {
     constructor(
         memberManager: Manager,
         fetcher: Fetcher,
-        notifier: Notifier<StrategyEvents, {}>,
+        notifier: Notifier<StrategyEvents, unknown>,
         factory: ModulatorFactory,
         ordered: Ordered,
         polling: boolean,
@@ -81,7 +82,7 @@ export class OrderedStrategy {
         //         start member extraction
         // - relationFound: a relation has been found, put the extended chain in the queue
         this.fetchNotifier = {
-            error: (error: any) => {
+            error: (error: unknown) => {
                 this.notifier.error(error, {});
             },
             scheduleFetch: ({ target, expected }, { chain }) => {
@@ -97,7 +98,10 @@ export class OrderedStrategy {
             relationFound: ({ from, target }, { chain }) => {
                 from.expected.push(target.node);
                 this.logger.debug(`Relation found ${target.node}`);
-                const newChain = chain.push(target.node, this.extractRelation(target));
+                const newChain = chain.push(
+                    target.node,
+                    this.extractRelation(target),
+                );
                 if (newChain.ordering(chain) >= 0) {
                     this.fetch(newChain, [from.target]);
                 } else {
@@ -139,20 +143,25 @@ export class OrderedStrategy {
                     );
                 },
             },
-            (inp: any) => {
-                const { chain, expected } = inp;
+            (inp: unknown) => {
+                const { chain, expected } = <
+                    {
+                        chain: RelationChain;
+                        expected: string[];
+                    }
+                >inp;
                 const cmp =
                     this.ordered === "ascending"
-                        ? (a: string, b: string) => {
-                            if (a > b) return 1;
-                            if (a < b) return -1;
-                            return 0;
-                        }
-                        : (a: string, b: string) => {
-                            if (a > b) return -1;
-                            if (a < b) return 1;
-                            return 0;
-                        };
+                        ? (a: Value, b: Value) => {
+                              if (a > b) return 1;
+                              if (a < b) return -1;
+                              return 0;
+                          }
+                        : (a: Value, b: Value) => {
+                              if (a > b) return -1;
+                              if (a < b) return 1;
+                              return 0;
+                          };
 
                 return {
                     chain: new RelationChain(
@@ -190,7 +199,7 @@ export class OrderedStrategy {
 
     start(url: string) {
         this.logger.debug(`Starting at ${url}`);
-        const cmp = (a: string, b: string) => {
+        const cmp = (a: Value, b: Value) => {
             if (a > b) return 1;
             if (a < b) return -1;
             return 0;
@@ -198,13 +207,12 @@ export class OrderedStrategy {
 
         if (this.ordered === "ascending") {
             this.fetch(
-                new RelationChain("", url, [], undefined, (a, b) => cmp(a, b)).push(
-                    url,
-                    {
-                        important: false,
-                        value: 0,
-                    },
-                ),
+                new RelationChain("", url, [], undefined, (a, b) =>
+                    cmp(a, b),
+                ).push(url, {
+                    important: false,
+                    value: 0,
+                }),
                 [],
             );
         } else {
@@ -244,10 +252,14 @@ export class OrderedStrategy {
 
                     this.notifier.pollCycle({}, {});
                     const toPollArray = this.toPoll.toArray();
-                    this.logger.debug(`Let's repoll (${JSON.stringify(toPollArray.map((x) => x.chain.target))})`);
+                    this.logger.debug(
+                        `Let's repoll (${JSON.stringify(
+                            toPollArray.map((x) => x.chain.target),
+                        )})`,
+                    );
                     this.toPoll.clear();
 
-                    for (let rel of toPollArray) {
+                    for (const rel of toPollArray) {
                         this.launchedRelations.push(rel.chain);
                         this.findOrDefault(rel.chain).inFlight += 1;
                         this.findOrDefault(rel.chain).closed = false;
@@ -282,11 +294,14 @@ export class OrderedStrategy {
         const val = (s: string) => {
             try {
                 return new Date(s);
-            } catch (ex: any) {
+            } catch (ex: unknown) {
                 return s;
             }
         };
-        if (this.ordered === "ascending" && GTRs.some((x) => rel.type.equals(x))) {
+        if (
+            this.ordered === "ascending" &&
+            GTRs.some((x) => rel.type.equals(x))
+        ) {
             return {
                 important: true,
                 // Maybe this should create a date
