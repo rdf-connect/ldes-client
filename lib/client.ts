@@ -27,13 +27,7 @@ import { getLoggerFor } from "./utils/logUtil";
 
 export { intoConfig } from "./config";
 export { enhanced_fetch, extractMainNodeShape, retry_fetch } from "./utils";
-export {
-    type Condition,
-    empty_condition,
-    LeafCondition,
-    parse_condition,
-    Range,
-} from "./condition/index";
+export * from "./condition/index";
 export type { Member, Page, Relation } from "./page";
 export type { Config, ShapeConfig } from "./config";
 
