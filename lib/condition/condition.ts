@@ -28,13 +28,13 @@ export function empty_condition(): Condition {
 export function parse_condition(source: string, baseIRI: string): Condition {
     const shapeQuads = new Parser().parse(SHAPES);
     const output = extractShapes(shapeQuads, {
-        "https://w3id.org/tree#And": (obj) =>
+        "http://vocab.deri.ie/csp#And": (obj) =>
             new AndCondition(
                 <ConstructorParameters<typeof AndCondition>[0]>obj,
             ),
-        "https://w3id.org/tree#Or": (obj) =>
+        "http://vocab.deri.ie/csp#Or": (obj) =>
             new OrCondition(<ConstructorParameters<typeof OrCondition>[0]>obj),
-        "https://w3id.org/tree#Condition": (obj) =>
+        "http://vocab.deri.ie/csp#Condition": (obj) =>
             new LeafCondition(
                 <ConstructorParameters<typeof LeafCondition>[0]>obj,
             ),
@@ -551,31 +551,27 @@ export class LeafCondition implements Condition {
 }
 
 abstract class BiCondition implements Condition {
-    alpha: Condition;
-    beta: Condition;
+    items: Condition[];
 
     private logger = getLoggerFor(this);
 
-    constructor(inp: { alpha: Condition; beta: Condition }) {
-        this.alpha = inp.alpha;
-        this.beta = inp.beta;
+    constructor(inp: { items: Condition[] }) {
+        this.items = inp.items;
+        console.log(inp.items);
     }
 
     abstract combine(alpha: boolean, beta: boolean): boolean;
 
     matchRelation(range: Range | undefined, cbdId: Path): boolean {
-        const alpha = this.alpha.matchRelation(range, cbdId);
-        const beta = this.beta.matchRelation(range, cbdId);
-
-        this.logger.verbose(`> ${this.combine(alpha, beta)}`);
-
-        return this.combine(alpha, beta);
+        return this.items
+            .map((x) => x.matchRelation(range, cbdId))
+            .reduce(this.combine.bind(this));
     }
 
     matchMember(member: Member): boolean {
-        const alpha = this.alpha.matchMember(member);
-        const beta = this.beta.matchMember(member);
-        return this.combine(alpha, beta);
+        return this.items
+            .map((x) => x.matchMember(member))
+            .reduce(this.combine.bind(this));
     }
 }
 
@@ -584,7 +580,8 @@ export class AndCondition extends BiCondition {
         return alpha && beta; // TODO those might be null if something cannot make a statement about it, important for not condition
     }
     toString(): string {
-        return `(${this.alpha.toString()} ^ ${this.beta.toString()})`;
+        const contents = this.items.map((x) => x.toString()).join(" ^ ");
+        return `(${contents})`;
     }
 }
 
@@ -593,7 +590,8 @@ export class OrCondition extends BiCondition {
         return alpha || beta; // TODO those might be null if something cannot make a statement about it, important for not condition
     }
     toString(): string {
-        return `(${this.alpha.toString()} V ${this.beta.toString()})`;
+        const contents = this.items.map((x) => x.toString()).join(" V ");
+        return `(${contents})`;
     }
 }
 
