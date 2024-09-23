@@ -1,1 +1,1 @@
-export * from "./condition.js";
+export * from "./condition";

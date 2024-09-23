@@ -4,16 +4,16 @@ import { Ordered, replicateLDES } from "../lib/client";
 import { intoConfig } from "../lib/config";
 import { Command, Option } from "commander";
 import { Writer } from "n3";
-import { enhanced_fetch, FetchConfig } from "../lib/utils";
-import { empty_condition, parse_condition } from "../lib/condition";
-import { readFile } from "fs/promises";
+import { enhanced_fetch, FetchConfig, processConditionFile } from "../lib/utils";
 import { getLoggerFor } from "../lib/utils/logUtil";
 
 const program = new Command();
 let paramURL: string = "";
 let polling: boolean = false;
-// let after: Date | undefined;
-// let before: Date | undefined;
+let after: Date | undefined;
+let before: Date | undefined;
+let materialize: boolean = false;
+let lastVersionOnly: boolean = false;
 let conditionFile: string | undefined;
 let paramPollInterval: number;
 let urlIsView = false;
@@ -26,7 +26,7 @@ let onlyDefaultGraph: boolean = false;
 let loose: boolean = false;
 let defaultTimezone: string | undefined;
 
-let fetch_config: FetchConfig = {
+const fetch_config: FetchConfig = {
     retry: {},
 };
 
@@ -38,14 +38,22 @@ program
             .default("none"),
     )
     .option("-f, --follow", "follow the LDES, the client stays in sync")
-    // .option(
-    //   "--after <after>",
-    //   "follow only relations including members after a certain point in time",
-    // )
-    // .option(
-    //   "--before <before>",
-    //   "follow only relations including members before a certain point in time",
-    // )
+    .option(
+        "--after <after>",
+        "follow only relations including members after a certain point in time",
+    )
+    .option(
+        "--before <before>",
+        "follow only relations including members before a certain point in time",
+    )
+    .option(
+        "--materialize-version",
+        "materialize versioned member based on the ldes:isVersionOfPath predicate"
+    )
+    .option(
+        "--last-version-only",
+        "emit only the latest available version of every member"
+    )
     .option(
         "--condition <condition_file>",
         "turtle file including the conditions for extracting a member",
@@ -99,6 +107,8 @@ program
         loose = program.loose;
         onlyDefaultGraph = program.onlyDefaultGraph;
         conditionFile = program.condition;
+        materialize = program.materializeVersion;
+        lastVersionOnly = program.lastVersionOnly;
         defaultTimezone = program.defaultTimezone;
 
         fetch_config.concurrent = parseInt(program.concurrent);
@@ -114,42 +124,30 @@ program
             fetch_config.retry!.codes = program.httpCodes.map(parseInt);
         }
 
-        // if (program.after) {
-        //   if (!isNaN(new Date(program.after).getTime())) {
-        //     after = new Date(program.after);
-        //   } else {
-        //     console.error(`--after ${program.after} is not a valid date`);
-        //     process.exit();
-        //   }
-        // }
-        // if (program.before) {
-        //   if (!isNaN(new Date(program.before).getTime())) {
-        //     before = new Date(program.before);
-        //   } else {
-        //     console.error(`--before ${program.before} is not a valid date`);
-        //     process.exit();
-        //   }
-        // }
+        if (program.after) {
+            if (!isNaN(new Date(program.after).getTime())) {
+                after = new Date(program.after);
+            } else {
+                console.error(`--after ${program.after} is not a valid date`);
+                process.exit();
+            }
+        }
+        if (program.before) {
+            if (!isNaN(new Date(program.before).getTime())) {
+                before = new Date(program.before);
+            } else {
+                console.error(`--before ${program.before} is not a valid date`);
+                process.exit();
+            }
+        }
     });
 
 program.parse(process.argv);
 
 async function main() {
     const logger = getLoggerFor("cli");
-
-    let condition = empty_condition();
-    if (conditionFile) {
-        const source = await readFile(conditionFile, { encoding: "utf8" });
-        try {
-            condition = parse_condition(source, conditionFile);
-        } catch (ex) {
-            logger.error(ex);
-            throw ex;
-        }
-        logger.info(`Found me some condition ${!!condition}`);
-        logger.info(condition.toString());
-    }
     let fragmentCount = 0;
+
     const client = replicateLDES(
         intoConfig({
             loose,
@@ -159,10 +157,14 @@ async function main() {
             stateFile: save,
             pollInterval: paramPollInterval,
             urlIsView: urlIsView,
+            after,
+            before,
             shapeFile,
             onlyDefaultGraph,
-            condition,
+            condition: await processConditionFile(conditionFile),
             defaultTimezone,
+            materialize,
+            lastVersionOnly,
             fetch: enhanced_fetch(fetch_config),
         }),
         ordered,
@@ -178,7 +180,7 @@ async function main() {
 
     if (!quiet) {
         client.on("error", (error) => {
-            logger.error(`Error: ${JSON.stringify(error)}`);
+            console.error("Error", error);
         });
     }
 

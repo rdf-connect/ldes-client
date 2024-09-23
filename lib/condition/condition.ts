@@ -537,7 +537,6 @@ export class AndCondition extends BiCondition {
     combine(alpha: boolean, beta: boolean): boolean {
         return alpha && beta; // TODO those might be null if something cannot make a statement about it, important for not condition
     }
-
     toString(): string {
         return `(${this.alpha.toString()} ^ ${this.beta.toString()})`;
     }
@@ -547,7 +546,6 @@ export class OrCondition extends BiCondition {
     combine(alpha: boolean, beta: boolean): boolean {
         return alpha || beta; // TODO those might be null if something cannot make a statement about it, important for not condition
     }
-
     toString(): string {
         return `(${this.alpha.toString()} V ${this.beta.toString()})`;
     }

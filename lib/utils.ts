@@ -1,12 +1,27 @@
-import { NamedNode, Quad, Stream, Term } from "@rdfjs/types";
+import { NamedNode, Quad, Stream, Term, Quad_Subject, Quad_Predicate } from "@rdfjs/types";
 import { BaseQuad } from "n3";
 import { StateFactory, StateT } from "./state";
 import { RdfStore } from "rdf-stores";
-import { RDF, SHACL } from "@treecg/types";
+import { DataFactory } from "rdf-data-factory";
+import { RDF, SHACL, TREE } from "@treecg/types";
 import { Member } from "./page";
+import { LDESInfo } from "./client";
+import { pred } from "rdf-lens";
+import { readFile } from "fs/promises";
+import {
+    AndCondition,
+    Condition,
+    empty_condition,
+    EmptyCondition,
+    LeafCondition,
+    parse_condition
+} from "./condition/index";
+
 import { getLoggerFor } from "./utils/logUtil";
 
 const logger = getLoggerFor("Utils");
+
+const df = new DataFactory();
 
 export type Notifier<Events, S> = {
     [K in keyof Events]: (event: Events[K], state: S) => void;
@@ -111,12 +126,11 @@ export function extractMainNodeShape(store: RdfStore): NamedNode {
 
 /**
  * Generic interface that represents a structure that ranks elements.
- * Most common is a Prority Queue (heap like) the pops elements in order.
+ * Most common is a Priority Queue (heap like) the pops elements in order.
  * An array is also a Ranker, without ordering.
  */
 export interface Ranker<T> {
     push(item: T): void;
-
     pop(): T | undefined;
 }
 
@@ -503,4 +517,129 @@ export function memberFromQuads(
         (x) => x.subject.equals(member) && x.predicate.value === RDF.type,
     )?.object;
     return { quads, id: member, isVersionOf, timestamp, type };
+}
+
+/**
+ * Version materialization function that sets the declared ldes:versionOfPath property value
+ * as the member's subject IRI
+ */
+export function maybeVersionMaterialize(member: Member, materialize: boolean, ldesInfo: LDESInfo): Member {
+    if (materialize && ldesInfo.isVersionOfPath) {
+        // Create RDF store with member quads
+        const memberStore = RdfStore.createDefault();
+        member.quads.forEach(q => memberStore.addQuad(q));
+        // Get materialized subject IRI
+        const newSubject = getObjects(memberStore, member.id, ldesInfo.isVersionOfPath)[0];
+        if (newSubject) {
+            // Remove version property
+            memberStore.removeQuad(df.quad(
+                <Quad_Subject>member.id,
+                <Quad_Predicate>ldesInfo.isVersionOfPath,
+                newSubject
+            ));
+            // Updated all quads with materialized subject
+            for (const q of memberStore.getQuads(member.id)) {
+                //q.subject = <Quad_Subject>newSubject;
+                const newQ = df.quad(<Quad_Subject>newSubject, q.predicate, q.object, q.graph);
+                memberStore.removeQuad(q);
+                memberStore.addQuad(newQ);
+            }
+            // Update member object
+            member.id = newSubject;
+            member.quads = memberStore.getQuads();
+        } else {
+            console.error(`No version property found in Member (${member.id}) as specified by ldes:isVersionOfPath ${ldesInfo.isVersionOfPath}`);
+        }
+    }
+
+    return member;
+}
+
+export async function processConditionFile(conditionFile?: string): Promise<Condition> {
+    let condition: Condition = empty_condition();
+    if (conditionFile) {
+        try {
+            condition = parse_condition(await readFile(conditionFile, { encoding: "utf8" }), conditionFile);
+        } catch (ex) {
+            console.error(`Failed to read condition file: ${conditionFile}`);
+            throw ex;
+        }
+        console.log("Found me some condition", !!condition);
+        console.log(condition.toString());
+    }
+    return condition;
+}
+
+/**
+ * Function that handles any given condition, together with the "before" and "after" options,
+ * and builds the corresponding unified Condition.
+ */
+export function handleConditions(
+    condition: Condition,
+    defaultTimezone: string,
+    before?: Date,
+    after?: Date,
+    timestampPath?: Term
+): Condition {
+    // Check if before and after conditions are defined and build corresponding Condition object
+    let handledCondition: Condition = empty_condition();
+
+    if (before) {
+        if (!timestampPath) {
+            throw "Cannot apply 'before' or 'after' filters since the target LDES does not define a ldes:timestampPath predicate";
+        }
+
+        const predLens = pred(timestampPath);
+        const beforeCond = new LeafCondition({
+            relationType: TREE.terms.LessThanRelation,
+            value: before.toISOString(),
+            compareType: "date",
+            path: predLens,
+            pathQuads: { entry: timestampPath, quads: [] },
+            defaultTimezone
+        });
+        if (after) {
+            const afterCond = new LeafCondition({
+                relationType: TREE.terms.GreaterThanRelation,
+                value: after.toISOString(),
+                compareType: "date",
+                path: predLens,
+                pathQuads: { entry: timestampPath, quads: [] },
+                defaultTimezone
+            });
+            // Got bi-condition with before & after filters
+            handledCondition = new AndCondition({
+                alpha: beforeCond,
+                beta: afterCond
+            });
+        } else {
+            // Got condition with before filter only
+            handledCondition = beforeCond;
+        }
+    } else if (after) {
+        if (!timestampPath) {
+            throw "Cannot apply 'before' or 'after' filters since the target LDES does not define a ldes:timestampPath predicate";
+        }
+
+        const predLens = pred(timestampPath);
+        // Got condition with after filter only
+        handledCondition = new LeafCondition({
+            relationType: TREE.terms.GreaterThanRelation,
+            value: after.toISOString(),
+            compareType: "date",
+            path: predLens,
+            pathQuads: { entry: timestampPath, quads: [] },
+            defaultTimezone
+        });
+    }
+
+    // See if condition file was defined too
+    if (!(condition instanceof EmptyCondition)) {
+        return new AndCondition({
+            alpha: condition,
+            beta: handledCondition
+        });
+    } else {
+        return handledCondition;
+    }
 }
