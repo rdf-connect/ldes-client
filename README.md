@@ -21,10 +21,75 @@ ldes-client <url> [-f] [--save <path>] [--pollInterval <number>] [--shape <shape
 - `--pollInterval`: time to wait between polling the LDES when the client is following the LDES.
 - `--shape`: shape file to which LDES members should conform (overwrite LDES configured shape)
 - `-t` `--default-timezone`: default timezone to use for dates in tree:InBetweenRelation. `AoE|Z|±HH:mm` Default: `AoE`.
+- `--condition <condition_file>`: filter the LDES stream to only emit members that adhere to this condition
 - Others soon coming
 
 
 You can also use this as a library in your TS/JS projects. See the [client.ts](lib/client.ts) file for documentation.
+
+## Conditions
+
+When passing a condition file to the ldes-client cli, the expected contents is a condition where the subject is the file itself.
+
+
+### Simple condition
+```turtle
+@prefix csp: <http://vocab.deri.ie/csp#>.
+@prefix tree: <https://w3id.org/tree#>.
+<> a csp:Condition;
+    # Type of relation to filter on
+    tree:relationType tree:GreaterThanOrEqualToRelation;
+    # Path to extract values for the filter
+    tree:path <http://def.isotc211.org/iso19156/2011/Observation#OM_Observation.resultTime>;
+    # Alpha value for comparison
+    tree:value "2024-01-14T08:35:35.720Z";
+    tree:compareType "date".
+```
+
+### And condition
+```turtle
+@prefix csp: <http://vocab.deri.ie/csp#>.
+@prefix tree: <https://w3id.org/tree#>.
+<> a csp:And;
+  csp:and [
+    a csp:Condition;
+    tree:relationType tree:GreaterThanOrEqualToRelation;
+    tree:path <http://def.isotc211.org/iso19156/2011/Observation#OM_Observation.resultTime>;
+    tree:value "2024-01-14T08:35:35.720Z"
+    tree:compareType "date";
+  ];
+  csp:and [
+    a csp:Condition;
+    tree:relationType tree:LessThanRelation;
+    tree:path <http://def.isotc211.org/iso19156/2011/Observation#OM_Observation.resultTime>;
+    tree:value "2024-01-15T08:35:35.720Z"
+    tree:compareType "date";
+  ].
+```
+
+### Or condition
+```turtle
+@prefix sh: <http://www.w3.org/ns/shacl#>.
+@prefix sosa: <http://www.w3.org/ns/sosa/>.
+@prefix as: <https://www.w3.org/ns/activitystreams#>.
+@prefix owl: <http://www.w3.org/2002/07/owl#>.
+@prefix csp:   <http://vocab.deri.ie/csp#> .
+@prefix tree: <https://w3id.org/tree#>.
+
+<> a csp:Or;
+  csp:or [
+    a csp:Condition;
+    tree:relationType tree:EqualToRelation;
+    tree:value ex:sensor1;
+    tree:path ( sosa:madeBySensor [ sh:inversePath sosa:hosts ] );
+  ];
+  csp:or [
+    a csp:Condition;
+    tree:relationType tree:EqualToRelation;
+    tree:value ex:sensor2;
+    tree:path ( sosa:madeBySensor [ sh:inversePath sosa:hosts ] );
+  ].
+```
 
 ## Use cases
 

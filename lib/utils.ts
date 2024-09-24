@@ -669,8 +669,7 @@ export function handleConditions(
             });
             // Got bi-condition with before & after filters
             handledCondition = new AndCondition({
-                alpha: beforeCond,
-                beta: afterCond,
+                items: [beforeCond, afterCond],
             });
         } else {
             // Got condition with before filter only
@@ -696,8 +695,7 @@ export function handleConditions(
     // See if condition file was defined too
     if (!(condition instanceof EmptyCondition)) {
         return new AndCondition({
-            alpha: condition,
-            beta: handledCondition,
+            items: [condition, handledCondition],
         });
     } else {
         return handledCondition;
