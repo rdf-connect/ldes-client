@@ -8,12 +8,12 @@ import { getLoggerFor } from "../utils/logUtil";
 export class UnorderedStrategy {
     private manager: Manager;
     private fetcher: Fetcher;
-    private notifier: Notifier<StrategyEvents, {}>;
+    private notifier: Notifier<StrategyEvents, unknown>;
 
     private inFlight: number = 0;
 
     private fetchNotifier: Notifier<FetchEvent, { index: number }>;
-    private memberNotifier: Notifier<MemberEvents, {}>;
+    private memberNotifier: Notifier<MemberEvents, unknown>;
 
     private modulator: Modulator<Node>;
 
@@ -28,7 +28,7 @@ export class UnorderedStrategy {
     constructor(
         memberManager: Manager,
         fetcher: Fetcher,
-        notifier: Notifier<StrategyEvents, {}>,
+        notifier: Notifier<StrategyEvents, unknown>,
         modulatorFactory: ModulatorFactory,
         polling: boolean,
         pollInterval?: number,
@@ -46,7 +46,7 @@ export class UnorderedStrategy {
         //         start member extraction
         // - relationFound: a relation has been found, inFlight += 1 and put it in the queue
         this.fetchNotifier = {
-            error: (error: any) => {
+            error: (error: unknown) => {
                 this.logger.error(`[fetch] Error: ${JSON.stringify(error)}`);
                 this.notifier.error(error, {});
             },
@@ -61,7 +61,10 @@ export class UnorderedStrategy {
             relationFound: ({ from, target }) => {
                 from.expected.push(target.node);
                 this.inFlight += 1;
-                this.modulator.push({ target: target.node, expected: [from.target] });
+                this.modulator.push({
+                    target: target.node,
+                    expected: [from.target],
+                });
             },
         };
 
@@ -94,7 +97,9 @@ export class UnorderedStrategy {
             this.modulator.push({ target: url, expected: [] });
             this.logger.debug("[start] Nothing in flight, adding start url");
         } else {
-            this.logger.debug("[start] Things are already inflight, not adding start url");
+            this.logger.debug(
+                "[start] Things are already inflight, not adding start url",
+            );
         }
     }
 
@@ -117,7 +122,7 @@ export class UnorderedStrategy {
                     this.notifier.pollCycle({}, {});
                     const cl = this.cacheList.slice();
                     this.cacheList = [];
-                    for (let cache of cl) {
+                    for (const cache of cl) {
                         this.inFlight += 1;
                         this.modulator.push(cache);
                     }

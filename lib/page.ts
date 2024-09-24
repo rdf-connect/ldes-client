@@ -48,7 +48,7 @@ export function extractMembers(
     }
 
     const out: Promise<void>[] = [];
-    for (let member of members) {
+    for (const member of members) {
         if (!state.seen(member.value)) {
             state.add(member.value);
             out.push(extractMember(member));
@@ -78,14 +78,25 @@ export function extractRelations(
         { cond: RelationCondition; relation: Relation }
     >();
 
-    for (let relationId of relationIds) {
+    for (const relationId of relationIds) {
         const node = getObjects(store, relationId, TREE.terms.node, null)[0];
 
         if (!conditions.get(node.value)) {
-            const node = getObjects(store, relationId, TREE.terms.node, null)[0];
-            const ty = getObjects(store, relationId, RDF.terms.type, null)[0] ||
+            const node = getObjects(
+                store,
+                relationId,
+                TREE.terms.node,
+                null,
+            )[0];
+            const ty =
+                getObjects(store, relationId, RDF.terms.type, null)[0] ||
                 TREE.Relation;
-            const path = getObjects(store, relationId, TREE.terms.path, null)[0];
+            const path = getObjects(
+                store,
+                relationId,
+                TREE.terms.path,
+                null,
+            )[0];
             const value = getObjects(store, relationId, TREE.terms.value, null);
             const relation = {
                 source,
@@ -105,12 +116,12 @@ export function extractRelations(
     }
 
     const allowed = [];
-    for (let cond of conditions.values()) {
+    for (const cond of conditions.values()) {
         if (cond.cond.allowed(condition)) {
             allowed.push(cond.relation);
         }
     }
 
-  logger.debug(`allowed ${JSON.stringify(allowed.map((x) => x.node))}`);
-  return allowed;
+    logger.debug(`allowed ${JSON.stringify(allowed.map((x) => x.node))}`);
+    return allowed;
 }

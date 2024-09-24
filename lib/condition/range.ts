@@ -23,14 +23,20 @@ export function cbdEquals(a: Path, b: Path): boolean {
     if (alphaQuads.length != betaQuads.length) return false;
 
     for (let i = 0; i < alphaQuads.length; i++) {
-        if (!alphaQuads[i].predicate.equals(betaQuads[i].predicate)) return false;
+        if (!alphaQuads[i].predicate.equals(betaQuads[i].predicate))
+            return false;
 
         const av = alphaQuads[i].object;
         const bv = betaQuads[i].object;
 
         if (av.termType !== bv.termType) return false;
         if (av.termType === "BlankNode") {
-            if (!cbdEquals({ id: av, store: a.store }, { id: bv, store: b.store })) {
+            if (
+                !cbdEquals(
+                    { id: av, store: a.store },
+                    { id: bv, store: b.store },
+                )
+            ) {
                 return false;
             }
         } else {
@@ -49,13 +55,13 @@ type PathRange = {
 };
 
 export class RelationCondition {
-    store: RdfStore<any, Quad>;
+    store: RdfStore;
 
     defaultTimezone: string;
 
     ranges: PathRange[] = [];
 
-    constructor(store: RdfStore<any, Quad>, defaultTimezone: string) {
+    constructor(store: RdfStore, defaultTimezone: string) {
         this.store = store;
         this.defaultTimezone = defaultTimezone;
     }
@@ -65,10 +71,10 @@ export class RelationCondition {
             /*if (!x.range) {
               console.log("range is undefined!", condition);
             }*/
-            return condition.matchRelation(
-                x.range,
-                { id: x.cbdEntry, store: this.store }
-            );
+            return condition.matchRelation(x.range, {
+                id: x.cbdEntry,
+                store: this.store,
+            });
         });
     }
 
@@ -76,8 +82,18 @@ export class RelationCondition {
         const ty =
             getObjects(this.store, relationId, RDF.terms.type, null)[0] ||
             TREE.Relation;
-        const path = getObjects(this.store, relationId, TREE.terms.path, null)[0];
-        const value = getObjects(this.store, relationId, TREE.terms.value, null)[0];
+        const path = getObjects(
+            this.store,
+            relationId,
+            TREE.terms.path,
+            null,
+        )[0];
+        const value = getObjects(
+            this.store,
+            relationId,
+            TREE.terms.value,
+            null,
+        )[0];
 
         //console.log("Add relation", { ty, path, value });
 

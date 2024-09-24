@@ -29,9 +29,13 @@ export type PageAndRelation = {
 
 export type StrategyEvents = {
     member: Member;
+    /* eslint-disable  @typescript-eslint/no-empty-object-type */
     fragment: {};
+    /* eslint-disable  @typescript-eslint/no-empty-object-type */
     mutable: {};
+    /* eslint-disable  @typescript-eslint/no-empty-object-type */
     pollCycle: {};
+    /* eslint-disable  @typescript-eslint/no-empty-object-type */
     close: {};
-    error: any;
+    error: unknown;
 };

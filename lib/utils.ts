@@ -1,4 +1,11 @@
-import { NamedNode, Quad, Stream, Term, Quad_Subject, Quad_Predicate } from "@rdfjs/types";
+import {
+    NamedNode,
+    Quad,
+    Quad_Predicate,
+    Quad_Subject,
+    Stream,
+    Term,
+} from "@rdfjs/types";
 import { BaseQuad } from "n3";
 import { StateFactory, StateT } from "./state";
 import { RdfStore } from "rdf-stores";
@@ -14,7 +21,7 @@ import {
     empty_condition,
     EmptyCondition,
     LeafCondition,
-    parse_condition
+    parse_condition,
 } from "./condition/index";
 
 import { getLoggerFor } from "./utils/logUtil";
@@ -52,16 +59,25 @@ export function getObjects(
 export function readableToArray<T>(stream: ReadableStream<T>): Promise<T[]> {
     const out: T[] = [];
     const reader = stream.getReader();
-    return new Promise(async (res, rej) => {
-        let obj = await reader.read().catch(rej);
-        while (obj) {
-            if (obj.done) {
-                res(out);
-                break;
-            }
-            if (obj.value) out.push(obj.value);
-            obj = await reader.read().catch(rej);
-        }
+    return new Promise((res, rej) => {
+        const next = () => {
+            reader
+                .read()
+                .catch(rej)
+                .then((obj) => {
+                    if (obj) {
+                        if (obj.done) {
+                            res(out);
+                        } else {
+                            out.push(obj.value);
+                            next();
+                        }
+                    } else {
+                        res(out);
+                    }
+                });
+        };
+        next();
     });
 }
 
@@ -73,7 +89,7 @@ export function streamToArray<T extends BaseQuad>(
     stream: Stream<T>,
 ): Promise<T[]> {
     const out: T[] = [];
-    return new Promise(async (res, rej) => {
+    return new Promise((res, rej) => {
         stream.on("end", () => res(out));
         stream.on("data", (x) => {
             out.push(x);
@@ -102,7 +118,8 @@ export function extractMainNodeShape(store: RdfStore): NamedNode {
 
     if (nodeShapes && nodeShapes.length > 0) {
         for (const ns of nodeShapes) {
-            const isNotReferenced = getSubjects(store, null, ns, null).length === 0;
+            const isNotReferenced =
+                getSubjects(store, null, ns, null).length === 0;
 
             if (isNotReferenced) {
                 if (!mainNodeShape) {
@@ -117,7 +134,9 @@ export function extractMainNodeShape(store: RdfStore): NamedNode {
         if (mainNodeShape) {
             return <NamedNode>mainNodeShape;
         } else {
-            throw new Error("No main SHACL Node Shapes found in given shape graph");
+            throw new Error(
+                "No main SHACL Node Shapes found in given shape graph",
+            );
         }
     } else {
         throw new Error("No SHACL Node Shapes found in given shape graph");
@@ -147,7 +166,7 @@ export class ModulatorFactory {
     paused: boolean = false;
 
     factory: StateFactory;
-    children: ModulatorInstance<any>[] = [];
+    children: ModulatorInstance<unknown>[] = [];
 
     constructor(stateFactory: StateFactory, concurrent?: number) {
         this.factory = stateFactory;
@@ -162,8 +181,8 @@ export class ModulatorFactory {
     create<T>(
         name: string,
         ranker: Ranker<Indexed<T>>,
-        notifier: Notifier<ModulartorEvents<T>, {}>,
-        parse?: (item: any) => T,
+        notifier: Notifier<ModulartorEvents<T>, unknown>,
+        parse?: (item: unknown) => T,
     ): Modulator<T> {
         const state = this.factory.build<ModulatorInstanceState<T>>(
             name,
@@ -180,14 +199,16 @@ export class ModulatorFactory {
                 index,
                 item: parse(item),
             }));
-            state.item.inflight = state.item.inflight.map(({ item, index }) => ({
-                index,
-                item: parse(item),
-            }));
+            state.item.inflight = state.item.inflight.map(
+                ({ item, index }) => ({
+                    index,
+                    item: parse(item),
+                }),
+            );
         }
 
         const modulator = new ModulatorInstance(state, ranker, notifier, this);
-        this.children.push(modulator);
+        this.children.push(<ModulatorInstance<unknown>>modulator);
         return modulator;
     }
 
@@ -230,7 +251,7 @@ class ModulatorInstance<T> implements Modulator<T> {
     private state: StateT<ModulatorInstanceState<T>>;
 
     private ranker: Ranker<Indexed<T>>;
-    private notifier: Notifier<ModulartorEvents<T>, {}>;
+    private notifier: Notifier<ModulartorEvents<T>, unknown>;
     private factory: ModulatorFactory;
 
     private logger = getLoggerFor(this);
@@ -238,20 +259,22 @@ class ModulatorInstance<T> implements Modulator<T> {
     constructor(
         state: StateT<ModulatorInstanceState<T>>,
         ranker: Ranker<Indexed<T>>,
-        notifier: Notifier<ModulartorEvents<T>, {}>,
+        notifier: Notifier<ModulartorEvents<T>, unknown>,
         factory: ModulatorFactory,
     ) {
         this.state = state;
         const readd = [...this.state.item.todo, ...this.state.item.inflight];
         this.state.item.todo.push(...this.state.item.inflight);
         while (this.state.item.inflight.pop()) {
+            // pass
         }
         while (this.state.item.todo.pop()) {
+            // pass
         }
         this.ranker = ranker;
         this.notifier = notifier;
         this.factory = factory;
-        for (let item of readd) {
+        for (const item of readd) {
             this.push(item.item);
         }
     }
@@ -275,7 +298,9 @@ class ModulatorInstance<T> implements Modulator<T> {
         if (removeIdx >= 0) {
             this.state.item.inflight.splice(removeIdx, 1);
         } else {
-            this.logger.error("[finished] Expected to be able to remove inflight item");
+            this.logger.error(
+                "[finished] Expected to be able to remove inflight item",
+            );
         }
 
         this.at -= 1;
@@ -298,7 +323,9 @@ class ModulatorInstance<T> implements Modulator<T> {
                 if (removeIdx >= 0) {
                     this.state.item.todo.splice(removeIdx, 1);
                 } else {
-                    this.logger.error("[checkReady] Expected to be able to remove inflight item");
+                    this.logger.error(
+                        "[checkReady] Expected to be able to remove inflight item",
+                    );
                 }
 
                 // This item is now inflight
@@ -351,17 +378,23 @@ export function enhanced_fetch(
     const start_f = start || fetch;
     const safe_f = config.safe
         ? ((async (a, b) => {
-            while (true) {
-                try {
-                    return await start_f(a, b);
-                } catch (ex) {
-                    logger.error(`This should not happen, it will not happen this is safe. ${JSON.stringify(ex)}`);
-                }
-            }
-        }) as typeof fetch)
+              while (true) {
+                  try {
+                      return await start_f(a, b);
+                  } catch (ex) {
+                      logger.error(
+                          `This should not happen, it will not happen this is safe. ${JSON.stringify(
+                              ex,
+                          )}`,
+                      );
+                  }
+              }
+          }) as typeof fetch)
         : start_f;
 
-    const fetch_f = config.auth ? handle_basic_auth(safe_f, config.auth) : safe_f;
+    const fetch_f = config.auth
+        ? handle_basic_auth(safe_f, config.auth)
+        : safe_f;
 
     return limit_fetch_per_domain(
         retry_fetch(fetch_f, config.retry || {}),
@@ -376,7 +409,7 @@ export function limit_fetch_per_domain(
     const domain_dict: { [domain: string]: Array<(value: void) => void> } = {};
 
     const out: typeof fetch = async (input, init) => {
-        let url: URL = urlToUrl(input);
+        const url: URL = urlToUrl(input);
         const domain = url.origin;
 
         if (!(domain in domain_dict)) {
@@ -385,7 +418,9 @@ export function limit_fetch_per_domain(
 
         const requests = domain_dict[domain];
         await new Promise((res) => {
-            logger.debug(`[limit] ${domain} capacity ${requests.length}/${concurrent}`);
+            logger.debug(
+                `[limit] ${domain} capacity ${requests.length}/${concurrent}`,
+            );
             if (requests.length < concurrent) {
                 requests.push(res);
                 res({});
@@ -424,7 +459,7 @@ export function handle_basic_auth(
     };
 
     const auth_f: typeof fetch = async (input, init) => {
-        let url: URL = urlToUrl(input);
+        const url: URL = urlToUrl(input);
         if (authRequired && url.host === config.host) {
             return await fetch_f(input, setHeader(init));
         }
@@ -464,7 +499,9 @@ export function retry_fetch(
             const resp = await fetch_f(input, init);
             if (!resp.ok) {
                 if (config.codes.some((x) => x == resp.status)) {
-                    logger.debug(`[retry_fetch] Retry ${input} ${tryCount}/${config.maxRetries}`);
+                    logger.debug(
+                        `[retry_fetch] Retry ${input} ${tryCount}/${config.maxRetries}`,
+                    );
                     // Wait 500ms, 1 second, 2 seconds, 4 seconds, 8 seconds, fail
                     tryCount += 1;
                     await new Promise((res) => setTimeout(res, retryTime));
@@ -492,12 +529,13 @@ export function memberFromQuads(
     let timestamp: string | Date | undefined;
     if (timestampPath) {
         const ts = quads.find(
-            (x) => x.subject.equals(member) && x.predicate.equals(timestampPath),
+            (x) =>
+                x.subject.equals(member) && x.predicate.equals(timestampPath),
         )?.object.value;
         if (ts) {
             try {
                 timestamp = new Date(ts);
-            } catch (ex: any) {
+            } catch (ex: unknown) {
                 timestamp = ts;
             }
         }
@@ -507,13 +545,13 @@ export function memberFromQuads(
     let isVersionOf: string | undefined;
     if (isVersionOfPath) {
         isVersionOf = quads.find(
-            (x) => x.subject.equals(member) && x.predicate.equals(isVersionOfPath),
+            (x) =>
+                x.subject.equals(member) && x.predicate.equals(isVersionOfPath),
         )?.object.value;
     }
 
     // Get type
-    let type: Term | undefined;
-    type = quads.find(
+    const type: Term | undefined = quads.find(
         (x) => x.subject.equals(member) && x.predicate.value === RDF.type,
     )?.object;
     return { quads, id: member, isVersionOf, timestamp, type };
@@ -523,24 +561,39 @@ export function memberFromQuads(
  * Version materialization function that sets the declared ldes:versionOfPath property value
  * as the member's subject IRI
  */
-export function maybeVersionMaterialize(member: Member, materialize: boolean, ldesInfo: LDESInfo): Member {
+export function maybeVersionMaterialize(
+    member: Member,
+    materialize: boolean,
+    ldesInfo: LDESInfo,
+): Member {
     if (materialize && ldesInfo.isVersionOfPath) {
         // Create RDF store with member quads
         const memberStore = RdfStore.createDefault();
-        member.quads.forEach(q => memberStore.addQuad(q));
+        member.quads.forEach((q) => memberStore.addQuad(q));
         // Get materialized subject IRI
-        const newSubject = getObjects(memberStore, member.id, ldesInfo.isVersionOfPath)[0];
+        const newSubject = getObjects(
+            memberStore,
+            member.id,
+            ldesInfo.isVersionOfPath,
+        )[0];
         if (newSubject) {
             // Remove version property
-            memberStore.removeQuad(df.quad(
-                <Quad_Subject>member.id,
-                <Quad_Predicate>ldesInfo.isVersionOfPath,
-                newSubject
-            ));
+            memberStore.removeQuad(
+                df.quad(
+                    <Quad_Subject>member.id,
+                    <Quad_Predicate>ldesInfo.isVersionOfPath,
+                    newSubject,
+                ),
+            );
             // Updated all quads with materialized subject
             for (const q of memberStore.getQuads(member.id)) {
                 //q.subject = <Quad_Subject>newSubject;
-                const newQ = df.quad(<Quad_Subject>newSubject, q.predicate, q.object, q.graph);
+                const newQ = df.quad(
+                    <Quad_Subject>newSubject,
+                    q.predicate,
+                    q.object,
+                    q.graph,
+                );
                 memberStore.removeQuad(q);
                 memberStore.addQuad(newQ);
             }
@@ -548,18 +601,25 @@ export function maybeVersionMaterialize(member: Member, materialize: boolean, ld
             member.id = newSubject;
             member.quads = memberStore.getQuads();
         } else {
-            console.error(`No version property found in Member (${member.id}) as specified by ldes:isVersionOfPath ${ldesInfo.isVersionOfPath}`);
+            console.error(
+                `No version property found in Member (${member.id}) as specified by ldes:isVersionOfPath ${ldesInfo.isVersionOfPath}`,
+            );
         }
     }
 
     return member;
 }
 
-export async function processConditionFile(conditionFile?: string): Promise<Condition> {
+export async function processConditionFile(
+    conditionFile?: string,
+): Promise<Condition> {
     let condition: Condition = empty_condition();
     if (conditionFile) {
         try {
-            condition = parse_condition(await readFile(conditionFile, { encoding: "utf8" }), conditionFile);
+            condition = parse_condition(
+                await readFile(conditionFile, { encoding: "utf8" }),
+                conditionFile,
+            );
         } catch (ex) {
             console.error(`Failed to read condition file: ${conditionFile}`);
             throw ex;
@@ -579,7 +639,7 @@ export function handleConditions(
     defaultTimezone: string,
     before?: Date,
     after?: Date,
-    timestampPath?: Term
+    timestampPath?: Term,
 ): Condition {
     // Check if before and after conditions are defined and build corresponding Condition object
     let handledCondition: Condition = empty_condition();
@@ -596,7 +656,7 @@ export function handleConditions(
             compareType: "date",
             path: predLens,
             pathQuads: { entry: timestampPath, quads: [] },
-            defaultTimezone
+            defaultTimezone,
         });
         if (after) {
             const afterCond = new LeafCondition({
@@ -605,12 +665,12 @@ export function handleConditions(
                 compareType: "date",
                 path: predLens,
                 pathQuads: { entry: timestampPath, quads: [] },
-                defaultTimezone
+                defaultTimezone,
             });
             // Got bi-condition with before & after filters
             handledCondition = new AndCondition({
                 alpha: beforeCond,
-                beta: afterCond
+                beta: afterCond,
             });
         } else {
             // Got condition with before filter only
@@ -629,7 +689,7 @@ export function handleConditions(
             compareType: "date",
             path: predLens,
             pathQuads: { entry: timestampPath, quads: [] },
-            defaultTimezone
+            defaultTimezone,
         });
     }
 
@@ -637,7 +697,7 @@ export function handleConditions(
     if (!(condition instanceof EmptyCondition)) {
         return new AndCondition({
             alpha: condition,
-            beta: handledCondition
+            beta: handledCondition,
         });
     } else {
         return handledCondition;

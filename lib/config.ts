@@ -27,7 +27,7 @@ export interface Config {
 }
 
 export interface WithTarget {
-    target: Object;
+    target: object;
 }
 
 const defaultConfig: Config = {
