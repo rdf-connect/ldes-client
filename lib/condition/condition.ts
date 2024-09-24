@@ -553,11 +553,8 @@ export class LeafCondition implements Condition {
 abstract class BiCondition implements Condition {
     items: Condition[];
 
-    private logger = getLoggerFor(this);
-
     constructor(inp: { items: Condition[] }) {
         this.items = inp.items;
-        console.log(inp.items);
     }
 
     abstract combine(alpha: boolean, beta: boolean): boolean;
