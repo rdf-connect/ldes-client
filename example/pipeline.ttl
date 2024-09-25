@@ -7,9 +7,9 @@
 @prefix rml: <https://w3id.org/conn/rml#>.
 @prefix ql: <http://semweb.mmlab.be/ns/ql#>.
 
-<> owl:imports <../node_modules/@ajuvercr/js-runner/ontology.ttl>.
-<> owl:imports <../node_modules/@ajuvercr/js-runner/channels/file.ttl>.
-<> owl:imports <../node_modules/@ajuvercr/js-runner/channels/http.ttl>.
+<> owl:imports <../node_modules/@rdfc/js-runner/ontology.ttl>.
+<> owl:imports <../node_modules/@rdfc/js-runner/channels/file.ttl>.
+<> owl:imports <../node_modules/@rdfc/js-runner/channels/http.ttl>.
 <> owl:imports <../processor.ttl>.
 [ ] a js:JsChannel;
   :writer <json/writer>.

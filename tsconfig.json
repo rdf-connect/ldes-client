@@ -1,23 +1,32 @@
 {
-  "compilerOptions": {
-    "lib": [
-      "es2023",
-      "dom"
+    "compilerOptions": {
+        "lib": [
+            "es2023",
+            "dom"
+        ],
+        "module": "esnext",
+        "target": "es2022",
+        "strict": true,
+        // "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "moduleResolution": "node",
+        "outDir": "dist",
+        "declaration": true,
+        "allowSyntheticDefaultImports": true
+    },
+    "tsc-alias": {
+        "resolveFullPaths": true,
+        "verbose": false
+    },
+    "include": [
+        "lib/**/*",
+        "bin/**/*"
     ],
-    "module": "commonjs",
-    "target": "es2022",
-    "strict": true,
-    // "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node",
-    "outDir": "dist",
-    "declaration": true
-  },
-  "exclude": [
-    "node_modules",
-    "dist",
-    // "tests",
-    "web"
-  ]
+    "exclude": [
+        "node_modules",
+        "dist",
+        // "tests",
+        "web"
+    ]
 }

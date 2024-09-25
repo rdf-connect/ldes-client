@@ -1,0 +1,28 @@
+@prefix ldes: <https://w3id.org/ldes#> .
+@prefix tree: <https://w3id.org/tree#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+@prefix : <http://localhost:3000/> .
+
+<mock-ldes.ttl> a ldes:EventStream ;
+    ldes:timestampPath ex:modified ;
+    ldes:versionOfPath ex:isVersionOf ;
+    tree:shape [
+        a sh:NodeShape ;
+        sh:targetClass ex:Clazz1 ;
+        sh:property [
+            a sh:PropertyShape ;
+            sh:path ex:modified ;
+            sh:datatype xsd:dateTime
+        ], [
+            a sh:PropertyShape ;
+            sh:path ex:prop1 ;
+            sh:node [
+                a sh:NodeShape ;
+                sh:targetClass ex:Clazz2
+            ]
+        ]
+    ] ;
+    tree:view <mock-ldes-0.ttl> .
+    
