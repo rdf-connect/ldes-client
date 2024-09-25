@@ -1,6 +1,6 @@
 import { RdfDereferencer } from "rdf-dereference";
 import { Notifier } from "./utils";
-import { extractRelations, Relation } from "./page";
+import { extractRelations, Relation, Relations } from "./page";
 import { SimpleRelation } from "./relation";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
@@ -53,7 +53,7 @@ export interface Helper {
 }
 
 export type FetchEvent = {
-    relationFound: { from: Node; target: Relation };
+    relationFound: { from: Node; target: Relations };
     pageFetched: FetchedPage;
     scheduleFetch: Node;
     error: unknown;

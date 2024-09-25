@@ -38,7 +38,9 @@ describe("Simple Tree", () => {
         // root -> first -> second
         const tree = new Tree<number>(
             (x, numb) =>
-                new Parser().parse(`<${x}> <http://example.com/value> ${numb}.`),
+                new Parser().parse(
+                    `<${x}> <http://example.com/value> ${numb}.`,
+                ),
             "http://example.com/value",
         );
 
@@ -47,9 +49,15 @@ describe("Simple Tree", () => {
         for (let j = 0; j < pages; j++) {
             const first = tree.newFragment(delay);
             for (let i = 0; i < perPage; i++) {
-                tree.fragment(first).addMember("a" + j + i, values[j * perPage + i]);
+                tree.fragment(first).addMember(
+                    "a" + j + i,
+                    values[j * perPage + i],
+                );
             }
-            tree.fragment(prev).relation(first, "https://w3id.org/tree#relation");
+            tree.fragment(prev).relation(
+                first,
+                "https://w3id.org/tree#relation",
+            );
             prev = first;
         }
         return tree;
@@ -155,21 +163,21 @@ describe("more complex tree", () => {
         //  |> second (2)
         const tree = new Tree<number>(
             (x, numb) =>
-                new Parser().parse(`<${x}> <http://example.com/value> ${numb}.`),
+                new Parser().parse(
+                    `<${x}> <http://example.com/value> ${numb}.`,
+                ),
             "http://example.com/value",
         );
         tree.fragment(tree.root()).addMember("a", 5);
 
         const first = tree.newFragment();
         tree.fragment(first).addMember("b", 3);
-        tree
-            .fragment(tree.root())
-            .relation(
-                first,
-                TREE.GreaterThanOrEqualToRelation,
-                "http://example.com/value",
-                "3",
-            );
+        tree.fragment(tree.root()).relation(
+            first,
+            TREE.GreaterThanOrEqualToRelation,
+            "http://example.com/value",
+            "3",
+        );
 
         const second = tree.newFragment();
         tree.fragment(second).addMember("c", 2);
@@ -283,11 +291,268 @@ describe("more complex tree", () => {
         expect(first.value?.timestamp).toEqual(new Date("2"));
     });
 
+    test("ordered tree, emits asap ascending", async () => {
+        // root (2) -GTE> first (3) -GTE (delay)> second (5)
+        const tree = new Tree<Date>(
+            (x, numb) =>
+                new Parser().parse(
+                    `<${x}> <http://example.com/value> "${numb.toISOString()}".`,
+                ),
+            "http://example.com/value",
+        );
+        const rootFragment = tree.fragment(tree.root());
+        // rootFragment.addMember("a", new Date(5));
+
+        const first = tree.newFragment();
+        const frag1 = tree.fragment(first);
+        frag1.addMember("b", new Date(3));
+        rootFragment.relation(
+            first,
+            TREE.GreaterThanOrEqualToRelation,
+            "http://example.com/value",
+            new Date(3).toISOString(),
+        );
+
+        const second = tree.newFragment(150);
+        const frag2 = tree.fragment(second);
+        frag2.addMember("c", new Date(7));
+        frag1.relation(
+            second,
+            TREE.GreaterThanOrEqualToRelation,
+            "http://example.com/value",
+            new Date(5).toISOString(),
+        );
+
+        const mock = tree.mock();
+        global.fetch = mock;
+
+        const base = tree.base() + tree.root();
+        const client = replicateLDES(
+            {
+                polling: false,
+                url: base,
+            },
+            "ascending",
+        );
+
+        const start = new Date();
+        const stream = client.stream().getReader();
+        const m1 = await stream.read();
+        expect(m1.done).toBeFalsy();
+        let end = new Date();
+
+        // the first member should be emitted before the second page is fetched (delay 150)
+        expect(end.getTime() - start.getTime()).toBeLessThan(150);
+        const m2 = await stream.read();
+        expect(m2.done).toBeFalsy();
+        end = new Date();
+        expect(end.getTime() - start.getTime()).toBeGreaterThan(150);
+    });
+
+    test("ordered tree, emits asap ascending (branched)", async () => {
+        // root -GTE 3> first (10) second (4)
+        //      -GTE 5> second (delay)> (6)
+        const tree = new Tree<Date>(
+            (x, numb) =>
+                new Parser().parse(
+                    `<${x}> <http://example.com/value> "${numb.toISOString()}".`,
+                ),
+            "http://example.com/value",
+        );
+        const rootFragment = tree.fragment(tree.root());
+
+        const first = tree.newFragment();
+        rootFragment.relation(
+            first,
+            TREE.GreaterThanOrEqualToRelation,
+            "http://example.com/value",
+            new Date(3).toISOString(),
+        );
+        const frag1 = tree.fragment(first);
+        frag1.addMember("b", new Date(4));
+
+        const second = tree.newFragment(150);
+        rootFragment.relation(
+            second,
+            TREE.GreaterThanOrEqualToRelation,
+            "http://example.com/value",
+            new Date(5).toISOString(),
+        );
+        const frag2 = tree.fragment(second);
+        frag2.addMember("c", new Date(6));
+
+        const mock = tree.mock();
+        global.fetch = mock;
+
+        const base = tree.base() + tree.root();
+        const client = replicateLDES(
+            {
+                polling: false,
+                url: base,
+            },
+            "ascending",
+        );
+
+        const start = new Date();
+        const stream = client.stream().getReader();
+        const m1 = await stream.read();
+        expect(m1.done).toBeFalsy();
+        let end = new Date();
+
+        // the first member should be emitted before the second page is fetched (delay 150)
+        expect(end.getTime() - start.getTime()).toBeLessThan(150);
+        const m2 = await stream.read();
+        expect(m2.done).toBeFalsy();
+        end = new Date();
+        expect(end.getTime() - start.getTime()).toBeGreaterThan(150);
+    });
+
+    test("ordered tree, emits asap descending", async () => {
+        // root -LTE> first (10) -LTE (delay)> second (7)
+        const tree = new Tree<Date>(
+            (x, numb) =>
+                new Parser().parse(
+                    `<${x}> <http://example.com/value> "${numb.toISOString()}".`,
+                ),
+            "http://example.com/value",
+        );
+        const rootFragment = tree.fragment(tree.root());
+
+        const first = tree.newFragment();
+        const frag1 = tree.fragment(first);
+        frag1.addMember("b", new Date(10));
+        rootFragment.relation(
+            first,
+            TREE.LessThanOrEqualToRelation,
+            "http://example.com/value",
+            new Date(12).toISOString(),
+        );
+        rootFragment.relation(
+            first,
+            TREE.GreaterThanOrEqualToRelation,
+            "http://example.com/value",
+            new Date(5).toISOString(),
+        );
+
+        const second = tree.newFragment(150);
+        frag1.relation(
+            second,
+            TREE.LessThanOrEqualToRelation,
+            "http://example.com/value",
+            new Date(9).toISOString(),
+        );
+        frag1.relation(
+            second,
+            TREE.GreaterThanOrEqualToRelation,
+            "http://example.com/value",
+            new Date(5).toISOString(),
+        );
+        const frag2 = tree.fragment(second);
+        frag2.addMember("c", new Date(7));
+
+        const mock = tree.mock();
+        global.fetch = mock;
+
+        const base = tree.base() + tree.root();
+        const client = replicateLDES(
+            {
+                polling: false,
+                url: base,
+            },
+            "descending",
+        );
+
+        const start = new Date();
+        const stream = client.stream().getReader();
+        const m1 = await stream.read();
+        expect(m1.done).toBeFalsy();
+        let end = new Date();
+
+        // the first member should be emitted before the second page is fetched (delay 150)
+        expect(end.getTime() - start.getTime()).toBeLessThan(150);
+        const m2 = await stream.read();
+        expect(m2.done).toBeFalsy();
+        end = new Date();
+        expect(end.getTime() - start.getTime()).toBeGreaterThan(150);
+    });
+
+    test("ordered tree, emits asap descending (branched)", async () => {
+        // root -LTE 10> first (10) second (7)
+        //      -LTE 6> second (delay)> (5)
+        const tree = new Tree<Date>(
+            (x, numb) =>
+                new Parser().parse(
+                    `<${x}> <http://example.com/value> "${numb.toISOString()}".`,
+                ),
+            "http://example.com/value",
+        );
+        const rootFragment = tree.fragment(tree.root());
+
+        const first = tree.newFragment();
+        rootFragment.relation(
+            first,
+            TREE.LessThanOrEqualToRelation,
+            "http://example.com/value",
+            new Date(10).toISOString(),
+        );
+        rootFragment.relation(
+            first,
+            TREE.GreaterThanOrEqualToRelation,
+            "http://example.com/value",
+            new Date(6).toISOString(),
+        );
+        const frag1 = tree.fragment(first);
+        frag1.addMember("b", new Date(7));
+
+        const second = tree.newFragment(150);
+        rootFragment.relation(
+            second,
+            TREE.LessThanOrEqualToRelation,
+            "http://example.com/value",
+            new Date(6).toISOString(),
+        );
+        rootFragment.relation(
+            second,
+            TREE.GreaterThanOrEqualToRelation,
+            "http://example.com/value",
+            new Date(3).toISOString(),
+        );
+        const frag2 = tree.fragment(second);
+        frag2.addMember("c", new Date(5));
+
+        const mock = tree.mock();
+        global.fetch = mock;
+
+        const base = tree.base() + tree.root();
+        const client = replicateLDES(
+            {
+                polling: false,
+                url: base,
+            },
+            "descending",
+        );
+
+        const start = new Date();
+        const stream = client.stream().getReader();
+        const m1 = await stream.read();
+        expect(m1.done).toBeFalsy();
+        let end = new Date();
+
+        // the first member should be emitted before the second page is fetched (delay 150)
+        expect(end.getTime() - start.getTime()).toBeLessThan(150);
+        const m2 = await stream.read();
+        expect(m2.done).toBeFalsy();
+        end = new Date();
+        expect(end.getTime() - start.getTime()).toBeGreaterThan(150);
+    });
+
     test("Polling works, single page", async () => {
         // return;
         const tree = new Tree<number>(
             (x, numb) =>
-                new Parser().parse(`<${x}> <http://example.com/value> ${numb}.`),
+                new Parser().parse(
+                    `<${x}> <http://example.com/value> ${numb}.`,
+                ),
             "http://example.com/value",
         );
         tree.fragment(tree.root()).addMember("a", 5);
@@ -309,7 +574,6 @@ describe("more complex tree", () => {
         let added = false;
 
         client.on("poll", () => {
-            console.log("Poll cycle!");
             if (!added) {
                 tree.fragment(tree.root()).addMember("b", 7);
                 added = true;
@@ -335,7 +599,9 @@ describe("more complex tree", () => {
     test("Polling works, single page - ordered", async () => {
         const tree = new Tree<number>(
             (x, numb) =>
-                new Parser().parse(`<${x}> <http://example.com/value> ${numb}.`),
+                new Parser().parse(
+                    `<${x}> <http://example.com/value> ${numb}.`,
+                ),
             "http://example.com/value",
         );
         tree.fragment(tree.root()).addMember("a", 5);
@@ -357,7 +623,6 @@ describe("more complex tree", () => {
         let added = false;
 
         client.on("poll", () => {
-            console.log("Poll cycle!");
             if (!added) {
                 tree.fragment(tree.root()).addMember("b", 7);
                 added = true;
@@ -371,9 +636,7 @@ describe("more complex tree", () => {
         expect(first.done).toBe(false);
         expect(first.value?.timestamp).toEqual(new Date("5"));
 
-        console.log("Awaiting promise");
         await polled;
-        console.log("Promise resolved");
 
         const second = await reader.read();
         expect(second.done).toBe(false);
@@ -385,12 +648,17 @@ describe("more complex tree", () => {
     test("Exponential backoff works", async () => {
         const tree = new Tree<number>(
             (x, numb) =>
-                new Parser().parse(`<${x}> <http://example.com/value> ${numb}.`),
+                new Parser().parse(
+                    `<${x}> <http://example.com/value> ${numb}.`,
+                ),
             "http://example.com/value",
         );
         tree.fragment(tree.root()).addMember("a", 5);
         const frag = tree.newFragment();
-        tree.fragment(tree.root()).relation(frag, "https://w3id.org/tree#relation");
+        tree.fragment(tree.root()).relation(
+            frag,
+            "https://w3id.org/tree#relation",
+        );
         tree.fragment(frag).setFailcount(2).addMember("b", 7);
 
         const base = tree.base() + tree.root();
@@ -416,12 +684,17 @@ describe("more complex tree", () => {
     test("Exponential backoff works, handle max retries", async () => {
         const tree = new Tree<number>(
             (x, numb) =>
-                new Parser().parse(`<${x}> <http://example.com/value> ${numb}.`),
+                new Parser().parse(
+                    `<${x}> <http://example.com/value> ${numb}.`,
+                ),
             "http://example.com/value",
         );
         tree.fragment(tree.root()).addMember("a", 5);
         const frag = tree.newFragment();
-        tree.fragment(tree.root()).relation(frag, "https://w3id.org/tree#relation");
+        tree.fragment(tree.root()).relation(
+            frag,
+            "https://w3id.org/tree#relation",
+        );
         tree.fragment(frag).setFailcount(5).addMember("b", 7);
 
         const base = tree.base() + tree.root();

@@ -1,9 +1,8 @@
-import { Literal, Quad, Term } from "@rdfjs/types";
+import { Quad, Term } from "@rdfjs/types";
 import { RdfStore } from "rdf-stores";
 import { getObjects } from "../utils";
 import { RDF, TREE } from "@treecg/types";
 import { Condition, Range } from "./condition";
-import { getLoggerFor } from "../utils/logUtil";
 
 export type Path = {
     store: RdfStore;
@@ -68,9 +67,6 @@ export class RelationCondition {
 
     allowed(condition: Condition): boolean {
         return this.ranges.every((x) => {
-            /*if (!x.range) {
-              console.log("range is undefined!", condition);
-            }*/
             return condition.matchRelation(x.range, {
                 id: x.cbdEntry,
                 store: this.store,
@@ -82,20 +78,20 @@ export class RelationCondition {
         const ty =
             getObjects(this.store, relationId, RDF.terms.type, null)[0] ||
             TREE.Relation;
+
         const path = getObjects(
             this.store,
             relationId,
             TREE.terms.path,
             null,
         )[0];
+
         const value = getObjects(
             this.store,
             relationId,
             TREE.terms.value,
             null,
         )[0];
-
-        //console.log("Add relation", { ty, path, value });
 
         let range = this.ranges.find((range) =>
             cbdEquals(

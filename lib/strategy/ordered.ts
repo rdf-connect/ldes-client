@@ -1,6 +1,6 @@
 import { Heap } from "heap-js";
 import { Manager, MemberEvents } from "../memberManager";
-import { Member, Relation } from "../page";
+import { Member, Relations } from "../page";
 import { FetchedPage, Fetcher, FetchEvent } from "../pageFetcher";
 import { Modulator, ModulatorFactory, Notifier } from "../utils";
 import { RelationChain, SimpleRelation } from "../relation";
@@ -207,8 +207,12 @@ export class OrderedStrategy {
 
         if (this.ordered === "ascending") {
             this.fetch(
-                new RelationChain("", url, [], undefined, (a, b) =>
-                    cmp(a, b),
+                new RelationChain(
+                    "",
+                    url,
+                    [],
+                    undefined,
+                    (a, b) => +1 * cmp(a, b),
                 ).push(url, {
                     important: false,
                     value: 0,
@@ -223,7 +227,10 @@ export class OrderedStrategy {
                     [],
                     undefined,
                     (a, b) => -1 * cmp(a, b),
-                ).push(url, { important: false, value: 0 }),
+                ).push(url, {
+                    important: false,
+                    value: 0,
+                }),
                 [],
             );
         }
@@ -290,31 +297,49 @@ export class OrderedStrategy {
      * Sorting in ascending order: if a relation comes in with a LT relation, then that relation important, because it can be handled later
      * Sorting in descending order: if a relation comes in with a GT relation, then that relation important, because it can be handled later
      */
-    private extractRelation(rel: Relation): SimpleRelation {
+    private extractRelation(rel: Relations): SimpleRelation {
         const val = (s: string) => {
             try {
                 return new Date(s);
-            } catch (ex: unknown) {
+            } catch (_ex: unknown) {
                 return s;
             }
         };
-        if (
-            this.ordered === "ascending" &&
-            GTRs.some((x) => rel.type.equals(x))
-        ) {
+        let value = undefined;
+
+        if (this.ordered === "ascending") {
+            value = rel.relations
+                .filter((x) => GTRs.some((gr) => x.type.value === gr.value))
+                .filter((a) => a.value)
+                .map((a) => <undefined | number | Date>val(a.value![0].value))
+                .reduce((a, b) => {
+                    if (!a) return b;
+                    if (!b) return a;
+                    if (a > b) {
+                        return b;
+                    } else {
+                        return a;
+                    }
+                }, undefined);
+        } else if (this.ordered === "descending") {
+            value = rel.relations
+                .filter((x) => LTR.some((gr) => x.type.value === gr.value))
+                .filter((a) => a.value)
+                .map((a) => <undefined | number | Date>val(a.value![0].value))
+                .reduce((a, b) => {
+                    if (!a) return b;
+                    if (!b) return a;
+                    if (a > b) {
+                        return a;
+                    } else {
+                        return b;
+                    }
+                }, undefined);
+        }
+        if (value !== undefined) {
             return {
                 important: true,
-                // Maybe this should create a date
-                value: val(rel.value![0].value),
-            };
-        } else if (
-            this.ordered === "descending" &&
-            LTR.some((x) => rel.type.equals(x))
-        ) {
-            return {
-                important: true,
-                // Maybe this should create a date
-                value: val(rel.value![0].value),
+                value,
             };
         } else {
             return {
@@ -349,7 +374,14 @@ export class OrderedStrategy {
     private checkEmit() {
         let head = this.launchedRelations.pop();
         while (head) {
-            const marker = head.relations[0] || { value: 0, important: false };
+            // Earlier we looked at head.relations[0] whether or not that relation was important
+            // I don't think that was correct, because we actually want to check if the next relation will be important, so we can already emit member from this page
+            // root -GTE 3> first. When root is handled it will see important marker (>3), as the next relation, thus already emitting member <3
+            const marker = this.launchedRelations.peek()?.relations[0] || {
+                value: 0,
+                important: false,
+            };
+
             const found = this.findOrDefault(head);
 
             // If this relation still has things in transit, or getting extracted, we must wait

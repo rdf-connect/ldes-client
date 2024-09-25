@@ -14,7 +14,6 @@ import { RDF, SHACL, TREE } from "@treecg/types";
 import { Member } from "./page";
 import { LDESInfo } from "./client";
 import { pred } from "rdf-lens";
-import { readFile } from "fs/promises";
 import {
     AndCondition,
     Condition,
@@ -614,19 +613,28 @@ export async function processConditionFile(
     conditionFile?: string,
 ): Promise<Condition> {
     let condition: Condition = empty_condition();
+
+    /* eslint-disable  @typescript-eslint/no-explicit-any */
+    let fs: any;
+    if (typeof require === "undefined") {
+        import("fs/promises").then((mod) => (fs = mod));
+    } else {
+        /* eslint-disable  @typescript-eslint/no-require-imports */
+        fs = require("fs/promises");
+    }
+
     if (conditionFile) {
         try {
             condition = parse_condition(
-                await readFile(conditionFile, { encoding: "utf8" }),
+                await fs.readFile(conditionFile, { encoding: "utf8" }),
                 conditionFile,
             );
         } catch (ex) {
             console.error(`Failed to read condition file: ${conditionFile}`);
             throw ex;
         }
-        console.log("Found me some condition", !!condition);
-        console.log(condition.toString());
     }
+
     return condition;
 }
 
