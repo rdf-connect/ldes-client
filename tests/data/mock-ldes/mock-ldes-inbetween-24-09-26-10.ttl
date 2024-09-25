@@ -1,0 +1,57 @@
+@prefix ldes: <https://w3id.org/ldes#> .
+@prefix tree: <https://w3id.org/tree#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+@prefix : <http://localhost:3000/> .
+
+<mock-ldes-inbetween.ttl> a ldes:EventStream ;
+    ldes:timestampPath ex:modified ;
+    ldes:versionOfPath ex:isVersionOf ;
+    tree:shape [
+        a sh:NodeShape ;
+        sh:targetClass ex:Clazz1 ;
+        sh:property [
+            a sh:PropertyShape ;
+            sh:path ex:modified ;
+            sh:datatype xsd:dateTime
+        ], [
+            a sh:PropertyShape ;
+            sh:path ex:prop1 ;
+            sh:node [
+                a sh:NodeShape ;
+                sh:targetClass ex:Clazz2
+            ]
+        ]
+    ] ;
+    tree:view <mock-ldes-inbetween-24-09-26-10.ttl> ;
+    tree:member <mem1#3>, <mem2#3>, <mem3#3> .
+
+# Contains 3 members.
+
+<mem1#3> a ex:Clazz1 ;
+    ex:prop1 <submem1> ;
+    ex:prop2 "value" ;
+    ex:isVersionOf <mem1> ;
+    ex:modified "2024-09-26T10:00:00.000Z"^^xsd:dateTime .
+
+<submem1> a ex:Clazz2 ;
+    ex:subprop "sub-value" .
+
+<mem2#3> a ex:Clazz1 ;
+    ex:prop1 <submem2> ;
+    ex:prop2 "value" ;
+    ex:isVersionOf <mem2> ;
+    ex:modified "2024-09-26T10:15:00.000Z"^^xsd:dateTime .
+
+<submem2> a ex:Clazz2 ;
+    ex:subprop "sub-value" .
+
+<mem3#3> a ex:Clazz1 ;
+    ex:prop1 <submem3> ;
+    ex:prop2 "value" ;
+    ex:isVersionOf <mem3> ;
+    ex:modified "2024-09-26T10:25:00.000Z"^^xsd:dateTime .
+
+<submem3> a ex:Clazz2 ;
+    ex:subprop "sub-value" .
