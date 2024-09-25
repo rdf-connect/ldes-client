@@ -16,10 +16,14 @@ export interface Member {
     type?: Term;
 }
 
-export interface Relation {
-    id?: Term;
+export interface Relations {
     source: string;
     node: string;
+    relations: Relation[];
+}
+
+export interface Relation {
+    id?: Term;
     type: Term;
     value?: Term[];
     path?: Term;
@@ -64,7 +68,7 @@ export function extractRelations(
     loose: boolean,
     condition: Condition,
     defaultTimezone: string,
-): Relation[] {
+): Relations[] {
     const logger = getLoggerFor("extractRelations");
 
     const relationIds = loose
@@ -75,44 +79,39 @@ export function extractRelations(
 
     const conditions = new Map<
         string,
-        { cond: RelationCondition; relation: Relation }
+        { cond: RelationCondition; relation: Relations }
     >();
 
     for (const relationId of relationIds) {
         const node = getObjects(store, relationId, TREE.terms.node, null)[0];
+        const ty =
+            getObjects(store, relationId, RDF.terms.type, null)[0] ||
+            TREE.Relation;
+        const path = getObjects(store, relationId, TREE.terms.path, null)[0];
+        const value = getObjects(store, relationId, TREE.terms.value, null);
 
-        if (!conditions.get(node.value)) {
-            const node = getObjects(
-                store,
-                relationId,
-                TREE.terms.node,
-                null,
-            )[0];
-            const ty =
-                getObjects(store, relationId, RDF.terms.type, null)[0] ||
-                TREE.Relation;
-            const path = getObjects(
-                store,
-                relationId,
-                TREE.terms.path,
-                null,
-            )[0];
-            const value = getObjects(store, relationId, TREE.terms.value, null);
-            const relation = {
-                source,
-                node: node.value,
-                type: ty,
-                path,
-                value,
-                id: relationId,
-            };
+        const relation = {
+            type: ty,
+            path,
+            value,
+            id: relationId,
+        };
+        const found = conditions.get(node.value);
+        if (!found) {
+            const condition = new RelationCondition(store, defaultTimezone);
+            condition.addRelation(relationId);
             conditions.set(node.value, {
-                cond: new RelationCondition(store, defaultTimezone),
-                relation,
+                cond: condition,
+                relation: {
+                    node: node.value,
+                    source,
+                    relations: [relation],
+                },
             });
+        } else {
+            found.relation.relations.push(relation);
+            found.cond.addRelation(relationId);
         }
-
-        conditions.get(node.value)!.cond.addRelation(relationId);
     }
 
     const allowed = [];

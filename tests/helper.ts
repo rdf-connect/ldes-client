@@ -75,7 +75,9 @@ export class Fragment<T> {
         }
 
         for (const { id, member } of this.members) {
-            out.push(...new Parser().parse(`<${ldesId}> <${TREE.member}> <${id}>.`));
+            out.push(
+                ...new Parser().parse(`<${ldesId}> <${TREE.member}> <${id}>.`),
+            );
             out.push(...memberToQuads(id, member));
         }
 
@@ -167,7 +169,9 @@ export class Tree<T> {
                 await new Promise((res) => setTimeout(res, fragment.delay));
             }
             try {
-                quads.push(...fragment.toQuads(BASE + this.root(), this.memberToQuads));
+                quads.push(
+                    ...fragment.toQuads(BASE + this.root(), this.memberToQuads),
+                );
 
                 const respText = new Writer().quadsToString(quads);
 
@@ -177,6 +181,7 @@ export class Tree<T> {
 
                 return resp;
             } catch (ex) {
+                console.error(ex);
                 const resp = new Response("I'm too loaded yo", { status: 429 });
                 return resp;
             }
