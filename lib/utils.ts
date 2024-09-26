@@ -10,7 +10,7 @@ import { BaseQuad } from "n3";
 import { StateFactory, StateT } from "./state";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
-import { RDF, SHACL, TREE } from "@treecg/types";
+import { RDF, SHACL, TREE, XSD } from "@treecg/types";
 import { Member } from "./page";
 import { LDESInfo } from "./client";
 import { pred } from "rdf-lens";
@@ -651,6 +651,9 @@ export function handleConditions(
 ): Condition {
     // Check if before and after conditions are defined and build corresponding Condition object
     let handledCondition: Condition = empty_condition();
+    const toDateLiteral = (date: Date) => {
+        return df.literal(date.toISOString(), XSD.terms.dateTime);
+    };
 
     if (before) {
         if (!timestampPath) {
@@ -660,7 +663,7 @@ export function handleConditions(
         const predLens = pred(timestampPath);
         const beforeCond = new LeafCondition({
             relationType: TREE.terms.LessThanRelation,
-            value: before.toISOString(),
+            value: toDateLiteral(before),
             compareType: "date",
             path: predLens,
             pathQuads: { entry: timestampPath, quads: [] },
@@ -669,7 +672,7 @@ export function handleConditions(
         if (after) {
             const afterCond = new LeafCondition({
                 relationType: TREE.terms.GreaterThanRelation,
-                value: after.toISOString(),
+                value: toDateLiteral(after),
                 compareType: "date",
                 path: predLens,
                 pathQuads: { entry: timestampPath, quads: [] },
@@ -692,7 +695,7 @@ export function handleConditions(
         // Got condition with after filter only
         handledCondition = new LeafCondition({
             relationType: TREE.terms.GreaterThanRelation,
-            value: after.toISOString(),
+            value: toDateLiteral(after),
             compareType: "date",
             path: predLens,
             pathQuads: { entry: timestampPath, quads: [] },

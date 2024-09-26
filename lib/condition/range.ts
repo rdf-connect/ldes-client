@@ -22,8 +22,9 @@ export function cbdEquals(a: Path, b: Path): boolean {
     if (alphaQuads.length != betaQuads.length) return false;
 
     for (let i = 0; i < alphaQuads.length; i++) {
-        if (!alphaQuads[i].predicate.equals(betaQuads[i].predicate))
+        if (!alphaQuads[i].predicate.equals(betaQuads[i].predicate)) {
             return false;
+        }
 
         const av = alphaQuads[i].object;
         const bv = betaQuads[i].object;
@@ -114,6 +115,11 @@ export class RelationCondition {
             return;
         }
 
-        range.range?.add(value.value, ty.value);
+        let dataType;
+        if (value.termType === "Literal") {
+            dataType = value.datatype.value;
+        }
+
+        range.range?.add(value.value, ty.value, dataType);
     }
 }

@@ -63,7 +63,7 @@ export const SHAPES = `
     sh:name "path";
   ], [
     sh:path tree:value;
-    sh:datatype xsd:string;
+    sh:datatype xsd:iri;
     sh:maxCount 1;
     sh:name "value";
   ], [
