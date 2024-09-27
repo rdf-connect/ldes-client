@@ -113,8 +113,8 @@ export class Range {
                 );
                 if (between) {
                     this.min = between.min;
-                    this.max = between.max;
                     this.eqMin = true;
+                    this.max = between.max;
                     this.eqMax = false;
                 }
                 return;
@@ -161,10 +161,14 @@ export class Range {
                     this.defaultTimezone,
                 );
                 if (between) {
-                    this.min = between.min;
-                    this.eqMin = true;
-                    this.max = between.max;
-                    this.eqMax = false;
+                    if (this.min === undefined || between.min < this.min) {
+                        this.min = between.min;
+                        this.eqMin = true;
+                    }
+                    if (this.max === undefined || between.max < this.max) {
+                        this.max = between.max;
+                        this.eqMax = false;
+                    }
                 }
                 return;
             }

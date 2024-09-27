@@ -12,42 +12,27 @@ export function parseInBetweenRelation(
     dataType: string | undefined,
     defaultTimezone: string,
 ): Between | undefined {
-    let thisMin: Date | undefined;
-    let thisMax: Date | undefined;
-
-    const updateResult = (min: Date, max: Date) => {
-        if (thisMin === undefined || min <= thisMin) {
-            thisMin = min;
-        }
-        if (thisMax === undefined || max > thisMax) {
-            thisMax = max;
-        }
-    };
-
     if (dataType === XSD.custom("gYear")) {
         const result = gYearToMinMax(value, defaultTimezone);
         if (!result) return;
         const [min, max] = result;
-        updateResult(min, max);
+        return { min, max };
     } else if (dataType === XSD.custom("gYearMonth")) {
         const result = gYearMonthToMinMax(value, defaultTimezone);
         if (!result) return;
         const [min, max] = result;
-        updateResult(min, max);
+        return { min, max };
     } else if (dataType === XSD.custom("date")) {
         const result = dateToMinMax(value, defaultTimezone);
         if (!result) return;
         const [min, max] = result;
-        updateResult(min, max);
+        return { min, max };
     } else {
         // Check if it is a partial dateTime
         const result = partialDateTimeToMinMax(value, defaultTimezone);
         if (!result) return;
         const [min, max] = result;
-        updateResult(min, max);
-    }
-    if (thisMin !== undefined && thisMax !== undefined) {
-        return { min: thisMin, max: thisMax };
+        return { min, max };
     }
 }
 

@@ -316,21 +316,12 @@ export class OrderedStrategy {
                 if (x.termType === "Literal") {
                     dataType = x.datatype.value;
                 }
-                console.log(
-                    "Found inbetween relation",
-                    x.value,
-                    undefined,
-                    "Z",
-                );
                 const between = parseInBetweenRelation(x.value, dataType, "Z");
-                console.log("result", between);
                 if (between) {
                     return [between];
                 }
                 return [];
             });
-
-        console.log("betweens", betweens);
 
         if (this.ordered === "ascending") {
             value = betweens
@@ -358,8 +349,6 @@ export class OrderedStrategy {
                     }
                 }, value);
         }
-
-        console.log("value from inbetweens", value);
 
         if (this.ordered === "ascending") {
             value = rel.relations
@@ -444,13 +433,6 @@ export class OrderedStrategy {
             }
 
             // Actually emit some members in order
-            console.log(
-                "marker",
-                head.source,
-                head.target,
-                marker.important,
-                marker.value,
-            );
             if (marker.important) {
                 found.closed = true;
                 let member = this.members.pop();
