@@ -1,3 +1,4 @@
+# delay 200
 @prefix ldes: <https://w3id.org/ldes#> .
 @prefix tree: <https://w3id.org/tree#> .
 @prefix sh: <http://www.w3.org/ns/shacl#> .

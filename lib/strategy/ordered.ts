@@ -9,6 +9,8 @@ import { Ordered } from "../client";
 import { GTRs, LTR, PageAndRelation, StrategyEvents } from ".";
 import { getLoggerFor } from "../utils/logUtil";
 import { Value } from "../condition";
+import { TREE } from "@treecg/types";
+import { parseInBetweenRelation } from "../utils/inBetween";
 
 export type StateItem = {
     rel: RelationChain;
@@ -306,6 +308,47 @@ export class OrderedStrategy {
             }
         };
         let value = undefined;
+        const betweens = rel.relations
+            .filter((x) => x.type.value === TREE.custom("InBetweenRelation"))
+            .flatMap((x) => x.value || [])
+            .flatMap((x) => {
+                let dataType = undefined;
+                if (x.termType === "Literal") {
+                    dataType = x.datatype.value;
+                }
+                const between = parseInBetweenRelation(x.value, dataType, "Z");
+                if (between) {
+                    return [between];
+                }
+                return [];
+            });
+
+        if (this.ordered === "ascending") {
+            value = betweens
+                .map((x) => <undefined | number | Date>x.min)
+                .reduce((a, b) => {
+                    if (!a) return b;
+                    if (!b) return a;
+                    if (a > b) {
+                        return b;
+                    } else {
+                        return a;
+                    }
+                }, value);
+        }
+        if (this.ordered === "descending") {
+            value = betweens
+                .map((x) => <undefined | number | Date>x.max)
+                .reduce((a, b) => {
+                    if (!a) return b;
+                    if (!b) return a;
+                    if (a > b) {
+                        return a;
+                    } else {
+                        return b;
+                    }
+                }, value);
+        }
 
         if (this.ordered === "ascending") {
             value = rel.relations
@@ -320,7 +363,7 @@ export class OrderedStrategy {
                     } else {
                         return a;
                     }
-                }, undefined);
+                }, value);
         } else if (this.ordered === "descending") {
             value = rel.relations
                 .filter((x) => LTR.some((gr) => x.type.value === gr.value))
@@ -334,7 +377,7 @@ export class OrderedStrategy {
                     } else {
                         return b;
                     }
-                }, undefined);
+                }, value);
         }
         if (value !== undefined) {
             return {
