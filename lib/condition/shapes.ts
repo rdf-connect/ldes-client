@@ -41,6 +41,22 @@ export const SHAPES = `
     sh:name "items";
   ].
 
+[] a sh:NodeShape;
+  sh:targetClass csp:MaxCount;
+  sh:property [
+    sh:path csp:val;
+    sh:datatype xsd:integer;
+    sh:minCount 1;
+    sh:maxCount 1;
+    sh:name "count";
+  ], [
+    sh:path csp:reset;
+    sh:datatype xsd:boolean;
+    sh:maxCount 1;
+    sh:name "reset_on_poll";
+  ].
+  
+
 [ ] a sh:NodeShape;
   sh:targetClass csp:Condition;
   sh:property [

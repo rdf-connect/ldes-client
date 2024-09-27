@@ -323,6 +323,7 @@ export class Client {
             fragment: () => this.emit("fragment", undefined),
             member: (m) => {
                 if (this.config.condition.matchMember(m)) {
+                    this.config.condition.memberEmitted(m);
                     // Check if this is a newer version of this member (if we are extracting the last version only)
                     if (m.isVersionOf && m.timestamp && versionState) {
                         const versions = versionState.item;
@@ -354,6 +355,7 @@ export class Client {
                 }
             },
             pollCycle: () => {
+                this.config.condition.poll();
                 this.emit("poll", undefined);
             },
             mutable: () => {
