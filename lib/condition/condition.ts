@@ -17,8 +17,11 @@ export interface Condition {
     matchRelation(range: Range | undefined, cbdId: Path): boolean;
 
     matchMember(member: Member): boolean;
+    memberEmitted(member: Member): void;
 
     toString(): string;
+
+    poll(): void;
 }
 
 export function empty_condition(): Condition {
@@ -31,6 +34,10 @@ export function parse_condition(source: string, baseIRI: string): Condition {
         "http://vocab.deri.ie/csp#And": (obj) =>
             new AndCondition(
                 <ConstructorParameters<typeof AndCondition>[0]>obj,
+            ),
+        "http://vocab.deri.ie/csp#MaxCount": (obj) =>
+            new MaxCountCondition(
+                <ConstructorParameters<typeof MaxCountCondition>[0]>obj,
             ),
         "http://vocab.deri.ie/csp#Or": (obj) =>
             new OrCondition(<ConstructorParameters<typeof OrCondition>[0]>obj),
@@ -497,6 +504,10 @@ export class LeafCondition implements Condition {
         );
     }
 
+    memberEmitted(): void {
+        // empty
+    }
+
     toString(): string {
         const vts =
             this.compareType === "date"
@@ -548,6 +559,10 @@ export class LeafCondition implements Condition {
                 return value;
         }
     }
+
+    poll(): void {
+        // pass
+    }
 }
 
 abstract class BiCondition implements Condition {
@@ -558,6 +573,8 @@ abstract class BiCondition implements Condition {
     }
 
     abstract combine(alpha: boolean, beta: boolean): boolean;
+
+    abstract memberEmitted(member: Member): void;
 
     matchRelation(range: Range | undefined, cbdId: Path): boolean {
         return this.items
@@ -570,11 +587,18 @@ abstract class BiCondition implements Condition {
             .map((x) => x.matchMember(member))
             .reduce(this.combine.bind(this));
     }
+
+    poll(): void {
+        this.items.forEach((x) => x.poll());
+    }
 }
 
 export class AndCondition extends BiCondition {
     combine(alpha: boolean, beta: boolean): boolean {
         return alpha && beta; // TODO those might be null if something cannot make a statement about it, important for not condition
+    }
+    memberEmitted(member: Member): void {
+        this.items.forEach((x) => x.memberEmitted(member));
     }
     toString(): string {
         const contents = this.items.map((x) => x.toString()).join(" ^ ");
@@ -585,6 +609,13 @@ export class AndCondition extends BiCondition {
 export class OrCondition extends BiCondition {
     combine(alpha: boolean, beta: boolean): boolean {
         return alpha || beta; // TODO those might be null if something cannot make a statement about it, important for not condition
+    }
+    memberEmitted(member: Member): void {
+        for (const item of this.items) {
+            if (item.matchMember(member)) {
+                item.memberEmitted(member);
+            }
+        }
     }
     toString(): string {
         const contents = this.items.map((x) => x.toString()).join(" V ");
@@ -604,7 +635,46 @@ export class EmptyCondition implements Condition {
         return true;
     }
 
+    memberEmitted(): void {
+        // empty
+    }
+
     toString() {
         return "all";
+    }
+    poll(): void {
+        // empty
+    }
+}
+
+export class MaxCountCondition implements Condition {
+    maxCount: number;
+    current: number;
+    reset_on_poll: boolean;
+    constructor(inp: { count: number; reset_on_poll?: boolean }) {
+        this.maxCount = inp.count;
+        this.current = 0;
+        this.reset_on_poll = inp.reset_on_poll || false;
+    }
+
+    matchRelation(): boolean {
+        return this.current < this.maxCount;
+    }
+
+    memberEmitted(): void {
+        this.current += 1;
+    }
+
+    matchMember(): boolean {
+        return this.current < this.maxCount;
+    }
+    toString(): string {
+        return `${this.current} < ${this.maxCount}`;
+    }
+
+    poll(): void {
+        if (this.reset_on_poll) {
+            this.current = 0;
+        }
     }
 }

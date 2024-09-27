@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { read, Tree } from "./helper";
 
-import { replicateLDES, retry_fetch } from "../lib/client";
+import { MaxCountCondition, replicateLDES, retry_fetch } from "../lib/client";
 import { Parser } from "n3";
 import { TREE } from "@treecg/types";
 import { rmSync } from "fs";
@@ -641,6 +641,64 @@ describe("more complex tree", () => {
         const second = await reader.read();
         expect(second.done).toBe(false);
         expect(second.value?.timestamp).toEqual(new Date("7"));
+
+        await reader.cancel();
+    });
+
+    test("Polling works, single page - max values", async () => {
+        const tree = new Tree<number>(
+            (x, numb) =>
+                new Parser().parse(
+                    `<${x}> <http://example.com/value> ${numb}.`,
+                ),
+            "http://example.com/value",
+        );
+        tree.fragment(tree.root()).addMember("a", 5);
+        tree.fragment(tree.root()).addMember("a", 6);
+        const base = tree.base() + tree.root();
+        const mock = tree.mock();
+        global.fetch = mock;
+
+        const client = replicateLDES(
+            {
+                polling: true,
+                url: base,
+                condition: new MaxCountCondition({
+                    count: 1,
+                    reset_on_poll: true,
+                }),
+            },
+            "ascending",
+        );
+
+        let hasPolled: undefined | ((b: unknown) => void) = undefined;
+        const polled = new Promise((res) => (hasPolled = res));
+
+        let added = false;
+
+        client.on("poll", () => {
+            if (!added) {
+                tree.fragment(tree.root()).addMember("b", 4);
+                added = true;
+                hasPolled!({});
+            }
+        });
+
+        const reader = client.stream().getReader();
+
+        const first = await reader.read();
+        expect(first.done).toBe(false);
+        expect(first.value?.timestamp).toEqual(new Date("5"));
+
+        const secondPromise = reader.read().then((second) => {
+            expect(second.done).toBe(false);
+            expect(second.value?.timestamp).toEqual(new Date("4"));
+            expect(added).toBeTruthy();
+        });
+
+        await polled;
+
+        await secondPromise;
 
         await reader.cancel();
     });

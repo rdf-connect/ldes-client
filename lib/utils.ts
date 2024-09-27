@@ -614,14 +614,11 @@ export async function processConditionFile(
 ): Promise<Condition> {
     let condition: Condition = empty_condition();
 
-    /* eslint-disable  @typescript-eslint/no-explicit-any */
-    let fs: any;
-    if (typeof require === "undefined") {
-        import("fs/promises").then((mod) => (fs = mod));
-    } else {
-        /* eslint-disable  @typescript-eslint/no-require-imports */
-        fs = require("fs/promises");
-    }
+    /* eslint-disable  @typescript-eslint/no-require-imports */
+    const fs =
+        typeof require === "undefined"
+            ? await import("fs/promises")
+            : require("fs/promises");
 
     if (conditionFile) {
         try {
