@@ -133,7 +133,7 @@ export class Range {
         return new Range("", TREE.Relation, defaultTimezone);
     }
 
-    add(value: string, type: string, dataType?: string) {
+    add(value: Value, type: string, dataType?: string) {
         switch (type) {
             case TREE.EqualToRelation:
                 this.min = value;
@@ -162,6 +162,12 @@ export class Range {
                 }
                 return;
             case TREE.custom("InBetweenRelation"): {
+                if (typeof value !== "string") {
+                    throw (
+                        "InBetweenRelation can only handle string values, not" +
+                        typeof value
+                    );
+                }
                 const between = parseInBetweenRelation(
                     value,
                     dataType,
@@ -182,7 +188,7 @@ export class Range {
         }
     }
 
-    contains(value: string | Date | number): boolean {
+    contains(value: Value | Date | number): boolean {
         if (this.min) {
             if (this.eqMin) {
                 if (this.min > value) return false;
@@ -313,7 +319,7 @@ export class LeafCondition implements Condition {
         return this.range.contains(value);
     }
 
-    private parseValue(value: string): string | Date | number {
+    private parseValue(value: string): Value {
         switch (this.compareType) {
             case "string":
                 return value;
