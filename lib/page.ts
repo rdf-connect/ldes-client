@@ -34,6 +34,12 @@ export interface Page {
     node: string;
 }
 
+export interface Fragment {
+    id: Term;
+    created?: Date;
+    updated?: Date;
+}
+
 export function extractMembers(
     store: RdfStore,
     stream: Term,

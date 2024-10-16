@@ -1,6 +1,6 @@
 import { Heap } from "heap-js";
 import { Manager, MemberEvents } from "../memberManager";
-import { Member, Relations } from "../page";
+import { Fragment, Member, Relations } from "../page";
 import { FetchedPage, Fetcher, FetchEvent } from "../pageFetcher";
 import { Modulator, ModulatorFactory, Notifier } from "../utils";
 import { RelationChain, SimpleRelation } from "../relation";
@@ -121,11 +121,11 @@ export class OrderedStrategy {
             error: (error) => {
                 this.notifier.error(error, {});
             },
-            done: (_member, rel) => {
+            done: (fragment: Fragment, rel) => {
                 this.logger.debug(`Member done ${rel.target}`);
                 const found = this.findOrDefault(rel);
                 found.extracting -= 1;
-                this.notifier.fragment({}, {});
+                this.notifier.fragment(fragment, {});
                 this.checkEmit();
             },
             extracted: (member) => {

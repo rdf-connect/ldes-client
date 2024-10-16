@@ -1,4 +1,4 @@
-import { Member } from "../page";
+import { Fragment, Member } from "../page";
 import { FetchedPage } from "../pageFetcher";
 import { RelationChain } from "../relation";
 import { TREE } from "@treecg/types";
@@ -29,8 +29,7 @@ export type PageAndRelation = {
 
 export type StrategyEvents = {
     member: Member;
-    /* eslint-disable  @typescript-eslint/no-empty-object-type */
-    fragment: {};
+    fragment: Fragment;
     /* eslint-disable  @typescript-eslint/no-empty-object-type */
     mutable: {};
     /* eslint-disable  @typescript-eslint/no-empty-object-type */
