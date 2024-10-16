@@ -1,12 +1,15 @@
 import { Quad, Term } from "@rdfjs/types";
-import { Member } from "./page";
+import { Fragment, Member } from "./page";
 import { FetchedPage } from "./pageFetcher";
 import { CBDShapeExtractor } from "extract-cbd-shape";
-import { TREE } from "@treecg/types";
+import { DC, TREE } from "@treecg/types";
 import { LDESInfo } from "./client";
 import { getObjects, memberFromQuads, Notifier } from "./utils";
 import { RdfStore } from "rdf-stores";
 import { getLoggerFor } from "./utils/logUtil";
+import { DataFactory } from "n3";
+
+const { namedNode } = DataFactory;
 
 export interface Options {
     ldesId?: Term;
@@ -27,7 +30,7 @@ export type ExtractError = {
 export type Error = ExtractError;
 export type MemberEvents = {
     extracted: Member;
-    done: Member[];
+    done: Fragment;
     error: Error;
 };
 
@@ -78,6 +81,21 @@ export class Manager {
             null,
         );
 
+        const pageCreatedIso = getObjects(
+            page.data,
+            namedNode(page.url),
+            DC.terms.custom("created"),
+            null,
+        )[0]?.value;
+        const pageCreated = pageCreatedIso ? new Date(pageCreatedIso) : undefined;
+        const pageUpdatedIso = getObjects(
+            page.data,
+            namedNode(page.url),
+            DC.terms.modified,
+            null,
+        )[0];
+        const pageUpdated = pageUpdatedIso ? new Date(pageUpdatedIso.value) : undefined;
+
         this.logger.debug(`Extracting ${members.length} members`);
 
         const promises: Promise<Member | undefined | void>[] = [];
@@ -110,7 +128,7 @@ export class Manager {
             this.logger.debug("All members extracted");
             if (!this.closed) {
                 notifier.done(
-                    members.flatMap((x) => (x ? [x] : [])),
+                    {id: namedNode(page.url), created: pageCreated, updated: pageUpdated},
                     state,
                 );
             }

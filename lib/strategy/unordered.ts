@@ -4,6 +4,7 @@ import { Modulator, ModulatorFactory, Notifier } from "../utils";
 
 import { StrategyEvents } from ".";
 import { getLoggerFor } from "../utils/logUtil";
+import { Fragment } from "../page";
 
 export class UnorderedStrategy {
     private manager: Manager;
@@ -75,11 +76,11 @@ export class UnorderedStrategy {
             error: (error) => {
                 this.notifier.error(error, {});
             },
-            done: () => {
+            done: (fragment: Fragment) => {
                 this.logger.debug("[member] Members on page done");
                 this.inFlight -= 1;
                 this.checkEnd();
-                this.notifier.fragment({}, {});
+                this.notifier.fragment(fragment, {});
             },
             extracted: (mem) => this.notifier.member(mem, {}),
         };

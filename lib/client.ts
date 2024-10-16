@@ -1,5 +1,5 @@
 import { Config, intoConfig } from "./config";
-import { Member } from "./page";
+import { Fragment, Member } from "./page";
 import { RdfDereferencer, rdfDereferencer } from "rdf-dereference";
 import { FileStateFactory, NoStateFactory, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
@@ -28,7 +28,7 @@ import { getLoggerFor } from "./utils/logUtil";
 export { intoConfig } from "./config";
 export { enhanced_fetch, extractMainNodeShape, retry_fetch } from "./utils";
 export * from "./condition/index";
-export type { Member, Page, Relation } from "./page";
+export type { Member, Page, Relation, Fragment } from "./page";
 export type { Config, ShapeConfig } from "./config";
 
 const df = new DataFactory();
@@ -168,7 +168,7 @@ type EventKey<T extends EventMap> = string & keyof T;
 type EventReceiver<T> = (params: T) => void;
 
 export type ClientEvents = {
-    fragment: void;
+    fragment: Fragment;
     mutable: void;
     poll: void;
     error: unknown;
@@ -320,7 +320,7 @@ export class Client {
 
         const notifier: Notifier<StrategyEvents, unknown> = {
             error: (ex: unknown) => this.emit("error", ex),
-            fragment: () => this.emit("fragment", undefined),
+            fragment: (fragment: Fragment) => this.emit("fragment", fragment),
             member: (m) => {
                 if (this.config.condition.matchMember(m)) {
                     this.config.condition.memberEmitted(m);
