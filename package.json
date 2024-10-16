@@ -26,6 +26,10 @@
     "bin": "bin",
     "test": "tests"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rdf-connect/ldes-client"
+  },
   "author": "Arthur Vercruysse",
   "license": "MIT",
   "dependencies": {
