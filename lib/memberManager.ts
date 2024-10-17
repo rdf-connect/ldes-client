@@ -2,7 +2,7 @@ import { Quad, Term } from "@rdfjs/types";
 import { Fragment, Member } from "./page";
 import { FetchedPage } from "./pageFetcher";
 import { CBDShapeExtractor } from "extract-cbd-shape";
-import { DC, TREE } from "@treecg/types";
+import { DC, LDES, TREE } from "@treecg/types";
 import { LDESInfo } from "./client";
 import { getObjects, memberFromQuads, Notifier } from "./utils";
 import { RdfStore } from "rdf-stores";
@@ -161,7 +161,7 @@ export class Manager {
         member: Term,
         data: RdfStore,
     ): Promise<Quad[]> {
-        return await this.extractor.extract(data, member, this.shapeId);
+        return await this.extractor.extract(data, member, this.shapeId, [namedNode(LDES.custom("IngestionMetadata"))]);
     }
 
     private async extractMember(
@@ -171,6 +171,7 @@ export class Manager {
         if (this.state.has(member.value)) return;
 
         const quads: Quad[] = await this.extractMemberQuads(member, data);
+        const created = getObjects(data, member, DC.terms.custom("created"), namedNode(LDES.custom("IngestionMetadata")))[0]?.value;
 
         if (quads.length > 0) {
             this.state.add(member.value);
@@ -179,6 +180,7 @@ export class Manager {
                 quads,
                 this.timestampPath,
                 this.isVersionOfPath,
+                created ? new Date(created) : undefined,
             );
         }
     }

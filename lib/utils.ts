@@ -523,6 +523,7 @@ export function memberFromQuads(
     quads: Quad[],
     timestampPath: Term | undefined,
     isVersionOfPath: Term | undefined,
+    created?: Date,
 ): Member {
     // Get timestamp
     let timestamp: string | Date | undefined;
@@ -553,7 +554,7 @@ export function memberFromQuads(
     const type: Term | undefined = quads.find(
         (x) => x.subject.equals(member) && x.predicate.value === RDF.type,
     )?.object;
-    return { quads, id: member, isVersionOf, timestamp, type };
+    return { quads, id: member, isVersionOf, timestamp, type, created };
 }
 
 /**
