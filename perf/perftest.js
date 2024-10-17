@@ -1,12 +1,11 @@
-const Benchmark = require("benchmark");
-const { replicateLDES } = require("../dist/lib/client");
-const { intoConfig } = require("../dist/lib/config");
-const { Tree } = require("../dist/tests/helper");
-const { Parser } = require("n3");
-const { TREE } = require("@treecg/types");
+import Benchmark from "benchmark";
+import { Parser } from "n3";
+import { Tree } from "../dist/tests/helper.js";
+import { TREE } from "@treecg/types";
+import { intoConfig, replicateLDES } from "../dist/lib/client.js";
 
 // Increase the max listeners to prevent warnings
-process.setMaxListeners(20);
+process.setMaxListeners(35);
 
 let tree = new Tree(
     (x, numb) => {
@@ -34,7 +33,7 @@ function build_tree(depth, width, delay = 200, member_count = 5) {
 }
 
 function wide_tree(depth, width, node, member, delay, memberCount) {
-    if (depth == 0) return member;
+    if (depth === 0) return member;
 
     const newId = tree.newFragment(delay);
     const frag = tree.fragment(newId);

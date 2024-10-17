@@ -21,7 +21,8 @@
     },
     "include": [
         "lib/**/*",
-        "bin/**/*"
+        "bin/**/*",
+        "tests/helper.ts",
     ],
     "exclude": [
         "node_modules",
