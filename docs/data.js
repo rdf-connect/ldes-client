@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729148854632,
+  "lastUpdate": 1729171967848,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -308,6 +308,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6.06,
             "range": "±2.92%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "smessie@smessie.com",
+            "name": "smessie",
+            "username": "smessie"
+          },
+          "committer": {
+            "email": "smessie@users.noreply.github.com",
+            "name": "Ieben Smessaert",
+            "username": "smessie"
+          },
+          "distinct": true,
+          "id": "ef801c074b4266e6077ad012ac0edc23108c70cd",
+          "message": "feat: Include created (ingested) timestamp in Member",
+          "timestamp": "2024-10-17T15:32:19+02:00",
+          "tree_id": "673264b9b65afe8229c7b6e3430b920872ca51bb",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/ef801c074b4266e6077ad012ac0edc23108c70cd"
+        },
+        "date": 1729171967442,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.06,
+            "range": "±2.09%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
