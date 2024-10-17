@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717427236978,
+  "lastUpdate": 1729148759720,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -246,6 +246,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6.11,
             "range": "±1.90%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "smessie@smessie.com",
+            "name": "smessie",
+            "username": "smessie"
+          },
+          "committer": {
+            "email": "smessie@smessie.com",
+            "name": "smessie",
+            "username": "smessie"
+          },
+          "distinct": true,
+          "id": "a26e3d06cafa75e0bbcba991acff265665676c23",
+          "message": "ci(perf): Fix imports in perf script",
+          "timestamp": "2024-10-17T09:05:28+02:00",
+          "tree_id": "0b9cd35a137cda4e6f2959feaf1c12b4f9bd652a",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/a26e3d06cafa75e0bbcba991acff265665676c23"
+        },
+        "date": 1729148759231,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.06,
+            "range": "±2.33%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
