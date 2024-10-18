@@ -381,7 +381,7 @@ export function enhanced_fetch(
                   try {
                       return await start_f(a, b);
                   } catch (ex) {
-                      logger.error(
+                      logger.debug(
                           `This should not happen, it will not happen this is safe. ${JSON.stringify(
                               ex,
                           )}`,
