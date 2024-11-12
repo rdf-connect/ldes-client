@@ -285,7 +285,17 @@ export class Client {
                       const arr = [...map.entries()];
                       return JSON.stringify(arr);
                   },
-                  (inp) => new Map(JSON.parse(inp)),
+                  (inp) => {
+                      const obj = JSON.parse(inp);
+                      for (const key of Object.keys(obj)) {
+                          try {
+                              obj[key] = new Date(obj[key]);
+                          } catch (ex: unknown) {
+                              // pass
+                          }
+                      }
+                      return new Map(obj);
+                  },
                   () => new Map(),
               )
             : undefined;
