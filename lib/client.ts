@@ -169,6 +169,7 @@ type EventReceiver<T> = (params: T) => void;
 
 export type ClientEvents = {
     fragment: Fragment;
+    description: LDESInfo;
     mutable: void;
     poll: void;
     error: unknown;
@@ -262,6 +263,8 @@ export class Client {
             this.dereferencer,
             this.config,
         );
+
+        this.emit("description", info);
 
         // Build factory to keep track of the replication state
         const state = this.stateFactory.build<Set<string>>(
