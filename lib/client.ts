@@ -28,7 +28,7 @@ import { getLoggerFor } from "./utils/logUtil";
 export { intoConfig } from "./config";
 export { enhanced_fetch, extractMainNodeShape, retry_fetch } from "./utils";
 export * from "./condition/index";
-export type { Member, Page, Relation, Fragment } from "./page";
+export type { Fragment, Member, Page, Relation } from "./page";
 export type { Config, ShapeConfig } from "./config";
 
 const df = new DataFactory();
@@ -295,6 +295,7 @@ export class Client {
             this.streamId || viewQuads[0].subject,
             state.item,
             info,
+            this.config.loose,
         );
 
         this.logger.debug(`timestampPath ${!!info.timestampPath}`);
