@@ -282,14 +282,24 @@ export class Client {
         // Build factory to keep track of member versions
         const versionState = this.config.lastVersionOnly
             ? this.stateFactory.build<Map<string, Date>>(
-                "versions",
-                (map) => {
-                    const arr = [...map.entries()];
-                    return JSON.stringify(arr);
-                },
-                (inp) => new Map(JSON.parse(inp)),
-                () => new Map(),
-            )
+                  "versions",
+                  (map) => {
+                      const arr = [...map.entries()];
+                      return JSON.stringify(arr);
+                  },
+                  (inp) => {
+                      const obj = JSON.parse(inp);
+                      for (const key of Object.keys(obj)) {
+                          try {
+                              obj[key] = new Date(obj[key]);
+                          } catch (ex: unknown) {
+                              // pass
+                          }
+                      }
+                      return new Map(obj);
+                  },
+                  () => new Map(),
+              )
             : undefined;
 
         this.streamId = this.streamId || viewQuads[0].subject;
