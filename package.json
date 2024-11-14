@@ -39,13 +39,13 @@
     "debug": "^4.3.7",
     "extract-cbd-shape": "^0.1.8",
     "heap-js": "^2.5.0",
-    "n3": "^1.22.3",
+    "n3": "^1.23.0",
     "rdf-data-factory": "^1.1.2",
     "rdf-dereference": "^3.0.0",
     "rdf-js": "^4.0.2",
     "rdf-lens": "^1.3.0",
     "rdf-stores": "^1.0.0",
-    "winston": "^3.16.0"
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "@fastify/static": "^7.0.4",
@@ -53,8 +53,8 @@
     "@rdfjs/types": "^1.1.2",
     "@types/n3": "^1.21.1",
     "@types/node": "^22.9.0",
-    "@typescript-eslint/eslint-plugin": "^8.13.0",
-    "@typescript-eslint/parser": "^8.13.0",
+    "@typescript-eslint/eslint-plugin": "^8.14.0",
+    "@typescript-eslint/parser": "^8.14.0",
     "@vitest/coverage-v8": "^2.1.4",
     "benchmark": "^2.1.4",
     "eslint": "^9.9.0",
@@ -67,7 +67,7 @@
     "ts-jest": "^29.2.5",
     "tsc-alias": "^1.8.10",
     "typescript": "^5.6.3",
-    "vite-tsconfig-paths": "^5.1.0",
+    "vite-tsconfig-paths": "^5.1.2",
     "vitest": "^2.1.4"
   },
   "browser": {
