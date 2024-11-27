@@ -43,7 +43,6 @@ export class OrderedStrategy {
         { chain: RelationChain; index: number }
     >;
     private memberNotifer: Notifier<MemberEvents, RelationChain>;
-    private fetchedPages: Heap<PageAndRelation>;
     private state: Array<StateItem>;
 
     private ordered: Ordered;
@@ -74,7 +73,6 @@ export class OrderedStrategy {
 
         this.toPoll = new Heap((a, b) => a.chain.ordering(b.chain));
         this.launchedRelations = new Heap((a, b) => a.ordering(b));
-        this.fetchedPages = new Heap((a, b) => a.relation.ordering(b.relation));
         this.state = [];
 
         // Callbacks for the fetcher
@@ -399,8 +397,6 @@ export class OrderedStrategy {
     }
 
     private handleFetched(page: FetchedPage, relation: RelationChain) {
-        this.fetchedPages.push({ page, relation });
-
         // Update internal state
         // Page is fetched and will now be extracted
         const found = this.findOrDefault(relation);
