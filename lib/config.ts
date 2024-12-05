@@ -23,6 +23,7 @@ export interface Config {
     onlyDefaultGraph?: boolean;
     materialize?: boolean;
     lastVersionOnly?: boolean;
+    includeMetadata?: boolean;
     fetch?: typeof fetch;
 }
 
@@ -41,6 +42,7 @@ const defaultConfig: Config = {
     defaultTimezone: "AoE",
     materialize: false,
     lastVersionOnly: false,
+    includeMetadata: false,
 };
 
 const defaultTarget: WithTarget = {

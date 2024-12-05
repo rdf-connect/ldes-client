@@ -22,6 +22,7 @@ ldes-client <url> [-f] [--save <path>] [--pollInterval <number>] [--shape <shape
 - `--shape`: shape file to which LDES members should conform (overwrite LDES configured shape)
 - `-t` `--default-timezone`: default timezone to use for dates in tree:InBetweenRelation. `AoE|Z|±HH:mm` Default: `AoE`.
 - `--condition <condition_file>`: filter the LDES stream to only emit members that adhere to this condition
+- `-m`, `--metadata`: include metadata in the emitted members. Notifies the ldes server that it is interested in metadata.
 - Others soon coming
 
 

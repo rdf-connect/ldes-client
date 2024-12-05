@@ -315,6 +315,7 @@ export class Client {
             this.config.loose,
             this.config.condition,
             this.config.defaultTimezone,
+            this.config.includeMetadata || false,
             this.config.fetch,
         );
 
