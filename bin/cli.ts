@@ -25,6 +25,7 @@ let save: string | undefined;
 let onlyDefaultGraph: boolean = false;
 let loose: boolean = false;
 let defaultTimezone: string | undefined;
+let includeMetadata: boolean = false;
 
 const fetch_config: FetchConfig = {
     retry: {},
@@ -94,6 +95,7 @@ program
     )
     .option("--http-codes [codes...]", "What HTTP codes to retry")
     .option("-t --default-timezone <timezone>", "Default timezone for dates in tree:InBetweenRelation", "AoE")
+    .option("-m, --metadata", "include metadata in the output members")
     .action((url: string, program) => {
         urlIsView = program.urlIsView;
         noShape = !program.shape;
@@ -110,6 +112,7 @@ program
         materialize = program.materializeVersion;
         lastVersionOnly = program.lastVersionOnly;
         defaultTimezone = program.defaultTimezone;
+        includeMetadata = program.metadata;
 
         fetch_config.concurrent = parseInt(program.concurrent);
         if (program.basicAuth) {
@@ -165,6 +168,7 @@ async function main() {
             defaultTimezone,
             materialize,
             lastVersionOnly,
+            includeMetadata,
             fetch: enhanced_fetch(fetch_config),
         }),
         ordered,

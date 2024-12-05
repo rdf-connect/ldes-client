@@ -1,4 +1,4 @@
-import { RdfDereferencer } from "rdf-dereference";
+import { IDereferenceOptions, RdfDereferencer } from "rdf-dereference";
 import { Notifier } from "./utils";
 import { extractRelations, Relation, Relations } from "./page";
 import { SimpleRelation } from "./relation";
@@ -70,6 +70,7 @@ export class Fetcher {
     private fetch_f?: typeof fetch;
     private condition: Condition;
     private defaultTimezone: string;
+    private includeMetadata: boolean;
 
     private closed = false;
 
@@ -80,6 +81,7 @@ export class Fetcher {
         loose: boolean,
         condition: Condition,
         defaultTimezone: string,
+        includeMetadata: boolean,
         fetch_f?: typeof fetch,
     ) {
         this.dereferencer = dereferencer;
@@ -87,6 +89,7 @@ export class Fetcher {
         this.fetch_f = fetch_f;
         this.condition = condition;
         this.defaultTimezone = defaultTimezone;
+        this.includeMetadata = includeMetadata;
     }
 
     close() {
@@ -95,10 +98,16 @@ export class Fetcher {
 
     async fetch<S>(node: Node, state: S, notifier: Notifier<FetchEvent, S>) {
         try {
-            const resp = await this.dereferencer.dereference(node.target, {
+            const options: IDereferenceOptions = {
                 localFiles: true,
                 fetch: this.fetch_f,
-            });
+            };
+            if (this.includeMetadata) {
+                options.headers = {
+                    Accept: "application/metadata+trig",
+                };
+            }
+            const resp = await this.dereferencer.dereference(node.target, options);
 
             node.target = resp.url;
 
