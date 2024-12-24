@@ -117,7 +117,6 @@ export class Manager {
                             { error: ex, type: "extract", memberId: member },
                             state,
                         );
-                        const err = new Error();
                     });
 
                 promises.push(promise);
@@ -170,18 +169,23 @@ export class Manager {
     ): Promise<Member | undefined> {
         if (this.state.has(member.value)) return;
 
-        const quads: Quad[] = await this.extractMemberQuads(member, data);
-        const created = getObjects(data, member, DC.terms.custom("created"), namedNode(LDES.custom("IngestionMetadata")))[0]?.value;
+        try {
+            const quads: Quad[] = await this.extractMemberQuads(member, data);
+            const created = getObjects(data, member, DC.terms.custom("created"), namedNode(LDES.custom("IngestionMetadata")))[0]?.value;
 
-        if (quads.length > 0) {
-            this.state.add(member.value);
-            return memberFromQuads(
-                member,
-                quads,
-                this.timestampPath,
-                this.isVersionOfPath,
-                created ? new Date(created) : undefined,
-            );
+            if (quads.length > 0) {
+                this.state.add(member.value);
+                return memberFromQuads(
+                    member,
+                    quads,
+                    this.timestampPath,
+                    this.isVersionOfPath,
+                    created ? new Date(created) : undefined,
+                );
+            }
+        } catch (ex) {
+            this.logger.error(ex);
+            return;
         }
     }
 }
