@@ -88,12 +88,7 @@ async function getInfo(
         `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${isVersionOfPaths.length} isVersionOfPaths`,
     );
 
-    if (
-        !config.noShape &&
-        (shapeIds.length === 0 ||
-            timestampPaths.length === 0 ||
-            isVersionOfPaths.length === 0)
-    ) {
+    if (shapeIds.length === 0 || timestampPaths.length === 0 || isVersionOfPaths.length === 0) {
         try {
             logger.debug("Maybe find more info at %s", viewId.value);
             const resp = await dereferencer.dereference(viewId.value, {
@@ -104,13 +99,15 @@ async function getInfo(
             await new Promise((resolve, reject) => {
                 store.import(resp.data).on("end", resolve).on("error", reject);
             });
-            shapeIds = getObjects(store, null, TREE.terms.shape);
-            timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
-            isVersionOfPaths = getObjects(
-                store,
-                null,
-                LDES.terms.versionOfPath,
-            );
+            if (!shapeIds.length) {
+                shapeIds = config.noShape ? [] : getObjects(store, null, TREE.terms.shape);
+            }
+            if (!timestampPaths.length) {
+                timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
+            }
+            if (!isVersionOfPaths.length) {
+                isVersionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
+            }
             logger.debug(
                 `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${isVersionOfPaths.length} isVersionOfPaths`,
             );
@@ -121,21 +118,15 @@ async function getInfo(
     }
 
     if (shapeIds.length > 1) {
-        logger.error("Expected at most one shape id, found " + shapeIds.length);
+        logger.error(`Expected at most one shape id, found ${shapeIds.length}`);
     }
 
     if (timestampPaths.length > 1) {
-        logger.error(
-            "Expected at most one timestamp path, found " +
-                timestampPaths.length,
-        );
+        logger.error(`Expected at most one timestamp path, found ${timestampPaths.length}`);
     }
 
     if (isVersionOfPaths.length > 1) {
-        logger.error(
-            "Expected at most one versionOf path, found " +
-                isVersionOfPaths.length,
-        );
+        logger.error(`Expected at most one versionOf path, found ${isVersionOfPaths.length}`);
     }
 
     const shapeConfigStore = RdfStore.createDefault();
@@ -145,6 +136,14 @@ async function getInfo(
         }
         // Make sure the shapeId is as defined in the given shape file
         config.shape.shapeId = extractMainNodeShape(shapeConfigStore);
+    } else {
+        const shapeId = shapeIds[0];
+        if (shapeId && shapeId.termType === 'NamedNode' && store.getQuads(shapeId, null, null).length === 0) {
+            const respShape = await rdfDereferencer.dereference(shapeId.value);
+            await new Promise((resolve, reject) => {
+                store.import(respShape.data).on("end", resolve).on("error", reject);
+            });
+        }
     }
 
     return {
@@ -277,14 +276,14 @@ export class Client {
         // Build factory to keep track of member versions
         const versionState = this.config.lastVersionOnly
             ? this.stateFactory.build<Map<string, Date>>(
-                  "versions",
-                  (map) => {
-                      const arr = [...map.entries()];
-                      return JSON.stringify(arr);
-                  },
-                  (inp) => new Map(JSON.parse(inp)),
-                  () => new Map(),
-              )
+                "versions",
+                (map) => {
+                    const arr = [...map.entries()];
+                    return JSON.stringify(arr);
+                },
+                (inp) => new Map(JSON.parse(inp)),
+                () => new Map(),
+            )
             : undefined;
 
         this.streamId = this.streamId || viewQuads[0].subject;
@@ -374,22 +373,22 @@ export class Client {
         this.strategy =
             this.ordered !== "none"
                 ? new OrderedStrategy(
-                      this.memberManager,
-                      this.fetcher,
-                      notifier,
-                      factory,
-                      this.ordered,
-                      this.config.polling,
-                      this.config.pollInterval,
-                  )
+                    this.memberManager,
+                    this.fetcher,
+                    notifier,
+                    factory,
+                    this.ordered,
+                    this.config.polling,
+                    this.config.pollInterval,
+                )
                 : new UnorderedStrategy(
-                      this.memberManager,
-                      this.fetcher,
-                      notifier,
-                      factory,
-                      this.config.polling,
-                      this.config.pollInterval,
-                  );
+                    this.memberManager,
+                    this.fetcher,
+                    notifier,
+                    factory,
+                    this.config.polling,
+                    this.config.pollInterval,
+                );
 
         this.logger.debug(
             `Found ${viewQuads.length} views, choosing ${viewId.value}`,
@@ -456,7 +455,7 @@ export class Client {
         key: K,
         data: ClientEvents[K],
     ) {
-        (this.listeners[key] || []).forEach(function (fn) {
+        (this.listeners[key] || []).forEach(function(fn) {
             fn(data);
         });
     }
