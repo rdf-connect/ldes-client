@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734590333264,
+  "lastUpdate": 1735038195946,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -959,6 +959,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6.13,
             "range": "±2.04%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "smessie@smessie.com",
+            "name": "smessie",
+            "username": "smessie"
+          },
+          "committer": {
+            "email": "smessie@users.noreply.github.com",
+            "name": "Ieben Smessaert",
+            "username": "smessie"
+          },
+          "distinct": true,
+          "id": "d43cea9bbb8f0927ac31b609494b7dae6bc0003c",
+          "message": "fix: Don't crash when member cannot be extracted",
+          "timestamp": "2024-12-24T12:02:46+01:00",
+          "tree_id": "a391ffa538dbe437dac80a83a670ae636d487a84",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/d43cea9bbb8f0927ac31b609494b7dae6bc0003c"
+        },
+        "date": 1735038195582,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.08,
+            "range": "±2.08%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
