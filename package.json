@@ -47,7 +47,7 @@
     "winston": "^3.17.0"
   },
   "devDependencies": {
-    "@fastify/static": "^7.0.4",
+    "@fastify/static": "^8.0.4",
     "@rdfc/js-runner": "^1.0.0-alpha.0",
     "@rdfjs/types": "^1.1.2",
     "@types/n3": "^1.21.1",
