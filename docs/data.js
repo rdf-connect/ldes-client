@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1735038288680,
+  "lastUpdate": 1736949024586,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -1021,6 +1021,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6.12,
             "range": "±2.16%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "smessie@smessie.com",
+            "name": "smessie",
+            "username": "smessie"
+          },
+          "committer": {
+            "email": "smessie@users.noreply.github.com",
+            "name": "Ieben Smessaert",
+            "username": "smessie"
+          },
+          "distinct": true,
+          "id": "637b0cd6db61b5c70d222b88ff57b2af538d94fd",
+          "message": "fix: Dereference the shape if it is not in-band",
+          "timestamp": "2025-01-15T14:49:53+01:00",
+          "tree_id": "bd36d2389cd45aa6cd46845fe332a2ce30c4f446",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/637b0cd6db61b5c70d222b88ff57b2af538d94fd"
+        },
+        "date": 1736949023571,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.09,
+            "range": "±2.11%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
