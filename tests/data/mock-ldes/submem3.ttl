@@ -1,0 +1,5 @@
+@prefix ex: <http://example.org/> .
+@prefix : <http://localhost:3000/> .
+
+<submem3.ttl> a ex:Clazz2 ;
+    ex:subprop "sub-value" .

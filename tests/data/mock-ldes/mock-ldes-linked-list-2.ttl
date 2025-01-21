@@ -1,0 +1,54 @@
+@prefix ldes: <https://w3id.org/ldes#> .
+@prefix tree: <https://w3id.org/tree#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+@prefix : <http://localhost:3000/> .
+
+<mock-ldes-linked-list.ttl> a ldes:EventStream ;
+    ldes:timestampPath ex:modified ;
+    ldes:versionOfPath ex:isVersionOf ;
+    tree:shape [
+        a sh:NodeShape ;
+        sh:targetClass ex:Clazz1 ;
+        sh:property [
+            a sh:PropertyShape ;
+            sh:path ex:modified ;
+            sh:datatype xsd:dateTime
+        ], [
+            a sh:PropertyShape ;
+            sh:path ex:prop1 ;
+            sh:node [
+                a sh:NodeShape ;
+                sh:targetClass ex:Clazz2 ;
+                sh:property [
+                    a sh:PropertyShape ;
+                    sh:minCount 1 ;
+                    sh:path ex:subprop ;
+                    sh:datatype xsd:string
+                ]
+            ]
+        ]
+    ] ;
+    tree:view <mock-ldes-linked-list.ttl> ;
+    tree:member <mem7#0>, <mem8#0>, <mem9#0> .
+
+<mock-ldes-linked-list-2.ttl> a tree:Node .
+
+<mem7#0> a ex:Clazz1 ;
+    ex:isVersionOf <mem7> ;
+    ex:prop1 <submem4.ttl> ; # Same submem as in mock-ldes-linked-list-1.ttl
+    ex:prop2 "value" ;
+    ex:modified "2024-07-12T08:00:00.000Z"^^xsd:dateTime .
+
+<mem8#0> a ex:Clazz1 ;
+    ex:isVersionOf <mem8> ;
+    ex:prop1 <submem5.ttl> ; # Same submem as in mock-ldes-linked-list-1.ttl
+    ex:prop2 "value" ;
+    ex:modified "2024-07-12T09:00:00.000Z"^^xsd:dateTime .
+
+<mem9#0> a ex:Clazz1 ;
+    ex:isVersionOf <mem9> ;
+    ex:prop1 <submem6.ttl> ; # Same submem as in mock-ldes-linked-list-1.ttl
+    ex:prop2 "value" ;
+    ex:modified "2024-07-12T10:00:00.000Z"^^xsd:dateTime .

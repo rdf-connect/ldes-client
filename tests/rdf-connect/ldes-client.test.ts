@@ -16,6 +16,7 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
     const LDES = "http://localhost:3000/mock-ldes.ttl";
     const ATYPICAL_LDES = "http://localhost:3000/mock-ldes-atypical.ttl";
     const INBETWEEN_LDES = "http://localhost:3000/mock-ldes-inbetween.ttl";
+    const LINKED_LIST_LDES = "http://localhost:3000/mock-ldes-linked-list.ttl";
     const EX = createUriAndTermNamespace(
         "http://example.org/",
         "Clazz1",
@@ -23,6 +24,7 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         "modified",
         "isVersionOf",
         "prop1",
+        "subprop"
     );
     let server: FastifyInstance;
     function streamToString(stream: Stream): Promise<string> {
@@ -2718,5 +2720,59 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         expect(
             Array.from(observedClasses.values()).every((v) => v === true),
         ).toBeTruthy();
+    });
+
+    test("Fetching an Linked List LDES in ascending order and members with out-of-band data", async () => {
+        const outputStream = new SimpleStream<string>();
+
+        let count = 0;
+        const timestamps: number[] = [];
+
+        outputStream.data((record) => {
+            console.log(record);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+
+            // Extract timestamp property (ex:modified in this LDES)
+            const store = RdfStore.createDefault();
+            new Parser().parse(record).forEach((q) => store.addQuad(q));
+            const timestampQ = store.getQuads(null, EX.terms.modified)[0];
+            expect(timestampQ).toBeDefined();
+            // Keep track of timestamp for checking order
+            timestamps.push(new Date(timestampQ.object.value).getTime());
+            // Check that out-of-band data is present
+            expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+            count++;
+        });
+
+        // Setup client
+        const exec = await processor(
+            outputStream,
+            LINKED_LIST_LDES,
+            undefined,
+            undefined,
+            "ascending",
+            false,
+            undefined,
+            undefined,
+            false,
+            undefined,
+            false,
+            false,
+            { concurrent: 1 },
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        await exec();
+        // Check we got all members
+        expect(count).toBe(9);
+        // Check result was ordered
+        const isSorted = timestamps.every(
+            (v, i) => i === 0 || v >= timestamps[i - 1],
+        );
+        expect(isSorted).toBeTruthy();
     });
 });
