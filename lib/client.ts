@@ -90,7 +90,7 @@ async function getInfo(
 
     if (shapeIds.length === 0 || timestampPaths.length === 0 || isVersionOfPaths.length === 0) {
         try {
-            logger.debug("Maybe find more info at %s", viewId.value);
+            logger.debug(`Maybe find more info at ${viewId.value}`);
             const resp = await dereferencer.dereference(viewId.value, {
                 localFiles: true,
                 fetch: config.fetch,
@@ -99,9 +99,12 @@ async function getInfo(
             await new Promise((resolve, reject) => {
                 store.import(resp.data).on("end", resolve).on("error", reject);
             });
-            if (!shapeIds.length) {
-                shapeIds = config.noShape ? [] : getObjects(store, null, TREE.terms.shape);
+            
+            const shapeInView = getObjects(store, null, TREE.terms.shape);
+            if (shapeInView) {
+                shapeIds = config.noShape ? [] : shapeInView;
             }
+            
             if (!timestampPaths.length) {
                 timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
             }
