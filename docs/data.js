@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737500461223,
+  "lastUpdate": 1737500791887,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -1145,6 +1145,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6.09,
             "range": "±2.37%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "julian.rojas87@gmail.com",
+            "name": "Julian Rojas",
+            "username": "julianrojas87"
+          },
+          "committer": {
+            "email": "julian.rojas87@gmail.com",
+            "name": "Julian Rojas",
+            "username": "julianrojas87"
+          },
+          "distinct": true,
+          "id": "42661f5645e35513b6e42d508fe80f3bcea28848",
+          "message": "Add README badges",
+          "timestamp": "2025-01-22T00:05:52+01:00",
+          "tree_id": "8b5b0ffcafa744e3a3ee0ab167f3739cddd39a82",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/42661f5645e35513b6e42d508fe80f3bcea28848"
+        },
+        "date": 1737500790827,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.11,
+            "range": "±2.04%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
