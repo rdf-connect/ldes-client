@@ -1,5 +1,7 @@
 # The LDES client
 
+[![Node CI](https://github.com/rdf-connect/ldes-client/actions/workflows/ci-tests.yml/badge.svg)](https://github.com/rdf-connect/ldes-client/actions/workflows/ci-tests.yml) [![npm](https://img.shields.io/npm/v/ldes-client.svg?style=popout)](https://npmjs.com/package/ldes-client)
+
 This package provides common tooling to work with LDESes.
 
 The main functionality is to replicate an LDES, and keeping in-sync with it. It pipes the result to another processor complying to the connector architecture.
