@@ -71,6 +71,7 @@
   },
   "browser": {
     "fs": false,
+    "fs/promises": false,
     "path": false,
     "os": false
   }
