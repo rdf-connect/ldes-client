@@ -3,7 +3,7 @@ import { NamedNode, Parser } from "n3";
 import { BasicLensM, Cont, extractShapes } from "rdf-lens";
 import { RdfStore } from "rdf-stores";
 import { Member } from "../page";
-import { TREE } from "@treecg/types";
+import { TREE, XSD } from "@treecg/types";
 import { SHAPES } from "./shapes";
 import { cbdEquals, Path } from "./range";
 import { getLoggerFor } from "../utils/logUtil";
@@ -78,6 +78,8 @@ export class Range {
         defaultTimezone: string,
         dataType?: string,
     ) {
+        value = this.parseValue(value, dataType);
+
         const tzRegex = /^(AoE|Z|[+-]((0[0-9]|1[0-3]):([0-5][0-9])|14:00))$/;
         if (!tzRegex.test(defaultTimezone)) {
             this.logger.warn(
@@ -134,6 +136,8 @@ export class Range {
     }
 
     add(value: Value, type: string, dataType?: string) {
+        value = this.parseValue(value, dataType);
+
         switch (type) {
             case TREE.EqualToRelation:
                 this.min = value;
@@ -228,10 +232,24 @@ export class Range {
 
     toString(valueToString?: (value: Value) => string): string {
         const vts = valueToString || ((x: Value) => x.toString());
-        const comma = !!this.min && !!this.max ? "," : "";
-        const start = this.min ? (this.eqMin ? "[" : "(") + vts(this.min) : "]";
-        const end = this.max ? vts(this.max) + (this.eqMax ? "]" : ")") : "[";
-        return start + comma + end;
+        const start = this.min ? (this.eqMin ? "[" : "]") + vts(this.min) : "]∞";
+        const end = this.max ? vts(this.max) + (this.eqMax ? "]" : "[") : "∞[";
+        return start + "," + end;
+    }
+
+    parseValue(value: Value, dataType?: string): Value {
+        if (dataType === XSD.dateTime) {
+            return new Date(value);
+        } else if (dataType === XSD.integer) {
+            return parseInt(value.toString());
+        } else if (dataType === XSD.custom("float")) {
+            return parseFloat(value.toString());
+        } else if (dataType === XSD.custom("double")) {
+            return parseFloat(value.toString());
+        } else if (dataType === XSD.custom("decimal")) {
+            return parseFloat(value.toString());
+        }
+        return value;
     }
 }
 
