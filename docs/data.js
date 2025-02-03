@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738357954608,
+  "lastUpdate": 1738597365161,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -1300,6 +1300,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6.08,
             "range": "±2.15%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "arthur.vercruysse@outlook.com",
+            "name": "ajuvercr",
+            "username": "ajuvercr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a4f0ed56c7c87adf2b9494cd9f9c052ed3bca1ff",
+          "message": "fix: remove useless heap (#81)",
+          "timestamp": "2025-02-03T16:42:12+01:00",
+          "tree_id": "53ed85d9e876c5a3ed0ac874e68a6df42a8cd7d3",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/a4f0ed56c7c87adf2b9494cd9f9c052ed3bca1ff"
+        },
+        "date": 1738597364181,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.07,
+            "range": "±3.26%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
