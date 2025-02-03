@@ -48,6 +48,9 @@ export function replicateLDES(
 
 export type LDESInfo = {
     shape: Term;
+    // Note that this store might not contain any or all shape related quadsa
+    // If you want to be sure, the use should dereference the shape (Term) and merge the resulting quads
+    shapeQuads: Term[];
     extractor: CBDShapeExtractor;
     timestampPath?: Term;
     isVersionOfPath?: Term;
@@ -149,18 +152,17 @@ async function getInfo(
         }
     }
 
+    const shapeStore = config.shape ? shapeConfigStore : store;
+
     return {
-        extractor: new CBDShapeExtractor(
-            config.shape ? shapeConfigStore : store,
-            dereferencer,
-            {
-                cbdDefaultGraph: config.onlyDefaultGraph,
-                fetch: config.fetch,
-            },
-        ),
+        extractor: new CBDShapeExtractor(shapeStore, dereferencer, {
+            cbdDefaultGraph: config.onlyDefaultGraph,
+            fetch: config.fetch,
+        }),
         shape: config.shape ? config.shape.shapeId : shapeIds[0],
         timestampPath: timestampPaths[0],
         isVersionOfPath: isVersionOfPaths[0],
+        shapeQuads: shapeStore.getQuads(),
     };
 }
 
@@ -358,7 +360,10 @@ export class Client {
                             }
                         } else {
                             // First time we see this member
-                            versions.set(m.isVersionOf, <Date>m.timestamp);
+                            versions.set(
+                                JSON.parse(JSON.stringify(m.isVersionOf)),
+                                <Date>m.timestamp,
+                            );
                         }
                     }
                     // Check if versioned member is to be materialized
