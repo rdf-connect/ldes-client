@@ -148,6 +148,7 @@ program
 program.parse(process.argv);
 
 async function main() {
+    const t0 = Date.now();
     const logger = getLoggerFor("cli");
     let fragmentCount = 0;
 
@@ -174,48 +175,43 @@ async function main() {
         ordered,
     );
 
-    client.on("fragment", () => {
+    client.on("fragment", (fragment) => {
         fragmentCount += 1;
+        logger.verbose("Fragment! " + fragment.id.value);
     });
 
-    client.on("fragment", () => {
-        logger.verbose("Fragment!");
+    client.on("error", (error) => {
+        console.error("Error", error);
     });
 
-    if (!quiet) {
-        client.on("error", (error) => {
-            console.error("Error", error);
-        });
-    }
 
     const reader = client.stream({ highWaterMark: 10 }).getReader();
-    let el = await reader.read();
+    const writer = new Writer();
+    let streamResult = await reader.read();
     let count = 0;
-    while (el) {
-        if (el.value) {
+    while (streamResult) {
+        if (streamResult.value) {
             count += 1;
 
             if (!quiet) {
-                logger.debug(new Writer().quadsToString(el.value.quads));
+                console.log(writer.quadsToString(streamResult.value.quads));
 
                 if (count % 100 == 1) {
                     logger.verbose(
-                        `Got member ${count} with ${el.value.quads.length} quads`,
+                        `Got member ${count} with ${streamResult.value.quads.length} quads`,
                     );
                 }
             }
         }
 
-        if (el.done) {
+        if (streamResult.done) {
             break;
         }
 
-        el = await reader.read();
+        streamResult = await reader.read();
     }
 
-    if (!quiet) {
-        console.error("Found", count, "members in", fragmentCount, "fragments");
-    }
+    logger.verbose(`Found ${count} members in ${fragmentCount} fragments (took ${Date.now() - t0} ms)`);
 }
 
 main().catch((e) => {

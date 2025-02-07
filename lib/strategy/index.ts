@@ -1,3 +1,4 @@
+import type { NamedNode } from "@rdfjs/types";
 import { Fragment, Member } from "../page";
 import { FetchedPage } from "../pageFetcher";
 import { RelationChain } from "../relation";
@@ -9,7 +10,7 @@ export { OrderedStrategy } from "./ordered";
 /**
  * Predicates representing greater than relations
  */
-export const GTRs = [
+export const GTRs: NamedNode[] = [
     TREE.terms.GreaterThanRelation,
     TREE.terms.GreaterThanOrEqualToRelation,
 ];
@@ -17,7 +18,7 @@ export const GTRs = [
 /**
  * Predicates representing less than relations
  */
-export const LTR = [
+export const LTR: NamedNode[] = [
     TREE.terms.LessThanRelation,
     TREE.terms.LessThanOrEqualToRelation,
 ];

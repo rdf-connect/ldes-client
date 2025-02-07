@@ -50,7 +50,7 @@ export type LDESInfo = {
     shape: Term;
     extractor: CBDShapeExtractor;
     timestampPath?: Term;
-    isVersionOfPath?: Term;
+    versionOfPath?: Term;
 };
 
 async function getInfo(
@@ -63,6 +63,7 @@ async function getInfo(
     const logger = getLoggerFor("getShape");
 
     if (config.shapeFile) {
+        // Shape file is given externally, so we need to fetch it
         const shapeId = config.shapeFile.startsWith("http")
             ? config.shapeFile
             : "file://" + config.shapeFile;
@@ -78,17 +79,32 @@ async function getInfo(
         };
     }
 
-    let shapeIds = config.noShape
-        ? []
-        : getObjects(store, ldesId, TREE.terms.shape);
-    let timestampPaths = getObjects(store, ldesId, LDES.terms.timestampPath);
-    let isVersionOfPaths = getObjects(store, ldesId, LDES.terms.versionOfPath);
+    let shapeIds;
+    let timestampPaths;
+    let versionOfPaths;
+
+    const isLocalDump = ldesId.value.startsWith("file://");
+
+    if (isLocalDump) {
+        // We are dealing with a local dump LDES
+        shapeIds = config.noShape ? [] : getObjects(store, null, TREE.terms.shape);
+        timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
+        versionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
+    } else {
+        // This is a normal LDES on the Web
+        shapeIds = config.noShape ? [] : getObjects(store, ldesId, TREE.terms.shape);
+        timestampPaths = getObjects(store, ldesId, LDES.terms.timestampPath);
+        versionOfPaths = getObjects(store, ldesId, LDES.terms.versionOfPath);
+    }
 
     logger.debug(
-        `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${isVersionOfPaths.length} isVersionOfPaths`,
+        `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${versionOfPaths.length} versionOfPaths`,
     );
 
-    if (shapeIds.length === 0 || timestampPaths.length === 0 || isVersionOfPaths.length === 0) {
+    // Only try to dereference the view if we are not dealing with a local dump
+    if (isLocalDump) {
+        logger.debug("Ignoring view since this is a local dump");
+    } else if (shapeIds.length === 0 || timestampPaths.length === 0 || versionOfPaths.length === 0) {
         try {
             logger.debug(`Maybe find more info at ${viewId.value}`);
             const resp = await dereferencer.dereference(viewId.value, {
@@ -99,20 +115,20 @@ async function getInfo(
             await new Promise((resolve, reject) => {
                 store.import(resp.data).on("end", resolve).on("error", reject);
             });
-            
+
             const shapeInView = getObjects(store, null, TREE.terms.shape);
             if (shapeInView) {
                 shapeIds = config.noShape ? [] : shapeInView;
             }
-            
+
             if (!timestampPaths.length) {
                 timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
             }
-            if (!isVersionOfPaths.length) {
-                isVersionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
+            if (!versionOfPaths.length) {
+                versionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
             }
             logger.debug(
-                `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${isVersionOfPaths.length} isVersionOfPaths`,
+                `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${versionOfPaths.length} isVersionOfPaths`,
             );
         } catch (ex: unknown) {
             logger.error(`Failed to fetch ${ldesId.value}`);
@@ -128,8 +144,8 @@ async function getInfo(
         logger.error(`Expected at most one timestamp path, found ${timestampPaths.length}`);
     }
 
-    if (isVersionOfPaths.length > 1) {
-        logger.error(`Expected at most one versionOf path, found ${isVersionOfPaths.length}`);
+    if (versionOfPaths.length > 1) {
+        logger.error(`Expected at most one versionOf path, found ${versionOfPaths.length}`);
     }
 
     const shapeConfigStore = RdfStore.createDefault();
@@ -142,6 +158,7 @@ async function getInfo(
     } else {
         const shapeId = shapeIds[0];
         if (shapeId && shapeId.termType === 'NamedNode' && store.getQuads(shapeId, null, null).length === 0) {
+            // Dereference out-of-band shape
             const respShape = await rdfDereferencer.dereference(shapeId.value);
             await new Promise((resolve, reject) => {
                 store.import(respShape.data).on("end", resolve).on("error", reject);
@@ -160,7 +177,7 @@ async function getInfo(
         ),
         shape: config.shape ? config.shape.shapeId : shapeIds[0],
         timestampPath: timestampPaths[0],
-        isVersionOfPath: isVersionOfPaths[0],
+        versionOfPath: versionOfPaths[0],
     };
 }
 
@@ -241,7 +258,12 @@ export class Client {
             this.dereferencer,
             this.config.fetch,
         );
-        const ldesId: Term = df.namedNode(this.config.url);
+
+        const isLocalDump = !this.config.url.startsWith("http");
+        
+        const ldesId: Term = isLocalDump
+            ? df.namedNode("file://" + this.config.url) 
+            : df.namedNode(this.config.url);
 
         // TODO Choose a view
         const viewQuads = root.data.getQuads(null, TREE.terms.view, null, null);
@@ -292,7 +314,9 @@ export class Client {
         this.streamId = this.streamId || viewQuads[0].subject;
 
         this.memberManager = new Manager(
-            this.streamId || viewQuads[0].subject,
+            isLocalDump 
+                ? null // Local dump does not have a stream id
+                : this.streamId || viewQuads[0].subject,
             state.item,
             info,
         );
@@ -393,11 +417,11 @@ export class Client {
                     this.config.pollInterval,
                 );
 
-        this.logger.debug(
+        if (!isLocalDump) this.logger.debug(
             `Found ${viewQuads.length} views, choosing ${viewId.value}`,
         );
 
-        this.strategy.start(viewId.value);
+        this.strategy.start(viewId.value, isLocalDump ? root : undefined);
     }
 
     stream(strategy?: {
@@ -458,7 +482,7 @@ export class Client {
         key: K,
         data: ClientEvents[K],
     ) {
-        (this.listeners[key] || []).forEach(function(fn) {
+        (this.listeners[key] || []).forEach(function (fn) {
             fn(data);
         });
     }

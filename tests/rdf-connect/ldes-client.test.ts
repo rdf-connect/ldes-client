@@ -7,8 +7,8 @@ import { Parser } from "n3";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
 import { processor, replicateLDES } from "../../lib/client";
-import { createUriAndTermNamespace, RDF, SDS } from "@treecg/types";
-import { Stream, Transform } from "stream";
+import { createUriAndTermNamespace, RDF, SDS, DC } from "@treecg/types";
+import { Stream } from "stream";
 
 const df = new DataFactory();
 
@@ -17,6 +17,7 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
     const ATYPICAL_LDES = "http://localhost:3000/mock-ldes-atypical.ttl";
     const INBETWEEN_LDES = "http://localhost:3000/mock-ldes-inbetween.ttl";
     const LINKED_LIST_LDES = "http://localhost:3000/mock-ldes-linked-list.ttl";
+    const LOCAL_DUMP_LDES = "./tests/data/ldes-dump.ttl";
     const EX = createUriAndTermNamespace(
         "http://example.org/",
         "Clazz1",
@@ -92,8 +93,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         let count = 0;
         outputStream.data((record) => {
             // Check SDS metadata is present
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
             count++;
         });
 
@@ -129,8 +130,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         let count = 0;
         outputStream.data((record) => {
             // Check SDS metadata is present
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
             count++;
         });
 
@@ -166,8 +167,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         let count = 0;
         outputStream.data((record) => {
             // Check SDS metadata is present
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
             count++;
         });
 
@@ -373,8 +374,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         let count = 0;
         outputStream.data((record) => {
             // Check SDS metadata is present
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             // Check timestamp property (ex:modified in this LDES)
             const store = RdfStore.createDefault();
@@ -423,8 +424,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         let count = 0;
         outputStream.data((record) => {
             // Check SDS metadata is present
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             // Check timestamp property (ex:modified in this LDES)
             const store = RdfStore.createDefault();
@@ -473,8 +474,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         let count = 0;
         outputStream.data((record) => {
             // Check SDS metadata is present
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             // Check timestamp property (ex:modified in this LDES)
             const store = RdfStore.createDefault();
@@ -524,8 +525,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const timestamps: number[] = [];
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             // Extract timestamp property (ex:modified in this LDES)
             const store = RdfStore.createDefault();
@@ -582,8 +583,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const timestamps: number[] = [];
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             // Extract timestamp property (ex:modified in this LDES)
             const store = RdfStore.createDefault();
@@ -640,8 +641,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const timestamps: number[] = [];
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             // Extract timestamp property (ex:modified in this LDES)
             const store = RdfStore.createDefault();
@@ -698,8 +699,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const timestamps: number[] = [];
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             // Extract timestamp property (ex:modified in this LDES)
             const store = RdfStore.createDefault();
@@ -755,8 +756,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const timestamps: number[] = [];
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             // Extract timestamp property (ex:modified in this LDES)
             const store = RdfStore.createDefault();
@@ -812,8 +813,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const timestamps: number[] = [];
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             // Extract timestamp property (ex:modified in this LDES)
             const store = RdfStore.createDefault();
@@ -913,8 +914,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             [EX.Clazz2, false],
         ]);
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             // Extract timestamp property (ex:modified in this LDES)
             const store = RdfStore.createDefault();
@@ -976,8 +977,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             [EX.Clazz2, false],
         ]);
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             // Extract timestamp property (ex:modified in this LDES)
             const store = RdfStore.createDefault();
@@ -1039,8 +1040,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             [EX.Clazz2, false],
         ]);
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             // Extract timestamp property (ex:modified in this LDES)
             const store = RdfStore.createDefault();
@@ -1100,8 +1101,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const observedClasses = new Map<string, boolean>([[EX.Clazz1, false]]);
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -1167,8 +1168,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const observedClasses = new Map<string, boolean>([[EX.Clazz1, false]]);
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -1234,8 +1235,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const observedClasses = new Map<string, boolean>([[EX.Clazz1, false]]);
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -1304,8 +1305,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         ]);
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -1369,8 +1370,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         ]);
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -1434,8 +1435,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         ]);
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -1496,8 +1497,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const observedClasses = new Map<string, boolean>([[EX.Clazz1, false]]);
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -1564,8 +1565,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const observedClasses = new Map<string, boolean>([[EX.Clazz1, false]]);
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -1632,8 +1633,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const observedClasses = new Map<string, boolean>([[EX.Clazz1, false]]);
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -1704,8 +1705,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         ]);
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -1778,8 +1779,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         ]);
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -1852,8 +1853,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         ]);
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -1921,8 +1922,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         let count = 0;
         const memberIds = new Set<string>();
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -1974,8 +1975,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         let count = 0;
         const memberIds = new Set<string>();
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -2027,8 +2028,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         let count = 0;
         const memberIds = new Set<string>();
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -2083,8 +2084,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const memberIds = new Set<string>();
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -2167,8 +2168,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const memberIds = new Set<string>();
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -2251,8 +2252,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const memberIds = new Set<string>();
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -2333,8 +2334,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const memberIds = new Set<string>();
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             // Extract canonical member ID and timestamp
             const store = RdfStore.createDefault();
@@ -2381,8 +2382,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const memberIds = new Set<string>();
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             // Extract canonical member ID and timestamp
             const store = RdfStore.createDefault();
@@ -2429,8 +2430,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const memberIds = new Set<string>();
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             // Extract canonical member ID and timestamp
             const store = RdfStore.createDefault();
@@ -2482,8 +2483,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const memberIds = new Set<string>();
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -2566,8 +2567,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const memberIds = new Set<string>();
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -2650,8 +2651,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const memberIds = new Set<string>();
 
         outputStream.data((record) => {
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             const store = RdfStore.createDefault();
             new Parser().parse(record).forEach((q) => store.addQuad(q));
@@ -2729,9 +2730,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const timestamps: number[] = [];
 
         outputStream.data((record) => {
-            console.log(record);
-            expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
-            expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
 
             // Extract timestamp property (ex:modified in this LDES)
             const store = RdfStore.createDefault();
@@ -2769,6 +2769,100 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         await exec();
         // Check we got all members
         expect(count).toBe(9);
+        // Check result was ordered
+        const isSorted = timestamps.every(
+            (v, i) => i === 0 || v >= timestamps[i - 1],
+        );
+        expect(isSorted).toBeTruthy();
+    });
+
+    test("Fetching a local dump LDES unorder", async () => {
+        const outputStream = new SimpleStream<string>();
+
+        let count = 0;
+        outputStream.data((record) => {
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
+            count++;
+        });
+
+        // Setup client
+        const exec = await processor(
+            outputStream,
+            LOCAL_DUMP_LDES,
+            undefined,
+            undefined,
+            "none",
+            false,
+            undefined,
+            undefined,
+            false,
+            undefined,
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        await exec();
+        // Check we got all members
+        expect(count).toBe(4);
+    });
+
+    test("Fetching local dump LDES in ascending order and with before and after filters", async () => {
+        const outputStream = new SimpleStream<string>();
+
+        let count = 0;
+        const timestamps: number[] = [];
+
+        outputStream.data((record) => {
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
+
+            // Extract timestamp property (ex:modified in this LDES)
+            const store = RdfStore.createDefault();
+            new Parser().parse(record).forEach((q) => store.addQuad(q));
+            const timestampQ = store.getQuads(null, DC.terms.modified)[0];
+            expect(timestampQ).toBeDefined();
+            // Check that member is within date constraints
+            expect(new Date(timestampQ.object.value).getTime()).toBeGreaterThan(
+                new Date("2024-08-22T05:56:57Z").getTime(),
+            );
+            expect(new Date(timestampQ.object.value).getTime()).toBeLessThan(
+                new Date("2024-08-22T07:56:57Z").getTime(),
+            );
+            // Keep track of timestamp for checking order
+            timestamps.push(new Date(timestampQ.object.value).getTime());
+            count++;
+        });
+
+        // Setup client
+        const exec = await processor(
+            outputStream,
+            LOCAL_DUMP_LDES,
+            new Date("2024-08-22T07:56:57Z"),
+            new Date("2024-08-22T05:56:57Z"),
+            "ascending",
+            false,
+            undefined,
+            undefined,
+            false,
+            undefined,
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        await exec();
+        // Check we got some members
+        expect(count).toBe(2);
         // Check result was ordered
         const isSorted = timestamps.every(
             (v, i) => i === 0 || v >= timestamps[i - 1],
