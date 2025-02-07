@@ -2729,7 +2729,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const timestamps: number[] = [];
 
         outputStream.data((record) => {
-            console.log(record);
             expect(record.indexOf(SDS.stream)).toBeGreaterThanOrEqual(0);
             expect(record.indexOf(SDS.payload)).toBeGreaterThanOrEqual(0);
 
