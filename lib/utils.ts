@@ -3,6 +3,7 @@ import {
     Quad,
     Quad_Predicate,
     Quad_Subject,
+    Quad_Object,
     Stream,
     Term,
 } from "@rdfjs/types";
@@ -38,7 +39,7 @@ export function getSubjects(
     predicate: Term | null,
     object: Term | null,
     graph?: Term | null,
-) {
+): Quad_Subject[] {
     return store.getQuads(null, predicate, object, graph).map((quad) => {
         return quad.subject;
     });
@@ -49,7 +50,7 @@ export function getObjects(
     subject: Term | null,
     predicate: Term | null,
     graph?: Term | null,
-) {
+): Quad_Object[] {
     return store.getQuads(subject, predicate, null, graph).map((quad) => {
         return quad.object;
     });
@@ -566,7 +567,7 @@ export function maybeVersionMaterialize(
     materialize: boolean,
     ldesInfo: LDESInfo,
 ): Member {
-    if (materialize && ldesInfo.isVersionOfPath) {
+    if (materialize && ldesInfo.versionOfPath) {
         // Create RDF store with member quads
         const memberStore = RdfStore.createDefault();
         member.quads.forEach((q) => memberStore.addQuad(q));
@@ -574,14 +575,14 @@ export function maybeVersionMaterialize(
         const newSubject = getObjects(
             memberStore,
             member.id,
-            ldesInfo.isVersionOfPath,
+            ldesInfo.versionOfPath,
         )[0];
         if (newSubject) {
             // Remove version property
             memberStore.removeQuad(
                 df.quad(
                     <Quad_Subject>member.id,
-                    <Quad_Predicate>ldesInfo.isVersionOfPath,
+                    <Quad_Predicate>ldesInfo.versionOfPath,
                     newSubject,
                 ),
             );
@@ -602,7 +603,7 @@ export function maybeVersionMaterialize(
             member.quads = memberStore.getQuads();
         } else {
             console.error(
-                `No version property found in Member (${member.id}) as specified by ldes:isVersionOfPath ${ldesInfo.isVersionOfPath}`,
+                `No version property found in Member (${member.id}) as specified by ldes:isVersionOfPath ${ldesInfo.versionOfPath}`,
             );
         }
     }
