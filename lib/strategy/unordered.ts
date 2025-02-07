@@ -91,16 +91,21 @@ export class UnorderedStrategy {
         });
     }
 
-    start(url: string) {
-        this.inFlight = this.modulator.length();
-        if (this.inFlight < 1) {
-            this.inFlight = 1;
-            this.modulator.push({ target: url, expected: [] });
-            this.logger.debug("[start] Nothing in flight, adding start url");
+    start(url: string, root?: FetchedPage) {
+        if (root) {
+            // This is a local dump. Proceed to extract members
+            this.manager.extractMembers(root, {}, this.memberNotifier);
         } else {
-            this.logger.debug(
-                "[start] Things are already inflight, not adding start url",
-            );
+            this.inFlight = this.modulator.length();
+            if (this.inFlight < 1) {
+                this.inFlight = 1;
+                this.modulator.push({ target: url, expected: [] });
+                this.logger.debug("[start] Nothing in flight, adding start url");
+            } else {
+                this.logger.debug(
+                    "[start] Things are already inflight, not adding start url",
+                );
+            }
         }
     }
 
@@ -115,7 +120,7 @@ export class UnorderedStrategy {
 
     private checkEnd() {
         if (this.canceled) return;
-        if (this.inFlight == 0) {
+        if (this.inFlight <= 0) {
             if (this.polling) {
                 setTimeout(() => {
                     if (this.canceled) return;

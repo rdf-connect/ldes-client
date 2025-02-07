@@ -145,7 +145,7 @@ export function extractMainNodeShape(store: RdfStore): NamedNode {
 
 /**
  * Generic interface that represents a structure that ranks elements.
- * Most common is a Priority Queue (heap like) the pops elements in order.
+ * Most common is a Priority Queue (heap like) that pops elements in order.
  * An array is also a Ranker, without ordering.
  */
 export interface Ranker<T> {

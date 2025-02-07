@@ -6,7 +6,7 @@ import { Modulator, ModulatorFactory, Notifier } from "../utils";
 import { RelationChain, SimpleRelation } from "../relation";
 
 import { Ordered } from "../client";
-import { GTRs, LTR, PageAndRelation, StrategyEvents } from ".";
+import { GTRs, LTR, StrategyEvents } from ".";
 import { getLoggerFor } from "../utils/logUtil";
 import { Value } from "../condition";
 import { TREE } from "@treecg/types";
@@ -149,19 +149,19 @@ export class OrderedStrategy {
                         chain: RelationChain;
                         expected: string[];
                     }
-                >inp;
+                    >inp;
                 const cmp =
                     this.ordered === "ascending"
                         ? (a: Value, b: Value) => {
-                              if (a > b) return 1;
-                              if (a < b) return -1;
-                              return 0;
-                          }
+                            if (a > b) return 1;
+                            if (a < b) return -1;
+                            return 0;
+                        }
                         : (a: Value, b: Value) => {
-                              if (a > b) return -1;
-                              if (a < b) return 1;
-                              return 0;
-                          };
+                            if (a > b) return -1;
+                            if (a < b) return 1;
+                            return 0;
+                        };
 
                 return {
                     chain: new RelationChain(
@@ -197,42 +197,47 @@ export class OrderedStrategy {
         }
     }
 
-    start(url: string) {
-        this.logger.debug(`Starting at ${url}`);
-        const cmp = (a: Value, b: Value) => {
-            if (a > b) return 1;
-            if (a < b) return -1;
-            return 0;
-        };
-
-        if (this.ordered === "ascending") {
-            this.fetch(
-                new RelationChain(
-                    "",
-                    url,
-                    [],
-                    undefined,
-                    (a, b) => +1 * cmp(a, b),
-                ).push(url, {
-                    important: false,
-                    value: 0,
-                }),
-                [],
-            );
+    start(url: string, root?: FetchedPage) {
+        if (root) {
+            // This is a local dump. Proceed to extract members
+            this.manager.extractMembers(root, new RelationChain("", ""), this.memberNotifer);
         } else {
-            this.fetch(
-                new RelationChain(
-                    "",
-                    url,
+            this.logger.debug(`Starting at ${url}`);
+            const cmp = (a: Value, b: Value) => {
+                if (a > b) return 1;
+                if (a < b) return -1;
+                return 0;
+            };
+
+            if (this.ordered === "ascending") {
+                this.fetch(
+                    new RelationChain(
+                        "",
+                        url,
+                        [],
+                        undefined,
+                        (a, b) => +1 * cmp(a, b),
+                    ).push(url, {
+                        important: false,
+                        value: 0,
+                    }),
                     [],
-                    undefined,
-                    (a, b) => -1 * cmp(a, b),
-                ).push(url, {
-                    important: false,
-                    value: 0,
-                }),
-                [],
-            );
+                );
+            } else {
+                this.fetch(
+                    new RelationChain(
+                        "",
+                        url,
+                        [],
+                        undefined,
+                        (a, b) => -1 * cmp(a, b),
+                    ).push(url, {
+                        important: false,
+                        value: 0,
+                    }),
+                    [],
+                );
+            }
         }
     }
 

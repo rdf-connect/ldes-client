@@ -39,7 +39,7 @@ export class Manager {
 
     private closed = false;
     private resolve?: () => void;
-    private ldesId: Term;
+    private ldesId: Term | null;
 
     private state: Set<string>;
     private extractor: CBDShapeExtractor;
@@ -50,22 +50,33 @@ export class Manager {
 
     private logger = getLoggerFor(this);
 
-    constructor(ldesId: Term, state: Set<string>, info: LDESInfo) {
+    constructor(ldesId: Term | null, state: Set<string>, info: LDESInfo) {
         this.ldesId = ldesId;
         this.state = state;
         this.extractor = info.extractor;
         this.timestampPath = info.timestampPath;
-        this.isVersionOfPath = info.isVersionOfPath;
+        this.isVersionOfPath = info.versionOfPath;
         this.shapeId = info.shape;
 
-        this.logger.debug(
-            `new ${ldesId.value} ${JSON.stringify({
-                extractor: info.extractor.constructor.name,
-                shape: info.shape,
-                timestampPath: info.timestampPath,
-                isVersionOfPath: info.isVersionOfPath,
-            })}`,
-        );
+        if (!this.ldesId) {
+            this.logger.debug(
+                `new local dump member extractor ${JSON.stringify({
+                    extractor: info.extractor.constructor.name,
+                    shape: info.shape,
+                    timestampPath: info.timestampPath,
+                    isVersionOfPath: info.versionOfPath,
+                })}`
+            );
+        } else {
+            this.logger.debug(
+                `new member extractor for ${this.ldesId.value} ${JSON.stringify({
+                    extractor: info.extractor.constructor.name,
+                    shape: info.shape,
+                    timestampPath: info.timestampPath,
+                    isVersionOfPath: info.versionOfPath,
+                })}`,
+            );
+        }
     }
 
     // Extract members found in this page, this does not yet emit the members
@@ -127,7 +138,7 @@ export class Manager {
             this.logger.debug("All members extracted");
             if (!this.closed) {
                 notifier.done(
-                    {id: namedNode(page.url), created: pageCreated, updated: pageUpdated},
+                    { id: namedNode(page.url), created: pageCreated, updated: pageUpdated },
                     state,
                 );
             }
