@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738664370496,
+  "lastUpdate": 1738948396094,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -1362,6 +1362,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6.05,
             "range": "±2.13%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "julian.rojas87@gmail.com",
+            "name": "Julian Rojas",
+            "username": "julianrojas87"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2f7b16eb09194ea1d203508afe110778499b9a6c",
+          "message": "Merge pull request #82 from rdf-connect/feat/replicate-dump\n\nv0.1.0",
+          "timestamp": "2025-02-07T18:12:45+01:00",
+          "tree_id": "43bbabef11fe817653dc4b64cad52b9ded21c244",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/2f7b16eb09194ea1d203508afe110778499b9a6c"
+        },
+        "date": 1738948395718,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.06,
+            "range": "±2.20%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
