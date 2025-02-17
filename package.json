@@ -13,7 +13,8 @@
   },
   "scripts": {
     "build": "tsc && tsc-alias && rollup ./dist/lib/client.js --file ./dist/lib/client.cjs --format cjs",
-    "test": "vitest run --coverage --coverage.include lib"
+    "test": "vitest run --coverage --coverage.include lib",
+    "prepublishOnly": "npm run build"
   },
   "files": [
     "dist/**/*",
