@@ -10,7 +10,7 @@
 js:LdesClient a js:JsProcess;
   dc:title "ldes client";
   dc:description "";
-  js:file <./dist/lib/client.js>;
+  js:file <./dist/lib/rdfc-processor.js>;
   js:function "processor";
   js:location <./>;
   js:mapping [
@@ -79,6 +79,10 @@ js:LdesClient a js:JsProcess;
       a fnom:PositionParameterMapping;
       fnom:functionParameter "lastVersionOnly";
       fnom:implementationParameterPosition "15"^^xsd:int;
+    ], [
+      a fnom:PositionParameterMapping;
+      fnom:functionParameter "streamId";
+      fnom:implementationParameterPosition "16"^^xsd:int;
     ];
   ].
 
@@ -217,6 +221,11 @@ js:LdesClient a js:JsProcess;
     sh:datatype xsd:boolean;
     sh:path js:lastVersionOnly;
     sh:name "lastVersionOnly";
+    sh:maxCount 1;
+  ], [
+    sh:datatype xsd:string;
+    sh:path js:streamId;
+    sh:name "streamId";
     sh:maxCount 1;
   ].
 
