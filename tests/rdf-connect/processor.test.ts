@@ -50,7 +50,8 @@ describe("Tests for js:LdesClient processor", async () => {
       ];
       js:conditionFile </path/to/condition.ttl>;
       js:materialize true;
-      js:lastVersionOnly true.
+      js:lastVersionOnly true;
+      js:streamId "MyStream".
     `;
 
         const source: Source = {
@@ -72,7 +73,7 @@ describe("Tests for js:LdesClient processor", async () => {
 
         const argss = extractSteps(env, quads, config);
         expect(argss.length).toBe(1);
-        expect(argss[0].length).toBe(16);
+        expect(argss[0].length).toBe(17);
 
         const [
             [
@@ -91,7 +92,8 @@ describe("Tests for js:LdesClient processor", async () => {
                 fetch_config,
                 conditionFile,
                 materialize,
-                lastVersionOnly
+                lastVersionOnly,
+                streamId
             ],
         ] = argss;
 
@@ -122,6 +124,7 @@ describe("Tests for js:LdesClient processor", async () => {
         expect(conditionFile).toBe("/path/to/condition.ttl");
         expect(materialize).toBeTruthy();
         expect(lastVersionOnly).toBeTruthy();
+        expect(streamId).toBe("MyStream");
 
         await checkProc(env.file, env.func);
     });

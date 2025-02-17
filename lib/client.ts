@@ -5,24 +5,20 @@ import { FileStateFactory, NoStateFactory, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
-import { Writer as NWriter } from "n3";
-import { Quad_Object, Term } from "@rdfjs/types";
+import { Term } from "@rdfjs/types";
 import {
-    enhanced_fetch,
     extractMainNodeShape,
     getObjects,
     handleConditions,
     maybeVersionMaterialize,
     ModulatorFactory,
     Notifier,
-    processConditionFile,
     streamToArray,
 } from "./utils";
-import { LDES, SDS, TREE } from "@treecg/types";
+import { LDES, TREE } from "@treecg/types";
 import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
 import { Manager } from "./memberManager";
 import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
-import type { Writer } from "@rdfc/js-runner";
 import { getLoggerFor } from "./utils/logUtil";
 
 export { intoConfig } from "./config";
@@ -279,6 +275,10 @@ export class Client {
             }
         }
 
+        // This is the ID of the stream of data we are replicating. 
+        // Normally it corresponds to the actual LDES IRI, unless externally specified.
+        this.streamId = this.streamId || viewQuads[0].subject;
+
         const info = await getInfo(
             ldesId,
             viewId,
@@ -311,12 +311,10 @@ export class Client {
             )
             : undefined;
 
-        this.streamId = this.streamId || viewQuads[0].subject;
-
         this.memberManager = new Manager(
             isLocalDump 
-                ? null // Local dump does not have a stream id
-                : this.streamId || viewQuads[0].subject,
+                ? null // Local dump does not need to dereference a view
+                : viewQuads[0].subject, // Point to the actual LDES IRI
             state.item,
             info,
         );
@@ -503,111 +501,4 @@ async function fetchPage(
         data.import(resp.data).on("end", resolve).on("error", reject);
     });
     return <FetchedPage>{ url, data };
-}
-
-export async function processor(
-    writer: Writer<string>,
-    url: string,
-    before?: Date,
-    after?: Date,
-    ordered?: string,
-    follow?: boolean,
-    pollInterval?: number,
-    shape?: string,
-    noShape?: boolean,
-    save?: string,
-    loose?: boolean,
-    urlIsView?: boolean,
-    fetch_config?: {
-        auth?: {
-            type: "basic";
-            auth: string;
-            host: string;
-        };
-        concurrent?: number;
-        retry?: {
-            codes: number[];
-            maxRetries: number;
-        };
-    },
-    condition?: string,
-    materialize?: boolean,
-    lastVersionOnly?: boolean,
-) {
-    const logger = getLoggerFor("processor");
-
-    if (fetch_config?.auth) {
-        fetch_config.auth.host = new URL(url).host;
-    }
-    const client = replicateLDES(
-        {
-            loose,
-            noShape,
-            shapeFile: shape,
-            polling: follow,
-            url: url,
-            stateFile: save,
-            pollInterval: pollInterval,
-            urlIsView,
-            after,
-            before,
-            fetch: fetch_config ? enhanced_fetch(fetch_config) : fetch,
-            materialize,
-            lastVersionOnly,
-            condition: await processConditionFile(condition),
-        },
-        <Ordered>ordered || "none",
-    );
-
-    client.on("fragment", () => logger.verbose("Fragment!"));
-
-    const reader = client.stream({ highWaterMark: 10 }).getReader();
-
-    writer.on("end", async () => {
-        await reader.cancel();
-        logger.info("Writer closed, so closing reader as well.");
-    });
-
-    return async () => {
-        let el = await reader.read();
-        const seen = new Set();
-        while (el) {
-            if (el.value) {
-                seen.add(el.value.id);
-
-                if (seen.size % 100 == 1) {
-                    logger.verbose(
-                        `Got member ${seen.size} with ${el.value.quads.length} quads`,
-                    );
-                }
-
-                const blank = df.blankNode();
-                const quads = el.value.quads.slice();
-                quads.push(
-                    df.quad(
-                        blank,
-                        SDS.terms.stream,
-                        <Quad_Object>client.streamId!,
-                        SDS.terms.custom("DataDescription"),
-                    ),
-                    df.quad(
-                        blank,
-                        SDS.terms.payload,
-                        <Quad_Object>el.value.id!,
-                        SDS.terms.custom("DataDescription"),
-                    ),
-                );
-
-                await writer.push(new NWriter().quadsToString(quads));
-            }
-
-            if (el.done) {
-                break;
-            }
-
-            el = await reader.read();
-        }
-
-        logger.verbose(`Found ${seen.size} members`);
-    };
 }

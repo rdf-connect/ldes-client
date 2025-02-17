@@ -6,7 +6,8 @@ import { fastifyStatic } from "@fastify/static";
 import { Parser } from "n3";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
-import { processor, replicateLDES } from "../../lib/client";
+import { replicateLDES } from "../../lib/client";
+import { processor } from "../../lib/rdfc-processor";
 import { createUriAndTermNamespace, RDF, SDS, DC } from "@treecg/types";
 import { Stream } from "stream";
 
