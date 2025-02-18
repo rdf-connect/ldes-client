@@ -119,5 +119,7 @@ export async function processor(
         }
 
         logger.verbose(`Found ${seen.size} members`);
+        // Close downstream channel
+        await writer.end();
     };
 }
