@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739828901322,
+  "lastUpdate": 1739883236736,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -1517,6 +1517,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6.03,
             "range": "±2.25%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "smessie@smessie.com",
+            "name": "smessie",
+            "username": "smessie"
+          },
+          "committer": {
+            "email": "smessie@smessie.com",
+            "name": "smessie",
+            "username": "smessie"
+          },
+          "distinct": true,
+          "id": "b9df13a69cf395783002bd3837341d0aaf03eb3e",
+          "message": "ci: Run tests on renovate branches to reduce PR noise and update Action",
+          "timestamp": "2025-02-18T13:53:21+01:00",
+          "tree_id": "3957500b19377f4ae637e18db228d4f2a54820ec",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/b9df13a69cf395783002bd3837341d0aaf03eb3e"
+        },
+        "date": 1739883236432,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.04,
+            "range": "±2.36%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
