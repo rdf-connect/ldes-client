@@ -177,7 +177,7 @@ export class Fetcher {
                 notifier.pageFetched({ data, url: resp.url }, state);
             }
         } catch (ex) {
-            this.logger.error(`[fetch] Fetch failed ${JSON.stringify(ex)}`);
+            this.logger.error(`[fetch] Fetch failed for ${node.target} ${JSON.stringify(ex)}`);
             notifier.error(ex, state);
         }
     }

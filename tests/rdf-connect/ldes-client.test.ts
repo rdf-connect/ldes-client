@@ -2896,7 +2896,44 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             false,
             undefined,
             false,
+            true,
+            undefined,
+            undefined,
             false,
+            false,
+        );
+
+        // Run client
+        await exec();
+        // Expect all members
+        expect(count).toBe(12);
+    });
+
+    test("Fetching members in order from a minimal view of an LDES work by finding info at LDES URI", async () => {
+        const outputStream = new SimpleStream<string>();
+
+        let count = 0;
+        outputStream.data((record) => {
+            // Check SDS metadata is present
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
+            count++;
+        });
+
+        // Setup client
+        const exec = await processor(
+            outputStream,
+            LDES_MINIMAL_VIEW,
+            undefined,
+            undefined,
+            "ascending",
+            false,
+            undefined,
+            undefined,
+            false,
+            undefined,
+            false,
+            true,
             undefined,
             undefined,
             false,
