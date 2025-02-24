@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740399303636,
+  "lastUpdate": 1740399324450,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -1641,6 +1641,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6.02,
             "range": "±2.32%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "29139614+renovate[bot]@users.noreply.github.com",
+            "name": "renovate[bot]",
+            "username": "renovate[bot]"
+          },
+          "committer": {
+            "email": "smessie@users.noreply.github.com",
+            "name": "Ieben Smessaert",
+            "username": "smessie"
+          },
+          "distinct": true,
+          "id": "a55ab56248c17e0328ce6b0700ccff2ffe8c3062",
+          "message": "fix(deps): update dependency rdf-data-factory to v2",
+          "timestamp": "2025-02-24T13:14:45+01:00",
+          "tree_id": "88cd45c5331458764e040ecadb7a8efa2286d5fb",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/a55ab56248c17e0328ce6b0700ccff2ffe8c3062"
+        },
+        "date": 1740399323908,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.04,
+            "range": "±2.27%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
