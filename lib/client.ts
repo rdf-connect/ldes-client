@@ -101,9 +101,13 @@ async function getInfo(
     if (isLocalDump) {
         logger.debug("Ignoring view since this is a local dump");
     } else if (shapeIds.length === 0 || timestampPaths.length === 0 || versionOfPaths.length === 0) {
+        let tryAgainUrl = viewId.value;
+        if (config.urlIsView) {
+            tryAgainUrl = ldesId.value;
+        }
         try {
-            logger.debug(`Maybe find more info at ${viewId.value}`);
-            const resp = await dereferencer.dereference(viewId.value, {
+            logger.debug(`Maybe find more info at ${tryAgainUrl}`);
+            const resp = await dereferencer.dereference(tryAgainUrl, {
                 localFiles: true,
                 fetch: config.fetch,
             });
@@ -127,7 +131,7 @@ async function getInfo(
                 `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${versionOfPaths.length} isVersionOfPaths`,
             );
         } catch (ex: unknown) {
-            logger.error(`Failed to fetch ${ldesId.value}`);
+            logger.error(`Failed to fetch ${tryAgainUrl}`);
             logger.error(ex);
         }
     }
@@ -275,16 +279,16 @@ export class Client {
             }
         }
 
-        // This is the ID of the stream of data we are replicating.
-        // Normally it corresponds to the actual LDES IRI, unless externally specified.
         const ldesUri = viewQuads[0]?.subject || root.data.getQuads(null, RDF.terms.type, LDES.terms.EventStream)[0].subject;
         if (!ldesUri) {
             this.logger.error("Could not find the LDES URI in the RDF.");
         }
+        // This is the ID of the stream of data we are replicating.
+        // Normally it corresponds to the actual LDES IRI, unless externally specified.
         this.streamId = this.streamId || ldesUri;
 
         const info = await getInfo(
-            ldesId,
+            ldesUri,
             viewId,
             root.data,
             this.dereferencer,
