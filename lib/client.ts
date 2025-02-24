@@ -15,7 +15,7 @@ import {
     Notifier,
     streamToArray,
 } from "./utils";
-import { LDES, TREE } from "@treecg/types";
+import { LDES, RDF, TREE } from "@treecg/types";
 import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
 import { Manager } from "./memberManager";
 import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
@@ -256,9 +256,9 @@ export class Client {
         );
 
         const isLocalDump = !this.config.url.startsWith("http");
-        
+
         const ldesId: Term = isLocalDump
-            ? df.namedNode("file://" + this.config.url) 
+            ? df.namedNode("file://" + this.config.url)
             : df.namedNode(this.config.url);
 
         // TODO Choose a view
@@ -275,9 +275,13 @@ export class Client {
             }
         }
 
-        // This is the ID of the stream of data we are replicating. 
+        // This is the ID of the stream of data we are replicating.
         // Normally it corresponds to the actual LDES IRI, unless externally specified.
-        this.streamId = this.streamId || viewQuads[0].subject;
+        const ldesUri = viewQuads[0]?.subject || root.data.getQuads(null, RDF.terms.type, LDES.terms.EventStream)[0].subject;
+        if (!ldesUri) {
+            this.logger.error("Could not find the LDES URI in the RDF.");
+        }
+        this.streamId = this.streamId || ldesUri;
 
         const info = await getInfo(
             ldesId,
@@ -312,9 +316,9 @@ export class Client {
             : undefined;
 
         this.memberManager = new Manager(
-            isLocalDump 
+            isLocalDump
                 ? null // Local dump does not need to dereference a view
-                : viewQuads[0].subject, // Point to the actual LDES IRI
+                : ldesUri, // Point to the actual LDES IRI
             state.item,
             info,
         );

@@ -19,6 +19,7 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
     const INBETWEEN_LDES = "http://localhost:3000/mock-ldes-inbetween.ttl";
     const LINKED_LIST_LDES = "http://localhost:3000/mock-ldes-linked-list.ttl";
     const LOCAL_DUMP_LDES = "./tests/data/ldes-dump.ttl";
+    const LDES_MINIMAL_VIEW = "http://localhost:3000/mock-ldes-minimal-view-0.ttl";
     const EX = createUriAndTermNamespace(
         "http://example.org/",
         "Clazz1",
@@ -2869,5 +2870,42 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             (v, i) => i === 0 || v >= timestamps[i - 1],
         );
         expect(isSorted).toBeTruthy();
+    });
+
+    test("Fetching members from a minimal view of an LDES work without the tree:view triple if the rdf:type ldes:EventStream is present", async () => {
+        const outputStream = new SimpleStream<string>();
+
+        let count = 0;
+        outputStream.data((record) => {
+            // Check SDS metadata is present
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
+            count++;
+        });
+
+        // Setup client
+        const exec = await processor(
+            outputStream,
+            LDES_MINIMAL_VIEW,
+            undefined,
+            undefined,
+            "none",
+            false,
+            undefined,
+            undefined,
+            false,
+            undefined,
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        await exec();
+        // Expect all members
+        expect(count).toBe(12);
     });
 });
