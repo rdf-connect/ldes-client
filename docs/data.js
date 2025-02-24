@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740399324450,
+  "lastUpdate": 1740399652188,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -1672,6 +1672,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6.04,
             "range": "±2.27%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "smessie@smessie.com",
+            "name": "smessie",
+            "username": "smessie"
+          },
+          "committer": {
+            "email": "smessie@users.noreply.github.com",
+            "name": "Ieben Smessaert",
+            "username": "smessie"
+          },
+          "distinct": true,
+          "id": "5851eaa1665379837fde2e5e75ea3b53fd06da3b",
+          "message": "fix(deps): update dependency rdf-stores to v2",
+          "timestamp": "2025-02-24T13:20:19+01:00",
+          "tree_id": "9e9335da81916f92dd6f7d3731648af21fcd80dc",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/5851eaa1665379837fde2e5e75ea3b53fd06da3b"
+        },
+        "date": 1740399651190,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.03,
+            "range": "±2.36%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
