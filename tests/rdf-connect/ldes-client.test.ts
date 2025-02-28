@@ -80,7 +80,7 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
                 `Mock server listening on ${server.addresses()[0].port}`,
             );
         } catch (err) {
-            server.log.error(err);
+            console.error(err);
             process.exit(1);
         }
     });
@@ -2944,5 +2944,49 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         await exec();
         // Expect all members
         expect(count).toBe(12);
+    });
+
+    test("Writer channel is closed upon completion", async () => {
+        const outputStream = new SimpleStream<string>();
+
+        let count = 0;
+        outputStream.data((record) => {
+            // Check SDS metadata is present
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
+            count++;
+        });
+
+        let finished = false;
+        outputStream.on("end", () => {
+            finished = true;
+        });
+
+        // Setup client
+        const exec = await processor(
+            outputStream,
+            LDES,
+            undefined,
+            undefined,
+            "none",
+            false,
+            undefined,
+            undefined,
+            false,
+            undefined,
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        await exec();
+        // Expect all members
+        expect(count).toBe(12);
+        // Expect output stream to be closed
+        expect(finished).toBeTruthy();
     });
 });
