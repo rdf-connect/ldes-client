@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740636203434,
+  "lastUpdate": 1740710410725,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -1858,6 +1858,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6,
             "range": "±2.28%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "29139614+renovate[bot]@users.noreply.github.com",
+            "name": "renovate[bot]",
+            "username": "renovate[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fa4c00f814da85ce80dc470c2a518a3706ccbe2b",
+          "message": "chore(deps): update dependency eslint-config-prettier to ^10.0.2",
+          "timestamp": "2025-02-27T23:21:10Z",
+          "tree_id": "e3759e9423edbcbb62acc4b67ca15599b0440c1c",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/fa4c00f814da85ce80dc470c2a518a3706ccbe2b"
+        },
+        "date": 1740710409778,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 5.99,
+            "range": "±2.39%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
