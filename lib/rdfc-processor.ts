@@ -119,5 +119,8 @@ export async function processor(
         }
 
         logger.verbose(`Found ${seen.size} members`);
+        
+        // We extracted all members, so we can close the writer
+        await writer.end();
     };
 }
