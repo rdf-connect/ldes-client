@@ -20,6 +20,7 @@ import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
 import { Manager } from "./memberManager";
 import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
 import { getLoggerFor } from "./utils/logUtil";
+import { handleExit } from "./exitHandler";
 
 export { intoConfig } from "./config";
 export { enhanced_fetch, extractMainNodeShape, retry_fetch } from "./utils";
@@ -229,10 +230,10 @@ export class Client {
         this.modulatorFactory = new ModulatorFactory(this.stateFactory);
 
         if (typeof process !== "undefined") {
-            process.on("SIGINT", () => {
-                this.logger.info("Caught interrupt signal, saving");
+            // Handle exit gracefully
+            handleExit(() => {
+                // Save state if any
                 this.stateFactory.write();
-                process.exit();
             });
         }
     }
