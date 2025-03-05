@@ -50,6 +50,7 @@ export class OrderedStrategy {
     private polling: boolean;
     private toPoll: Heap<{ chain: RelationChain; expected: string[] }>;
     private pollInterval?: number;
+    private pollingIsScheduled: boolean;
 
     private cancled = false;
 
@@ -70,6 +71,7 @@ export class OrderedStrategy {
         this.notifier = notifier;
         this.polling = polling;
         this.pollInterval = pollInterval;
+        this.pollingIsScheduled = false;
 
         this.toPoll = new Heap((a, b) => a.chain.ordering(b.chain));
         this.launchedRelations = new Heap((a, b) => a.ordering(b));
@@ -86,6 +88,7 @@ export class OrderedStrategy {
                 this.notifier.error(error, {});
             },
             scheduleFetch: ({ target, expected }, { chain }) => {
+                this.logger.debug(`Scheduling fetch for mutable page: ${target}`);
                 chain.target = target;
                 this.toPoll.push({ chain, expected });
                 this.notifier.mutable({}, {});
@@ -257,11 +260,13 @@ export class OrderedStrategy {
                 member = this.members.pop();
             }
 
-            if (this.polling) {
-                this.logger.debug("Polling is enabled, settings timeout");
+            // Make sure polling task is only scheduled once
+            if (this.polling && !this.pollingIsScheduled) {
+                this.logger.debug(`Polling is enabled, setting timeout of ${this.pollInterval || 1000} ms to poll`);
                 setTimeout(() => {
                     if (this.cancled) return;
 
+                    this.pollingIsScheduled = false;
                     this.notifier.pollCycle({}, {});
                     const toPollArray = this.toPoll.toArray();
                     this.logger.debug(
@@ -278,6 +283,7 @@ export class OrderedStrategy {
                         this.modulator.push(rel);
                     }
                 }, this.pollInterval || 1000);
+                this.pollingIsScheduled = true;
             } else {
                 this.logger.debug("Closing the notifier, polling is not set");
                 this.cancled = true;

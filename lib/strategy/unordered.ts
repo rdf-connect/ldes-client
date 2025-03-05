@@ -21,6 +21,7 @@ export class UnorderedStrategy {
     private cacheList: Node[] = [];
     private polling: boolean;
     private pollInterval?: number;
+    private pollingIsScheduled: boolean;
 
     private canceled = false;
 
@@ -39,6 +40,7 @@ export class UnorderedStrategy {
         this.manager = memberManager;
         this.fetcher = fetcher;
         this.polling = polling;
+        this.pollingIsScheduled = false;
 
         // Callbacks for the fetcher
         // - seen: the strategy wanted to fetch an uri, but it was already seen
@@ -52,6 +54,7 @@ export class UnorderedStrategy {
                 this.notifier.error(error, {});
             },
             scheduleFetch: (node: Node) => {
+                this.logger.debug(`Scheduling fetch for mutable page: ${node.target}`);
                 this.cacheList.push(node);
                 this.notifier.mutable({}, {});
             },
@@ -121,10 +124,13 @@ export class UnorderedStrategy {
     private checkEnd() {
         if (this.canceled) return;
         if (this.inFlight <= 0) {
-            if (this.polling) {
+            // Make sure we don't schedule multiple polling cycles
+            if (this.polling && !this.pollingIsScheduled) {
+                this.logger.debug(`Polling is enabled, setting timeout of ${this.pollInterval || 1000} ms to poll`);
                 setTimeout(() => {
                     if (this.canceled) return;
 
+                    this.pollingIsScheduled = false;
                     this.notifier.pollCycle({}, {});
                     const cl = this.cacheList.slice();
                     this.cacheList = [];
@@ -133,6 +139,7 @@ export class UnorderedStrategy {
                         this.modulator.push(cache);
                     }
                 }, this.pollInterval || 1000);
+                this.pollingIsScheduled = true;
             } else {
                 this.logger.debug("Closing the notifier, polling is not set");
                 this.canceled = true;
