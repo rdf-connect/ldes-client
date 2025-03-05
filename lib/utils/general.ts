@@ -4,11 +4,8 @@ import { DataFactory } from "rdf-data-factory";
 import { RDF, SHACL } from "@treecg/types";
 import { getLoggerFor } from "./logUtil";
 
-import type { LDESInfo, Member } from "../fetcher";
 import type {
     NamedNode,
-    Quad,
-    Quad_Predicate,
     Quad_Subject,
     Quad_Object,
     Stream,
@@ -138,96 +135,4 @@ export function urlToUrl(input: Parameters<typeof fetch>[0]): URL {
     } else {
         throw "Not a real url";
     }
-}
-
-export function memberFromQuads(
-    member: Term,
-    quads: Quad[],
-    timestampPath: Term | undefined,
-    isVersionOfPath: Term | undefined,
-    created?: Date,
-): Member {
-    // Get timestamp
-    let timestamp: string | Date | undefined;
-    if (timestampPath) {
-        const ts = quads.find(
-            (x) =>
-                x.subject.equals(member) && x.predicate.equals(timestampPath),
-        )?.object.value;
-        if (ts) {
-            try {
-                timestamp = new Date(ts);
-            } catch (ex: unknown) {
-                timestamp = ts;
-            }
-        }
-    }
-
-    // Get isVersionof
-    let isVersionOf: string | undefined;
-    if (isVersionOfPath) {
-        isVersionOf = quads.find(
-            (x) =>
-                x.subject.equals(member) && x.predicate.equals(isVersionOfPath),
-        )?.object.value;
-    }
-
-    // Get type
-    const type: Term | undefined = quads.find(
-        (x) => x.subject.equals(member) && x.predicate.value === RDF.type,
-    )?.object;
-    return { quads, id: member, isVersionOf, timestamp, type, created };
-}
-
-/**
- * Version materialization function that sets the declared ldes:versionOfPath property value
- * as the member's subject IRI
- */
-export function maybeVersionMaterialize(
-    member: Member,
-    materialize: boolean,
-    ldesInfo: LDESInfo,
-): Member {
-    if (materialize && ldesInfo.versionOfPath) {
-        // Create RDF store with member quads
-        const memberStore = RdfStore.createDefault();
-        member.quads.forEach((q) => memberStore.addQuad(q));
-        // Get materialized subject IRI
-        const newSubject = getObjects(
-            memberStore,
-            member.id,
-            ldesInfo.versionOfPath,
-        )[0];
-        if (newSubject) {
-            // Remove version property
-            memberStore.removeQuad(
-                df.quad(
-                    <Quad_Subject>member.id,
-                    <Quad_Predicate>ldesInfo.versionOfPath,
-                    newSubject,
-                ),
-            );
-            // Updated all quads with materialized subject
-            for (const q of memberStore.getQuads(member.id)) {
-                //q.subject = <Quad_Subject>newSubject;
-                const newQ = df.quad(
-                    <Quad_Subject>newSubject,
-                    q.predicate,
-                    q.object,
-                    q.graph,
-                );
-                memberStore.removeQuad(q);
-                memberStore.addQuad(newQ);
-            }
-            // Update member object
-            member.id = newSubject;
-            member.quads = memberStore.getQuads();
-        } else {
-            console.error(
-                `No version property found in Member (${member.id}) as specified by ldes:isVersionOfPath ${ldesInfo.versionOfPath}`,
-            );
-        }
-    }
-
-    return member;
 }

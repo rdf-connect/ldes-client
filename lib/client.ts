@@ -12,12 +12,12 @@ import {
     Fetcher,
     longPromise,
     resetPromise,
-    Manager
+    Manager,
+    maybeVersionMaterialize,
 } from "./fetcher";
 import {
     extractMainNodeShape,
     getObjects,
-    maybeVersionMaterialize,
     streamToArray,
     getLoggerFor,
     handleExit

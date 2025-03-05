@@ -3,7 +3,8 @@ import { CBDShapeExtractor } from "extract-cbd-shape";
 import { DataFactory } from "rdf-data-factory";
 import { RdfStore } from "rdf-stores";
 import { RelationCondition } from "../condition";
-import { getObjects, memberFromQuads, getLoggerFor } from "../utils";
+import { getObjects, getLoggerFor } from "../utils";
+import { memberFromQuads } from "./memberManager";
 
 import type { Quad, Term } from "@rdfjs/types";
 import type { State } from "../state";
