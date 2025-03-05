@@ -69,7 +69,7 @@ export async function processor(
         streamId ? df.namedNode(streamId) : undefined,
     );
 
-    client.on("fragment", () => logger.verbose("Fragment!"));
+    client.on("fragment", (fragment) => logger.verbose(`Got fragment: ${fragment.id.value}`));
 
     const reader = client.stream({ highWaterMark: 10 }).getReader();
 
