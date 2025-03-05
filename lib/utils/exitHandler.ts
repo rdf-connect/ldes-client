@@ -1,4 +1,4 @@
-import { getLoggerFor } from "./utils/logUtil";
+import { getLoggerFor } from "./logUtil";
 
 const logger = getLoggerFor("ExitHandler");
 

@@ -1,13 +1,14 @@
-import { getLoggerFor } from "./utils/logUtil";
-import { replicateLDES } from "./client";
-import { enhanced_fetch, processConditionFile } from "./utils";
 import { DataFactory } from "rdf-data-factory";
 import { SDS } from "@treecg/types";
 import { Writer as NWriter } from "n3";
+import { replicateLDES } from "./client";
+import { enhanced_fetch } from "./fetcher"
+import { processConditionFile } from "./condition";
+import { getLoggerFor } from "./utils";
 
 import type { Writer } from "@rdfc/js-runner";
 import type { Quad_Object } from "@rdfjs/types";
-import type { Ordered } from "./client";
+import type { Ordered } from "./strategy";
 
 const df = new DataFactory();
 

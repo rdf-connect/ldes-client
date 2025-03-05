@@ -1,13 +1,18 @@
-import { Quad, Term } from "@rdfjs/types";
 import { NamedNode, Parser } from "n3";
-import { BasicLensM, Cont, extractShapes } from "rdf-lens";
+import { DataFactory } from "rdf-data-factory";
+import { BasicLensM, extractShapes, pred } from "rdf-lens";
 import { RdfStore } from "rdf-stores";
-import { Member } from "../page";
 import { TREE, XSD } from "@treecg/types";
+import { getLoggerFor, parseInBetweenRelation } from "../utils";
 import { SHAPES } from "./shapes";
-import { cbdEquals, Path } from "./range";
-import { getLoggerFor } from "../utils/logUtil";
-import { parseInBetweenRelation } from "../utils/inBetween";
+import { cbdEquals } from "./range";
+
+import type { Quad, Term } from "@rdfjs/types";
+import type { Cont } from "rdf-lens";
+import type { Member } from "../fetcher";
+import type { Path } from "./range";
+
+const df = new DataFactory();
 
 type RdfThing = {
     entry: Term;
@@ -468,5 +473,106 @@ export class MaxCountCondition implements Condition {
         if (this.reset_on_poll) {
             this.current = 0;
         }
+    }
+}
+
+export async function processConditionFile(
+    conditionFile?: string,
+): Promise<Condition> {
+    let condition: Condition = empty_condition();
+
+    /* eslint-disable  @typescript-eslint/no-require-imports */
+    const fs =
+        typeof require === "undefined"
+            ? await import("fs/promises")
+            : require("fs/promises");
+
+    if (conditionFile) {
+        try {
+            condition = parse_condition(
+                await fs.readFile(conditionFile, { encoding: "utf8" }),
+                conditionFile,
+            );
+        } catch (ex) {
+            console.error(`Failed to read condition file: ${conditionFile}`);
+            throw ex;
+        }
+    }
+
+    return condition;
+}
+
+/**
+ * Function that handles any given condition, together with the "before" and "after" options,
+ * and builds the corresponding unified Condition.
+ */
+export function handleConditions(
+    condition: Condition,
+    defaultTimezone: string,
+    before?: Date,
+    after?: Date,
+    timestampPath?: Term,
+): Condition {
+    // Check if before and after conditions are defined and build corresponding Condition object
+    let handledCondition: Condition = empty_condition();
+    const toDateLiteral = (date: Date) => {
+        return df.literal(date.toISOString(), XSD.terms.dateTime);
+    };
+
+    if (before) {
+        if (!timestampPath) {
+            throw "Cannot apply 'before' or 'after' filters since the target LDES does not define a ldes:timestampPath predicate";
+        }
+
+        const predLens = pred(timestampPath);
+        const beforeCond = new LeafCondition({
+            relationType: TREE.terms.LessThanRelation,
+            value: toDateLiteral(before),
+            compareType: "date",
+            path: predLens,
+            pathQuads: { entry: timestampPath, quads: [] },
+            defaultTimezone,
+        });
+        if (after) {
+            const afterCond = new LeafCondition({
+                relationType: TREE.terms.GreaterThanRelation,
+                value: toDateLiteral(after),
+                compareType: "date",
+                path: predLens,
+                pathQuads: { entry: timestampPath, quads: [] },
+                defaultTimezone,
+            });
+            // Got bi-condition with before & after filters
+            handledCondition = new AndCondition({
+                items: [beforeCond, afterCond],
+            });
+        } else {
+            // Got condition with before filter only
+            handledCondition = beforeCond;
+        }
+    } else if (after) {
+        if (!timestampPath) {
+            throw "Cannot apply 'before' or 'after' filters since the target LDES does not define a ldes:timestampPath predicate";
+        }
+
+        const predLens = pred(timestampPath);
+        // Got condition with after filter only
+        handledCondition = new LeafCondition({
+            relationType: TREE.terms.GreaterThanRelation,
+            value: toDateLiteral(after),
+            compareType: "date",
+            path: predLens,
+            pathQuads: { entry: timestampPath, quads: [] },
+            defaultTimezone,
+        });
+    }
+
+    // See if condition file was defined too
+    if (!(condition instanceof EmptyCondition)) {
+        return new AndCondition({
+            items: [condition, handledCondition],
+        });
+    } else {
+        return handledCondition;
     }
 }

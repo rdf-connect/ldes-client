@@ -1,4 +1,4 @@
-import { Value } from "./condition";
+import type { Value } from "../condition";
 
 export type SimpleRelation = {
     important: boolean;

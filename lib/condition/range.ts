@@ -1,8 +1,10 @@
-import { Quad, Term } from "@rdfjs/types";
 import { RdfStore } from "rdf-stores";
-import { getObjects } from "../utils";
 import { RDF, TREE } from "@treecg/types";
-import { Condition, Range } from "./condition";
+import { getObjects } from "../utils";
+import { Range } from "./condition";
+
+import type { Quad, Term } from "@rdfjs/types";
+import type { Condition } from "./condition";
 
 export type Path = {
     store: RdfStore;

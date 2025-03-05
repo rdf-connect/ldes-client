@@ -1,15 +1,22 @@
-import { Quad, Term } from "@rdfjs/types";
-import { Fragment, Member } from "./page";
-import { FetchedPage } from "./pageFetcher";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { DC, LDES, TREE } from "@treecg/types";
-import { LDESInfo } from "./client";
-import { getObjects, memberFromQuads, Notifier } from "./utils";
 import { RdfStore } from "rdf-stores";
-import { getLoggerFor } from "./utils/logUtil";
-import { DataFactory } from "n3";
+import { DataFactory } from "rdf-data-factory";
+import { getObjects, memberFromQuads,getLoggerFor } from "../utils";
 
-const { namedNode } = DataFactory;
+import type { Quad, Term } from "@rdfjs/types";
+import type { Notifier } from "./modulator";
+import type { Fragment, Member } from "./page";
+import type { FetchedPage } from "./pageFetcher";
+
+const { namedNode } = new DataFactory();
+
+export type LDESInfo = {
+    shape: Term;
+    extractor: CBDShapeExtractor;
+    timestampPath?: Term;
+    versionOfPath?: Term;
+};
 
 export interface Options {
     ldesId?: Term;

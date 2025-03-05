@@ -1,15 +1,15 @@
-import { Quad, Term } from "@rdfjs/types";
 import { DC, LDES, RDF, TREE } from "@treecg/types";
 import { CBDShapeExtractor } from "extract-cbd-shape";
-import { State } from "./state";
+import { DataFactory } from "rdf-data-factory";
 import { RdfStore } from "rdf-stores";
-import { getObjects, memberFromQuads } from "./utils";
-import { Condition } from "./condition";
-import { RelationCondition } from "./condition/range";
-import { getLoggerFor } from "./utils/logUtil";
-import { DataFactory } from "n3";
+import { RelationCondition } from "../condition";
+import { getObjects, memberFromQuads, getLoggerFor } from "../utils";
 
-const { namedNode } = DataFactory;
+import type { Quad, Term } from "@rdfjs/types";
+import type { State } from "../state";
+import type { Condition } from "../condition";
+
+const df = new DataFactory();
 
 export interface Member {
     id: Term;
@@ -57,8 +57,8 @@ export function extractMembers(
     const members = getObjects(store, stream, TREE.terms.member, null);
 
     async function extractMember(member: Term) {
-        const quads = await extractor.extract(store, member, shapeId, [namedNode(LDES.custom("IngestionMetadata"))]);
-        const created = getObjects(store, member, DC.terms.custom("created"), namedNode(LDES.custom("IngestionMetadata")))[0]?.value;
+        const quads = await extractor.extract(store, member, shapeId, [df.namedNode(LDES.custom("IngestionMetadata"))]);
+        const created = getObjects(store, member, DC.terms.custom("created"), df.namedNode(LDES.custom("IngestionMetadata")))[0]?.value;
         cb(memberFromQuads(member, quads, timestampPath, isVersionOfPath, created ? new Date(created) : undefined));
     }
 

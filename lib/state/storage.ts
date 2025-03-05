@@ -1,4 +1,3 @@
-// myLibrary.ts
 
 interface Storage {
     getItem(key: string): string;

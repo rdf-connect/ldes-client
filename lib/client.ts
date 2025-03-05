@@ -1,38 +1,37 @@
-import { Config, intoConfig } from "./config";
-import { Fragment, Member } from "./page";
 import { RdfDereferencer, rdfDereferencer } from "rdf-dereference";
-import { FileStateFactory, NoStateFactory, StateFactory } from "./state";
+import { LDES, RDF, TREE } from "@treecg/types";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
-import { Term } from "@rdfjs/types";
+import { intoConfig } from "./config";
+import { handleConditions } from "./condition";
+import { FileStateFactory, NoStateFactory } from "./state";
+import { OrderedStrategy, UnorderedStrategy } from "./strategy";
+import {
+    ModulatorFactory,
+    Fetcher,
+    longPromise,
+    resetPromise,
+    Manager
+} from "./fetcher";
 import {
     extractMainNodeShape,
     getObjects,
-    handleConditions,
     maybeVersionMaterialize,
-    ModulatorFactory,
-    Notifier,
     streamToArray,
+    getLoggerFor,
+    handleExit
 } from "./utils";
-import { LDES, RDF, TREE } from "@treecg/types";
-import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
-import { Manager } from "./memberManager";
-import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
-import { getLoggerFor } from "./utils/logUtil";
-import { handleExit } from "./exitHandler";
 
-export { intoConfig } from "./config";
-export { enhanced_fetch, extractMainNodeShape, retry_fetch } from "./utils";
-export * from "./condition/index";
-export type { Member, Page, Relation, Fragment } from "./page";
-export type { Config, ShapeConfig } from "./config";
+import type { Term } from "@rdfjs/types";
+import type { Config } from "./config";
+import type { StateFactory } from "./state";
+import type { Ordered, StrategyEvents } from "./strategy";
+import type { LDESInfo, Notifier, FetchedPage, Fragment, Member } from "./fetcher";
 
 const df = new DataFactory();
 
 type Controller = ReadableStreamDefaultController<Member>;
-
-export type Ordered = "ascending" | "descending" | "none";
 
 export function replicateLDES(
     config: Partial<Config> & { url: string },
@@ -42,13 +41,6 @@ export function replicateLDES(
 ): Client {
     return new Client(intoConfig(config), ordered, dereferencer, streamId);
 }
-
-export type LDESInfo = {
-    shape: Term;
-    extractor: CBDShapeExtractor;
-    timestampPath?: Term;
-    versionOfPath?: Term;
-};
 
 async function getInfo(
     ldesId: Term,
@@ -251,7 +243,6 @@ export class Client {
     async init(
         emit: (member: Member) => void,
         close: () => void,
-        factory: ModulatorFactory,
     ): Promise<void> {
         // Fetch the url
         const root = await fetchPage(
@@ -410,7 +401,7 @@ export class Client {
                     this.memberManager,
                     this.fetcher,
                     notifier,
-                    factory,
+                    this.modulatorFactory,
                     this.ordered,
                     this.config.polling,
                     this.config.pollInterval,
@@ -419,7 +410,7 @@ export class Client {
                     this.memberManager,
                     this.fetcher,
                     notifier,
-                    factory,
+                    this.modulatorFactory,
                     this.config.polling,
                     this.config.pollInterval,
                 );
@@ -455,7 +446,6 @@ export class Client {
                         resetPromise(emitted);
                     },
                     () => controller.close(),
-                    this.modulatorFactory,
                 );
             },
 

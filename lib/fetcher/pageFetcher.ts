@@ -1,11 +1,15 @@
-import { IDereferenceOptions, RdfDereferencer } from "rdf-dereference";
-import { Notifier } from "./utils";
-import { extractRelations, Relation, Relations } from "./page";
-import { SimpleRelation } from "./relation";
+
+import { RdfDereferencer } from "rdf-dereference";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
-import { Condition } from "./condition";
-import { getLoggerFor } from "./utils/logUtil";
+import { getLoggerFor } from "../utils";
+import { extractRelations } from "./page";
+
+import type { IDereferenceOptions } from "rdf-dereference";
+import type { Condition } from "../condition";
+import type { Notifier } from "./modulator";
+import type { SimpleRelation } from "./relation";
+import type { Relation, Relations } from "./page";
 
 const { namedNode } = new DataFactory();
 
