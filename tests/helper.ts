@@ -1,6 +1,6 @@
 import { Quad } from "@rdfjs/types";
 import { Parser, Writer } from "n3";
-import { Member } from "../lib/page";
+import { Member } from "../lib/fetcher/page";
 import { TREE } from "@treecg/types";
 
 export type FragmentId = number;

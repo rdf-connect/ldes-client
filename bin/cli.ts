@@ -1,11 +1,15 @@
 #!/usr/bin/env node
-import * as process from "process";
-import { Ordered, replicateLDES } from "../lib/client";
-import { intoConfig } from "../lib/config";
+import * as process from "process";;
 import { Command, Option } from "commander";
 import { Writer } from "n3";
-import { enhanced_fetch, FetchConfig, processConditionFile } from "../lib/utils";
-import { getLoggerFor } from "../lib/utils/logUtil";
+import { replicateLDES } from "../lib/client";
+import { intoConfig } from "../lib/config"
+import { enhanced_fetch } from "../lib/fetcher";
+import { processConditionFile } from "../lib/condition";
+import { getLoggerFor } from "../lib/utils";
+
+import type { Ordered } from "../lib/strategy";
+import type { FetchConfig } from "../lib/fetcher";
 
 const program = new Command();
 let paramURL: string = "";

@@ -1,15 +1,22 @@
-import { Quad, Term } from "@rdfjs/types";
-import { Fragment, Member } from "./page";
-import { FetchedPage } from "./pageFetcher";
 import { CBDShapeExtractor } from "extract-cbd-shape";
-import { DC, LDES, TREE } from "@treecg/types";
-import { LDESInfo } from "./client";
-import { getObjects, memberFromQuads, Notifier } from "./utils";
+import { RDF, DC, LDES, TREE } from "@treecg/types";
 import { RdfStore } from "rdf-stores";
-import { getLoggerFor } from "./utils/logUtil";
-import { DataFactory } from "n3";
+import { DataFactory } from "rdf-data-factory";
+import { getObjects, getLoggerFor } from "../utils";
 
-const { namedNode } = DataFactory;
+import type { Quad, Term, Quad_Subject, Quad_Predicate } from "@rdfjs/types";
+import type { Notifier } from "./modulator";
+import type { Fragment, Member } from "./page";
+import type { FetchedPage } from "./pageFetcher";
+
+const { quad, namedNode, defaultGraph } = new DataFactory();
+
+export type LDESInfo = {
+    shape: Term;
+    extractor: CBDShapeExtractor;
+    timestampPath?: Term;
+    versionOfPath?: Term;
+};
 
 export interface Options {
     ldesId?: Term;
@@ -33,6 +40,98 @@ export type MemberEvents = {
     done: Fragment;
     error: Error;
 };
+
+export function memberFromQuads(
+    member: Term,
+    quads: Quad[],
+    timestampPath: Term | undefined,
+    isVersionOfPath: Term | undefined,
+    created?: Date,
+): Member {
+    // Get timestamp
+    let timestamp: string | Date | undefined;
+    if (timestampPath) {
+        const ts = quads.find(
+            (x) =>
+                x.subject.equals(member) && x.predicate.equals(timestampPath),
+        )?.object.value;
+        if (ts) {
+            try {
+                timestamp = new Date(ts);
+            } catch (ex: unknown) {
+                timestamp = ts;
+            }
+        }
+    }
+
+    // Get isVersionof
+    let isVersionOf: string | undefined;
+    if (isVersionOfPath) {
+        isVersionOf = quads.find(
+            (x) =>
+                x.subject.equals(member) && x.predicate.equals(isVersionOfPath),
+        )?.object.value;
+    }
+
+    // Get type
+    const type: Term | undefined = quads.find(
+        (x) => x.subject.equals(member) && x.predicate.value === RDF.type,
+    )?.object;
+    return { quads, id: member, isVersionOf, timestamp, type, created };
+}
+
+/**
+ * Version materialization function that sets the declared ldes:versionOfPath property value
+ * as the member's subject IRI
+ */
+export function maybeVersionMaterialize(
+    member: Member,
+    materialize: boolean,
+    ldesInfo: LDESInfo,
+): Member {
+    if (materialize && ldesInfo.versionOfPath) {
+        // Create RDF store with member quads
+        const memberStore = RdfStore.createDefault();
+        member.quads.forEach((q) => memberStore.addQuad(q));
+        // Get materialized subject IRI
+        const newSubject = getObjects(
+            memberStore,
+            member.id,
+            ldesInfo.versionOfPath,
+        )[0];
+        if (newSubject) {
+            // Remove version property
+            memberStore.removeQuad(
+                quad(
+                    <Quad_Subject>member.id,
+                    <Quad_Predicate>ldesInfo.versionOfPath,
+                    newSubject,
+                    defaultGraph(),
+                ),
+            );
+            // Updated all quads with materialized subject
+            for (const q of memberStore.getQuads(member.id)) {
+                const newQ = quad(
+                    <Quad_Subject>newSubject,
+                    q.predicate,
+                    q.object,
+                    q.graph,
+                );
+                memberStore.removeQuad(q);
+                memberStore.addQuad(newQ);
+            }
+            // Update member object
+            member.id = newSubject;
+            member.quads = memberStore.getQuads();
+        } else {
+            console.error(
+                `No version property found in Member (${member.id}) as specified by ldes:isVersionOfPath ${ldesInfo.versionOfPath}`,
+            );
+        }
+    }
+
+    return member;
+}
 
 export class Manager {
     public queued: number = 0;

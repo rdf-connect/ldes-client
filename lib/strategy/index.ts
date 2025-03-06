@@ -1,11 +1,12 @@
-import type { NamedNode } from "@rdfjs/types";
-import { Fragment, Member } from "../page";
-import { FetchedPage } from "../pageFetcher";
-import { RelationChain } from "../relation";
 import { TREE } from "@treecg/types";
+import { Fragment, Member, FetchedPage, RelationChain } from "../fetcher";
+
+import type { NamedNode } from "@rdfjs/types";
 
 export { UnorderedStrategy } from "./unordered";
 export { OrderedStrategy } from "./ordered";
+
+export type Ordered = "ascending" | "descending" | "none";
 
 /**
  * Predicates representing greater than relations

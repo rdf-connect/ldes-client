@@ -1,10 +1,16 @@
-import { Manager, MemberEvents } from "../memberManager";
-import { FetchedPage, Fetcher, FetchEvent, Node } from "../pageFetcher";
-import { Modulator, ModulatorFactory, Notifier } from "../utils";
+import { Fetcher, ModulatorFactory, Manager } from "../fetcher";
+import { getLoggerFor } from "../utils";
 
-import { StrategyEvents } from ".";
-import { getLoggerFor } from "../utils/logUtil";
-import { Fragment } from "../page";
+import type { 
+    FetchedPage, 
+    FetchEvent, 
+    Node, 
+    Modulator, 
+    Notifier, 
+    Fragment,
+    MemberEvents
+} from "../fetcher";
+import type { StrategyEvents } from ".";
 
 export class UnorderedStrategy {
     private manager: Manager;

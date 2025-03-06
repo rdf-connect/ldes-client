@@ -1,16 +1,22 @@
 import { Heap } from "heap-js";
-import { Manager, MemberEvents } from "../memberManager";
-import { Fragment, Member, Relations } from "../page";
-import { FetchedPage, Fetcher, FetchEvent } from "../pageFetcher";
-import { Modulator, ModulatorFactory, Notifier } from "../utils";
-import { RelationChain, SimpleRelation } from "../relation";
-
-import { Ordered } from "../client";
-import { GTRs, LTR, StrategyEvents } from ".";
-import { getLoggerFor } from "../utils/logUtil";
-import { Value } from "../condition";
 import { TREE } from "@treecg/types";
-import { parseInBetweenRelation } from "../utils/inBetween";
+import { Fetcher, ModulatorFactory, RelationChain, Manager } from "../fetcher";
+import { parseInBetweenRelation, getLoggerFor } from "../utils";
+import { GTRs, LTR } from ".";
+
+import type { Value } from "../condition";
+import type {
+    Fragment,
+    Member,
+    Relations,
+    FetchedPage,
+    FetchEvent,
+    Modulator,
+    Notifier,
+    SimpleRelation,
+    MemberEvents
+} from "../fetcher";
+import type { StrategyEvents, Ordered } from ".";
 
 export type StateItem = {
     rel: RelationChain;
