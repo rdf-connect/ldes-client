@@ -1,0 +1,307 @@
+import { StateT } from "../state";
+import { getLoggerFor } from "../utils/";
+
+import type { StateFactory } from "../state";
+
+export type Notifier<Events, S> = {
+    [K in keyof Events]: (event: Events[K], state: S) => void;
+};
+
+/**
+ * Generic interface that represents a structure that ranks elements.
+ * Most common is a Priority Queue (heap like) that pops elements in order.
+ * An array is also a Ranker, without ordering.
+ */
+export interface Ranker<T> {
+    push(item: T): void;
+    pop(): T | undefined;
+}
+
+export type ModulartorEvents<T> = {
+    ready: Indexed<T>;
+};
+
+/**
+ * Modulator is a structure that only buffers elements and only handles elements
+ * when the factory is not paused and when not too many items are active at once.
+ */
+export interface Modulator<T, M> {
+    push(item: T): void;
+
+    finished(index: number): void;
+
+    length(): number;
+
+    seen(url: string): boolean;
+
+    recordMutable(url: string, item: T): void
+
+    recordImmutable(url: string): void
+
+    recordEmitted(url: string): void
+
+    recordUnemitted(url: string, member: M): void
+
+    getTodo(): ReadonlyArray<T>
+
+    getInFlight(): ReadonlyArray<T>
+
+    getMutable(): ReadonlyMap<string, T>
+
+    getUnemitted(): Array<M>
+
+    getEmitted(): ReadonlySet<string>
+}
+
+type Indexed<T> = {
+    item: T;
+    index: number;
+};
+
+type ModulatorInstanceState<T, M> = {
+    todo: Indexed<T>[];
+    inflight: Indexed<T>[];
+    mutable: Map<string, T>;
+    immutable: Set<string>;
+    emitted: Set<string>;
+    unemitted: Map<string, M>;
+};
+
+/**
+ * Factory that creates Modulator's
+ * This is a factory to keep track whether or not the Modulator should be paused or not.
+ */
+export class ModulatorFactory {
+    concurrent = 10;
+    paused: boolean = false;
+
+    factory: StateFactory;
+    children: ModulatorInstance<unknown, unknown>[] = [];
+
+    constructor(stateFactory: StateFactory, concurrent?: number) {
+        this.factory = stateFactory;
+        if (concurrent) {
+            this.concurrent = concurrent;
+        }
+    }
+
+    /**
+     * Note: `T` and `M` should be plain javascript objects (because that how state is saved)
+     */
+    create<T, M>(
+        name: string,
+        ranker: Ranker<Indexed<T>>,
+        notifier: Notifier<ModulartorEvents<T>, unknown>,
+        parse?: (item: unknown) => T,
+    ): Modulator<T, M> {
+        const state = this.factory.build<ModulatorInstanceState<T, M>>(
+            name,
+            (stateObj) => JSON.stringify(stateObj, (_, value) => {
+                if (value instanceof Set) {
+                    return { datatype: "Set", value: Array.from(value) };
+                } else if (value instanceof Map) {
+                    return { datatype: "Map", value: Array.from(value.entries()) };
+                } else {
+                    return value;
+                }
+            }),
+            (input) => {
+                return JSON.parse(input, (_, value) => {
+                    if (value && value.datatype === "Set") {
+                        return new Set(value.value);
+                    } else if (value && value.datatype === "Map") {
+                        return new Map(value.value);
+                    } else {
+                        return value;
+                    }
+                }) as ModulatorInstanceState<T, M>;
+            },
+            () => ({
+                todo: [],
+                inflight: [],
+                mutable: new Map(),
+                immutable: new Set(),
+                emitted: new Set(),
+                unemitted: new Map(),
+            }),
+        );
+
+        if (parse) {
+            state.item.todo = state.item.todo.map(({ item, index }) => ({
+                index,
+                item: parse(item),
+            }));
+            state.item.inflight = state.item.inflight.map(
+                ({ item, index }) => ({
+                    index,
+                    item: parse(item),
+                }),
+            );
+            state.item.mutable = new Map(
+                Array.from(state.item.mutable.entries()).map(([k, v]) => [
+                    k,
+                    parse(v),
+                ]),
+            );
+        }
+
+        const modulator = new ModulatorInstance(state, ranker, notifier, this);
+        this.children.push(<ModulatorInstance<unknown, unknown>>modulator);
+        return modulator;
+    }
+
+    pause() {
+        this.paused = true;
+    }
+
+    unpause() {
+        this.paused = false;
+        this.children.forEach((x) => x.checkReady());
+    }
+}
+
+export class ModulatorInstance<T, M> implements Modulator<T, M> {
+    at: number = 0;
+    index = 0;
+
+    private state: StateT<ModulatorInstanceState<T, M>>;
+    private ranker: Ranker<Indexed<T>>;
+    private notifier: Notifier<ModulartorEvents<T>, unknown>;
+    private factory: ModulatorFactory;
+
+    private logger = getLoggerFor(this);
+
+    constructor(
+        state: StateT<ModulatorInstanceState<T, M>>,
+        ranker: Ranker<Indexed<T>>,
+        notifier: Notifier<ModulartorEvents<T>, unknown>,
+        factory: ModulatorFactory,
+    ) {
+        this.state = state;
+        const readd = [
+            ...this.state.item.todo,
+            ...this.state.item.inflight,
+        ];
+
+        // Clean up previous record lists
+        while (this.state.item.inflight.pop()) {
+            // pass
+        }
+        while (this.state.item.todo.pop()) {
+            // pass
+        }
+
+        this.ranker = ranker;
+        this.notifier = notifier;
+        this.factory = factory;
+        for (const item of readd) {
+            this.push(item.item);
+        }
+    }
+
+    length(): number {
+        return this.state.item.todo.length;
+    }
+
+    push(item: T) {
+        const indexed = { item, index: this.index };
+        this.state.item.todo.push(indexed);
+        this.index += 1;
+        this.ranker.push(indexed);
+        this.checkReady();
+    }
+
+    seen(url: string): boolean {
+        return this.state.item.immutable.has(url);
+    }
+
+    recordMutable(url: string, item: T): void {
+        this.state.item.mutable.set(url, item);
+    }
+
+    recordImmutable(url: string): void {
+        this.state.item.immutable.add(url);
+        // Remove from mutable list
+        this.state.item.mutable.delete(url);
+    }
+
+    recordEmitted(url: string): void {
+        this.state.item.emitted.add(url);
+        // Remove form unemitted list
+        if (this.state.item.unemitted.has(url)) {
+            this.state.item.unemitted.delete(url);
+        }
+    }
+
+    recordUnemitted(url: string, member: M): void {
+        this.state.item.unemitted.set(url, member);
+    }
+
+    getTodo(): ReadonlyArray<T> {
+        return this.state.item.todo.map((x) => x.item);
+    }
+
+    getInFlight(): ReadonlyArray<T> {
+        return this.state.item.inflight.map((x) => x.item);
+    }
+
+    getMutable(): ReadonlyMap<string, T> {
+        return <ReadonlyMap<string, T>>this.state.item.mutable;
+    }
+
+    getUnemitted(): Array<M> {
+        return Array.from(this.state.item.unemitted.values());
+    }
+
+    getEmitted(): ReadonlySet<string> {
+        return <ReadonlySet<string>>this.state.item.emitted;
+    }
+
+    finished(index: number) {
+        const removeIdx = this.state.item.inflight.findIndex(
+            (x) => x.index == index,
+        );
+        if (removeIdx >= 0) {
+            this.state.item.inflight.splice(removeIdx, 1);
+        } else {
+            this.logger.error(
+                "[finished] Expected to be able to remove inflight item",
+            );
+        }
+
+        this.at -= 1;
+        this.checkReady();
+    }
+
+    checkReady() {
+        if (this.factory.paused) {
+            return;
+        }
+
+        while (this.at < this.factory.concurrent) {
+            const item = this.ranker.pop();
+            if (item) {
+                // This item is no longer todo
+                // I'm quite afraid to use filter for this
+                const removeIdx = this.state.item.todo.findIndex(
+                    (x) => x.index == item.index,
+                );
+                if (removeIdx >= 0) {
+                    this.state.item.todo.splice(removeIdx, 1);
+                } else {
+                    this.logger.error(
+                        "[checkReady] Expected to be able to remove inflight item",
+                    );
+                }
+
+                // This item is now inflight
+                this.state.item.inflight.push(item);
+
+                this.at += 1;
+                this.notifier.ready(item, {});
+            } else {
+                break;
+            }
+        }
+    }
+}

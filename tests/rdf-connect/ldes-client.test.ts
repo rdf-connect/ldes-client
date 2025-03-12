@@ -1,5 +1,7 @@
-import path from "path";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import fs from "fs";
+import path from "path";
+import { createUriAndTermNamespace, RDF, SDS, DC } from "@treecg/types";
 import { SimpleStream } from "@rdfc/js-runner";
 import { fastify, FastifyInstance, RequestPayload } from "fastify";
 import { fastifyStatic } from "@fastify/static";
@@ -8,8 +10,7 @@ import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
 import { replicateLDES } from "../../lib/client";
 import { processor } from "../../lib/rdfc-processor";
-import { createUriAndTermNamespace, RDF, SDS, DC } from "@treecg/types";
-import { Stream } from "stream";
+import { streamToString } from "../../lib/utils";
 
 const df = new DataFactory();
 
@@ -30,18 +31,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         "subprop"
     );
     let server: FastifyInstance;
-    function streamToString(stream: Stream): Promise<string> {
-        const chunks: Buffer[] = [];
-        return new Promise((resolve, reject) => {
-            stream.on("data", (chunk: ArrayBuffer) =>
-                chunks.push(Buffer.from(chunk)),
-            );
-            stream.on("error", (err: unknown) => reject(err));
-            stream.on("end", () =>
-                resolve(Buffer.concat(chunks).toString("utf8")),
-            );
-        });
-    }
 
     beforeAll(async () => {
         // Setup mock http server
@@ -70,6 +59,9 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
                                 /* empty */
                             }
                         }
+                    }
+                    if (st.startsWith("# immutable")) {
+                        reply.header("Cache-Control", "immutable");
                     }
                     return st;
                 },
@@ -2988,5 +2980,928 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         expect(count).toBe(12);
         // Expect output stream to be closed
         expect(finished).toBeTruthy();
+    });
+
+    test("Fetching an LDES unordered and checking if state is saved and enforced upon resume", async () => {
+        const outputStream1 = new SimpleStream<string>();
+
+        outputStream1.data((record) => {
+            // Check presence of SDS terms
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
+
+            // Extract timestamp property (ex:modified in this LDES)
+            const store = RdfStore.createDefault();
+            new Parser().parse(record).forEach((q) => store.addQuad(q));
+            // Check that all member data is present
+            expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+        });
+
+        // Hack needed because for some reason this file remains after the test
+        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
+        if (fs.existsSync("./tests/data/save.json")) {
+            fs.rmSync(path.resolve("./tests/data/save.json"));
+        }
+
+        // Setup client 1
+        const exec1 = await processor(
+            outputStream1,
+            LDES,
+            undefined,
+            undefined,
+            "none",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        const client1 = await exec1();
+        // Check we got all fragments and members
+        expect(client1.memberCount).toBe(12);
+        expect(client1.fragmentCount).toBe(3);
+        // Check that state was saved
+        expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
+
+        // Run a second client with the saved state
+        const outputStream2 = new SimpleStream<string>();
+
+        const exec2 = await processor(
+            outputStream2,
+            LDES,
+            undefined,
+            undefined,
+            "none",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        const client2 = await exec2();
+        // Check that we didn't get any members but we still fetched mutable fragments
+        expect(client2.memberCount).toBe(0);
+        expect(client2.fragmentCount).toBe(1);
+
+        // Clean up
+        fs.rmSync(path.resolve("./tests/data/save.json"));
+    });
+
+    test("Fetching a Linked List LDES unordered and checking if state is saved and enforced upon resume", async () => {
+        const outputStream1 = new SimpleStream<string>();
+
+        outputStream1.data((record) => {
+            // Check presence of SDS terms
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
+
+            // Extract timestamp property (ex:modified in this LDES)
+            const store = RdfStore.createDefault();
+            new Parser().parse(record).forEach((q) => store.addQuad(q));
+            // Check that all member data is present
+            expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+        });
+
+        // Hack needed because for some reason this file remains after the test
+        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
+        if (fs.existsSync("./tests/data/save.json")) {
+            fs.rmSync(path.resolve("./tests/data/save.json"));
+        }
+
+        // Setup client 1
+        const exec1 = await processor(
+            outputStream1,
+            LINKED_LIST_LDES,
+            undefined,
+            undefined,
+            "none",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        const client1 = await exec1();
+        // Check we got all fragments and members
+        expect(client1.memberCount).toBe(9);
+        expect(client1.fragmentCount).toBe(3);
+        // Check that state was saved
+        expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
+
+        // Run a second client with the saved state
+        const outputStream2 = new SimpleStream<string>();
+
+        const exec2 = await processor(
+            outputStream2,
+            LINKED_LIST_LDES,
+            undefined,
+            undefined,
+            "none",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        const client2 = await exec2();
+        // Check that we didn't get any members but we still fetched mutable fragments
+        expect(client2.memberCount).toBe(0);
+        expect(client2.fragmentCount).toBe(2);
+
+        // Clean up
+        fs.rmSync(path.resolve("./tests/data/save.json"));
+    });
+
+    test("Fetching an LDES in ascending ordered and checking if state is saved and enforced upon resume", async () => {
+        const outputStream1 = new SimpleStream<string>();
+        const timestamps: number[] = [];
+
+        outputStream1.data((record) => {
+            // Check presence of SDS terms
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
+
+            // Extract timestamp property (ex:modified in this LDES)
+            const store = RdfStore.createDefault();
+            new Parser().parse(record).forEach((q) => store.addQuad(q));
+            const timestampQ = store.getQuads(null, EX.terms.modified)[0];
+            expect(timestampQ).toBeDefined();
+            // Keep track of timestamp for checking order
+            timestamps.push(new Date(timestampQ.object.value).getTime());
+            // Check that all member data is present
+            expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+        });
+
+        // Hack needed because for some reason this file remains after the test
+        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
+        if (fs.existsSync("./tests/data/save.json")) {
+            fs.rmSync(path.resolve("./tests/data/save.json"));
+        }
+
+        // Setup client 1
+        const exec1 = await processor(
+            outputStream1,
+            LDES,
+            undefined,
+            undefined,
+            "ascending",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        const client1 = await exec1();
+        // Check we got all fragments and members
+        expect(client1.memberCount).toBe(12);
+        expect(client1.fragmentCount).toBe(3);
+        // Check result was ordered
+        const isSorted = timestamps.every(
+            (v, i) => i === 0 || v >= timestamps[i - 1],
+        );
+        expect(isSorted).toBeTruthy();
+        // Check that state was saved
+        expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
+
+        // Run a second client with the saved state
+        const outputStream2 = new SimpleStream<string>();
+
+        const exec2 = await processor(
+            outputStream2,
+            LDES,
+            undefined,
+            undefined,
+            "ascending",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        const client2 = await exec2();
+        // Check that we didn't get any members but we still fetched mutable fragments
+        expect(client2.memberCount).toBe(0);
+        expect(client2.fragmentCount).toBe(1);
+
+        // Clean up
+        fs.rmSync(path.resolve("./tests/data/save.json"));
+    });
+
+    test("Fetching a Linked List LDES in ascending order and checking if state is saved and enforced upon resume", async () => {
+        const outputStream1 = new SimpleStream<string>();
+        const timestamps: number[] = [];
+
+        outputStream1.data((record) => {
+            // Check presence of SDS terms
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
+
+            // Extract timestamp property (ex:modified in this LDES)
+            const store = RdfStore.createDefault();
+            new Parser().parse(record).forEach((q) => store.addQuad(q));
+            const timestampQ = store.getQuads(null, EX.terms.modified)[0];
+            expect(timestampQ).toBeDefined();
+            // Keep track of timestamp for checking order
+            timestamps.push(new Date(timestampQ.object.value).getTime());
+            // Check that all member data is present
+            expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+        });
+
+        // Hack needed because for some reason this file remains after the test
+        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
+        if (fs.existsSync("./tests/data/save.json")) {
+            fs.rmSync(path.resolve("./tests/data/save.json"));
+        }
+
+        // Setup client 1
+        const exec1 = await processor(
+            outputStream1,
+            LINKED_LIST_LDES,
+            undefined,
+            undefined,
+            "ascending",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        const client1 = await exec1();
+        // Check we got all fragments and members
+        expect(client1.memberCount).toBe(9);
+        expect(client1.fragmentCount).toBe(3);
+        // Check result was ordered
+        const isSorted = timestamps.every(
+            (v, i) => i === 0 || v >= timestamps[i - 1],
+        );
+        expect(isSorted).toBeTruthy();
+        // Check that state was saved
+        expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
+
+        // Run a second client with the saved state
+        const outputStream2 = new SimpleStream<string>();
+
+        const exec2 = await processor(
+            outputStream2,
+            LINKED_LIST_LDES,
+            undefined,
+            undefined,
+            "ascending",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        const client2 = await exec2();
+        // Check that we didn't get any members but we still fetched mutable fragments
+        expect(client2.memberCount).toBe(0);
+        expect(client2.fragmentCount).toBe(2);
+
+        // Clean up
+        fs.rmSync(path.resolve("./tests/data/save.json"));
+    });
+
+    test("Fetching an LDES in descending ordered and checking if state is saved and enforced upon resume", async () => {
+        const outputStream1 = new SimpleStream<string>();
+        const timestamps: number[] = [];
+
+        outputStream1.data((record) => {
+            // Check presence of SDS terms
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
+
+            // Extract timestamp property (ex:modified in this LDES)
+            const store = RdfStore.createDefault();
+            new Parser().parse(record).forEach((q) => store.addQuad(q));
+            const timestampQ = store.getQuads(null, EX.terms.modified)[0];
+            expect(timestampQ).toBeDefined();
+            // Keep track of timestamp for checking order
+            timestamps.push(new Date(timestampQ.object.value).getTime());
+            // Check that all member data is present
+            expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+        });
+
+        // Hack needed because for some reason this file remains after the test
+        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
+        if (fs.existsSync("./tests/data/save.json")) {
+            fs.rmSync(path.resolve("./tests/data/save.json"));
+        }
+
+        // Setup client 1
+        const exec1 = await processor(
+            outputStream1,
+            LDES,
+            undefined,
+            undefined,
+            "descending",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        const client1 = await exec1();
+        // Check we got all fragments and members
+        expect(client1.memberCount).toBe(12);
+        expect(client1.fragmentCount).toBe(3);
+        // Check result was ordered
+        const isSorted = timestamps.every(
+            (v, i) => i === 0 || v <= timestamps[i - 1],
+        );
+        expect(isSorted).toBeTruthy();
+        // Check that state was saved
+        expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
+
+        // Run a second client with the saved state
+        const outputStream2 = new SimpleStream<string>();
+
+        const exec2 = await processor(
+            outputStream2,
+            LDES,
+            undefined,
+            undefined,
+            "descending",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        const client2 = await exec2();
+        // Check that we didn't get any members but we still fetched mutable fragments
+        expect(client2.memberCount).toBe(0);
+        expect(client2.fragmentCount).toBe(1);
+
+        // Clean up
+        fs.rmSync(path.resolve("./tests/data/save.json"));
+    });
+
+    test("Fetching a Linked List LDES in descending ordered and checking if state is saved and enforced upon resume", async () => {
+        const outputStream1 = new SimpleStream<string>();
+        const timestamps: number[] = [];
+
+        outputStream1.data((record) => {
+            // Check presence of SDS terms
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
+
+            // Extract timestamp property (ex:modified in this LDES)
+            const store = RdfStore.createDefault();
+            new Parser().parse(record).forEach((q) => store.addQuad(q));
+            const timestampQ = store.getQuads(null, EX.terms.modified)[0];
+            expect(timestampQ).toBeDefined();
+            // Keep track of timestamp for checking order
+            timestamps.push(new Date(timestampQ.object.value).getTime());
+            // Check that all member data is present
+            expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+        });
+
+        // Hack needed because for some reason this file remains after the test
+        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
+        if (fs.existsSync("./tests/data/save.json")) {
+            fs.rmSync(path.resolve("./tests/data/save.json"));
+        }
+
+        // Setup client 1
+        const exec1 = await processor(
+            outputStream1,
+            LINKED_LIST_LDES,
+            undefined,
+            undefined,
+            "descending",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        const client1 = await exec1();
+        // Check we got all fragments and members
+        expect(client1.memberCount).toBe(9);
+        expect(client1.fragmentCount).toBe(3);
+        // Check result was ordered
+        const isSorted = timestamps.every(
+            (v, i) => i === 0 || v <= timestamps[i - 1],
+        );
+        expect(isSorted).toBeTruthy();
+        // Check that state was saved
+        expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
+
+        // Run a second client with the saved state
+        const outputStream2 = new SimpleStream<string>();
+
+        const exec2 = await processor(
+            outputStream2,
+            LINKED_LIST_LDES,
+            undefined,
+            undefined,
+            "descending",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        const client2 = await exec2();
+        // Check that we didn't get any members but we still fetched mutable fragments
+        expect(client2.memberCount).toBe(0);
+        expect(client2.fragmentCount).toBe(2);
+
+        // Clean up
+        fs.rmSync(path.resolve("./tests/data/save.json"));
+    });
+
+    test("Fetching an LDES in ascending ordered, interrupting it and checking if state is saved and enforced upon resume", async () => {
+        const outputStream1 = new SimpleStream<string>();
+        const timestamps1: number[] = [];
+
+        outputStream1.data((record) => {
+            // Check presence of SDS terms
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
+
+            // Extract timestamp property (ex:modified in this LDES)
+            const store = RdfStore.createDefault();
+            new Parser().parse(record).forEach((q) => store.addQuad(q));
+            const timestampQ = store.getQuads(null, EX.terms.modified)[0];
+            expect(timestampQ).toBeDefined();
+            // Keep track of timestamp for checking order
+            timestamps1.push(new Date(timestampQ.object.value).getTime());
+            // Check that all member data is present
+            expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+        });
+
+        // Hack needed because for some reason this file remains after the test
+        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
+        if (fs.existsSync("./tests/data/save.json")) {
+            fs.rmSync(path.resolve("./tests/data/save.json"));
+        }
+
+        // Setup client 1
+        const exec1 = await processor(
+            outputStream1,
+            LDES,
+            undefined,
+            undefined,
+            "ascending",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+            undefined,
+            ["http://localhost:3000/mock-ldes-1.ttl"] // interrupt on this fragment
+        );
+
+        // Run client
+        const client1 = await exec1();
+        // Check we got some of the fragments and members
+        expect(client1.memberCount).toBe(3);
+        expect(client1.fragmentCount).toBe(2);
+        // Check result was ordered
+        const isSorted1 = timestamps1.every(
+            (v, i) => i === 0 || v >= timestamps1[i - 1],
+        );
+        expect(isSorted1).toBeTruthy();
+        // Check that state was saved
+        expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
+
+        // Run a second client with the saved state
+        const outputStream2 = new SimpleStream<string>();
+        const timestamps2: number[] = [];
+
+        outputStream2.data((record) => {
+            // Check presence of SDS terms
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
+
+            // Extract timestamp property (ex:modified in this LDES)
+            const store = RdfStore.createDefault();
+            new Parser().parse(record).forEach((q) => store.addQuad(q));
+            const timestampQ = store.getQuads(null, EX.terms.modified)[0];
+            expect(timestampQ).toBeDefined();
+            // Keep track of timestamp for checking order
+            timestamps2.push(new Date(timestampQ.object.value).getTime());
+            // Check that all member data is present
+            expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+        });
+
+        const exec2 = await processor(
+            outputStream2,
+            LDES,
+            undefined,
+            undefined,
+            "ascending",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        const client2 = await exec2();
+        // Check that we didn't get any members but we still fetched mutable fragments
+        expect(client2.memberCount).toBe(9);
+        expect(client2.fragmentCount).toBe(1);
+        // Check result was ordered
+        const isSorted2 = timestamps2.every(
+            (v, i) => i === 0 || v >= timestamps2[i - 1],
+        );
+        expect(isSorted2).toBeTruthy();
+
+        // Clean up
+        fs.rmSync(path.resolve("./tests/data/save.json"));
+    });
+
+    test("Fetching a Linked List LDES in ascending ordered, interrupting it and checking if state is saved and enforced upon resume", async () => {
+        const outputStream1 = new SimpleStream<string>();
+
+        // Hack needed because for some reason this file remains after the test
+        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
+        if (fs.existsSync("./tests/data/save.json")) {
+            fs.rmSync(path.resolve("./tests/data/save.json"));
+        }
+
+        // Setup client 1
+        const exec1 = await processor(
+            outputStream1,
+            LINKED_LIST_LDES,
+            undefined,
+            undefined,
+            "ascending",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+            undefined,
+            ["http://localhost:3000/mock-ldes-linked-list-1.ttl"] // interrupt on this fragment
+        );
+
+        // Run client
+        const client1 = await exec1();
+        // Check we got some of the fragments and members
+        expect(client1.memberCount).toBe(0);
+        expect(client1.fragmentCount).toBe(2);
+
+        // Check that state was saved
+        expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
+
+        // Run a second client with the saved state
+        const outputStream2 = new SimpleStream<string>();
+        const timestamps2: number[] = [];
+
+        outputStream2.data((record) => {
+            // Check presence of SDS terms
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
+
+            // Extract timestamp property (ex:modified in this LDES)
+            const store = RdfStore.createDefault();
+            new Parser().parse(record).forEach((q) => store.addQuad(q));
+            const timestampQ = store.getQuads(null, EX.terms.modified)[0];
+            expect(timestampQ).toBeDefined();
+            // Keep track of timestamp for checking order
+            timestamps2.push(new Date(timestampQ.object.value).getTime());
+            // Check that all member data is present
+            expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+        });
+
+        const exec2 = await processor(
+            outputStream2,
+            LINKED_LIST_LDES,
+            undefined,
+            undefined,
+            "ascending",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        const client2 = await exec2();
+        // Check that we didn't get any members but we still fetched mutable fragments
+        expect(client2.memberCount).toBe(9);
+        expect(client2.fragmentCount).toBe(3);
+        // Check result was ordered
+        const isSorted2 = timestamps2.every(
+            (v, i) => i === 0 || v >= timestamps2[i - 1],
+        );
+        expect(isSorted2).toBeTruthy();
+
+        // Clean up
+        fs.rmSync(path.resolve("./tests/data/save.json"));
+    });
+
+    test("Fetching an LDES in descending ordered, interrupting it and checking if state is saved and enforced upon resume", async () => {
+        const outputStream1 = new SimpleStream<string>();
+
+        // Hack needed because for some reason this file remains after the test
+        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
+        if (fs.existsSync("./tests/data/save.json")) {
+            await fs.rmSync(path.resolve("./tests/data/save.json"));
+        }
+
+        // Setup client 1
+        const exec1 = await processor(
+            outputStream1,
+            LDES,
+            undefined,
+            undefined,
+            "descending",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+            undefined,
+            ["http://localhost:3000/mock-ldes-1.ttl"] // interrupt on this fragment
+        );
+
+        // Run client
+        const client1 = await exec1();
+        // Check we got some of the fragments and no members
+        expect(client1.memberCount).toBe(0);
+        expect(client1.fragmentCount).toBe(2);
+
+        // Check that state was saved
+        expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
+
+        // Run a second client with the saved state
+        const outputStream2 = new SimpleStream<string>();
+        const timestamps2: number[] = [];
+
+        outputStream2.data((record) => {
+            // Check presence of SDS terms
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
+
+            // Extract timestamp property (ex:modified in this LDES)
+            const store = RdfStore.createDefault();
+            new Parser().parse(record).forEach((q) => store.addQuad(q));
+            const timestampQ = store.getQuads(null, EX.terms.modified)[0];
+            expect(timestampQ).toBeDefined();
+            // Keep track of timestamp for checking order
+            timestamps2.push(new Date(timestampQ.object.value).getTime());
+            // Check that all member data is present
+            expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+        });
+
+        const exec2 = await processor(
+            outputStream2,
+            LDES,
+            undefined,
+            undefined,
+            "descending",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        const client2 = await exec2();
+        // Check that we didn't get any members but we still fetched mutable fragments
+        expect(client2.memberCount).toBe(12);
+        expect(client2.fragmentCount).toBe(1);
+        // Check result was ordered
+        const isSorted2 = timestamps2.every(
+            (v, i) => i === 0 || v <= timestamps2[i - 1],
+        );
+        expect(isSorted2).toBeTruthy();
+
+        // Clean up
+        fs.rmSync(path.resolve("./tests/data/save.json"));
+    });
+
+    test("Fetching a Linked List LDES in descending ordered, interrupting it and checking if state is saved and enforced upon resume", async () => {
+        const outputStream1 = new SimpleStream<string>();
+
+        // Hack needed because for some reason this file remains after the test
+        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
+        if (fs.existsSync("./tests/data/save.json")) {
+            await fs.rmSync(path.resolve("./tests/data/save.json"));
+        }
+
+        // Setup client 1
+        const exec1 = await processor(
+            outputStream1,
+            LINKED_LIST_LDES,
+            undefined,
+            undefined,
+            "descending",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+            undefined,
+            ["http://localhost:3000/mock-ldes-linked-list.ttl"] // interrupt on this fragment
+        );
+
+        // Run client
+        const client1 = await exec1();
+        // Check we got some of the fragments and no members
+        expect(client1.memberCount).toBe(0);
+        expect(client1.fragmentCount).toBe(1);
+
+        // Check that state was saved
+        expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
+
+        // Run a second client with the saved state
+        const outputStream2 = new SimpleStream<string>();
+        const timestamps2: number[] = [];
+
+        outputStream2.data((record) => {
+            // Check presence of SDS terms
+            expect(record.indexOf(SDS.stream)).toBeGreaterThan(0);
+            expect(record.indexOf(SDS.payload)).toBeGreaterThan(0);
+
+            // Extract timestamp property (ex:modified in this LDES)
+            const store = RdfStore.createDefault();
+            new Parser().parse(record).forEach((q) => store.addQuad(q));
+            const timestampQ = store.getQuads(null, EX.terms.modified)[0];
+            expect(timestampQ).toBeDefined();
+            // Keep track of timestamp for checking order
+            timestamps2.push(new Date(timestampQ.object.value).getTime());
+            // Check that all member data is present
+            expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+        });
+
+        const exec2 = await processor(
+            outputStream2,
+            LINKED_LIST_LDES,
+            undefined,
+            undefined,
+            "descending",
+            false,
+            undefined,
+            undefined,
+            false,
+            "./tests/data/save.json",
+            false,
+            false,
+            undefined,
+            undefined,
+            false,
+            false,
+        );
+
+        // Run client
+        const client2 = await exec2();
+        // Check that we didn't get any members but we still fetched mutable fragments
+        expect(client2.memberCount).toBe(9);
+        expect(client2.fragmentCount).toBe(3);
+        // Check result was ordered
+        const isSorted2 = timestamps2.every(
+            (v, i) => i === 0 || v <= timestamps2[i - 1],
+        );
+        expect(isSorted2).toBeTruthy();
+
+        // Clean up
+        fs.rmSync(path.resolve("./tests/data/save.json"));
     });
 });
