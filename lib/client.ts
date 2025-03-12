@@ -12,7 +12,8 @@ import {
     Fetcher,
     longPromise,
     resetPromise,
-    Manager
+    Manager,
+    statelessPageFetch
 } from "./fetcher";
 import {
     extractMainNodeShape,
@@ -27,7 +28,7 @@ import type { Term } from "@rdfjs/types";
 import type { Config } from "./config";
 import type { StateFactory } from "./state";
 import type { Ordered, StrategyEvents } from "./strategy";
-import type { LDESInfo, Notifier, FetchedPage, Fragment, Member } from "./fetcher";
+import type { LDESInfo, Notifier, FetchedPage, Member } from "./fetcher";
 
 const df = new DataFactory();
 
@@ -180,13 +181,15 @@ type EventKey<T extends EventMap> = string & keyof T;
 type EventReceiver<T> = (params: T) => void;
 
 export type ClientEvents = {
-    fragment: Fragment;
+    fragment: FetchedPage;
     mutable: void;
     poll: void;
     error: unknown;
 };
 
 export class Client {
+    public memberCount: number;
+    public fragmentCount: number;
     public streamId?: Term;
     private config: Config;
     private dereferencer: RdfDereferencer;
@@ -211,6 +214,8 @@ export class Client {
         dereferencer?: RdfDereferencer,
         stream?: Term,
     ) {
+        this.memberCount = 0;
+        this.fragmentCount = 0;
         this.config = config;
         this.dereferencer = dereferencer ?? rdfDereferencer;
 
@@ -245,7 +250,7 @@ export class Client {
         close: () => void,
     ): Promise<void> {
         // Fetch the url
-        const root = await fetchPage(
+        const root = await statelessPageFetch(
             this.config.url,
             this.dereferencer,
             this.config.fetch,
@@ -287,18 +292,7 @@ export class Client {
             this.config,
         );
 
-        // Build factory to keep track of the replication state
-        const state = this.stateFactory.build<Set<string>>(
-            "members",
-            (set) => {
-                const arr = [...set.values()];
-                return JSON.stringify(arr);
-            },
-            (inp) => new Set(JSON.parse(inp)),
-            () => new Set(),
-        );
-
-        // Build factory to keep track of member versions
+        // Build state entry to keep track of member versions
         const versionState = this.config.lastVersionOnly
             ? this.stateFactory.build<Map<string, Date>>(
                 "versions",
@@ -315,7 +309,6 @@ export class Client {
             isLocalDump
                 ? null // Local dump does not need to dereference a view
                 : ldesUri, // Point to the actual LDES IRI
-            state.item,
             info,
         );
 
@@ -345,7 +338,10 @@ export class Client {
 
         const notifier: Notifier<StrategyEvents, unknown> = {
             error: (ex: unknown) => this.emit("error", ex),
-            fragment: (fragment: Fragment) => this.emit("fragment", fragment),
+            fragment: (fragment: FetchedPage) => {
+                this.emit("fragment", fragment);
+                this.fragmentCount++;
+            },
             member: (m) => {
                 if (this.config.condition.matchMember(m)) {
                     this.config.condition.memberEmitted(m);
@@ -377,6 +373,7 @@ export class Client {
                             info,
                         ),
                     );
+                    this.memberCount++;
                 }
             },
             pollCycle: () => {
@@ -483,21 +480,4 @@ export class Client {
             fn(data);
         });
     }
-}
-
-async function fetchPage(
-    location: string,
-    dereferencer: RdfDereferencer,
-    fetch_f?: typeof fetch,
-): Promise<FetchedPage> {
-    const resp = await dereferencer.dereference(location, {
-        localFiles: true,
-        fetch: fetch_f,
-    });
-    const url = resp.url;
-    const data = RdfStore.createDefault();
-    await new Promise((resolve, reject) => {
-        data.import(resp.data).on("end", resolve).on("error", reject);
-    });
-    return <FetchedPage>{ url, data };
 }

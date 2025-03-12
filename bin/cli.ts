@@ -181,7 +181,7 @@ async function main() {
 
     client.on("fragment", (fragment) => {
         fragmentCount += 1;
-        logger.verbose(`Got fragment: ${fragment.id.value}`);
+        logger.verbose(`Got fragment: ${fragment.url}`);
     });
 
     client.on("error", (error) => {

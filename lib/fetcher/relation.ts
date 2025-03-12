@@ -1,9 +1,93 @@
-import type { Value } from "../condition";
+import { RDF, TREE } from "@treecg/types";
+import { RdfStore } from "rdf-stores";
+import { RelationCondition } from "../condition";
+import { getObjects, getLoggerFor } from "../utils";
+
+import type { Term } from "@rdfjs/types";
+import type { Condition } from "../condition";
+
+export interface Relations {
+    source: string;
+    node: string;
+    relations: Relation[];
+}
+
+export interface Relation {
+    id?: Term;
+    type: Term;
+    value?: Term[];
+    path?: Term;
+}
+
+export type RelationValue = string | Date | number;
 
 export type SimpleRelation = {
     important: boolean;
-    value: Value;
+    value: RelationValue;
 };
+
+export function extractRelations(
+    store: RdfStore,
+    node: Term,
+    loose: boolean,
+    condition: Condition,
+    defaultTimezone: string,
+): Relations[] {
+    const logger = getLoggerFor("extractRelations");
+
+    const relationIds = loose
+        ? getObjects(store, null, TREE.terms.relation, null)
+        : getObjects(store, node, TREE.terms.relation, null);
+
+    const source = node.value;
+
+    const conditions = new Map<
+        string,
+        { cond: RelationCondition; relation: Relations }
+    >();
+
+    for (const relationId of relationIds) {
+        const node = getObjects(store, relationId, TREE.terms.node, null)[0];
+        const ty =
+            getObjects(store, relationId, RDF.terms.type, null)[0] ||
+            TREE.Relation;
+        const path = getObjects(store, relationId, TREE.terms.path, null)[0];
+        const value = getObjects(store, relationId, TREE.terms.value, null);
+
+        const relation = {
+            type: ty,
+            path,
+            value,
+            id: relationId,
+        };
+        const found = conditions.get(node.value);
+        if (!found) {
+            const condition = new RelationCondition(store, defaultTimezone);
+            condition.addRelation(relationId);
+            conditions.set(node.value, {
+                cond: condition,
+                relation: {
+                    node: node.value,
+                    source,
+                    relations: [relation],
+                },
+            });
+        } else {
+            found.relation.relations.push(relation);
+            found.cond.addRelation(relationId);
+        }
+    }
+
+    const allowed = [];
+    for (const cond of conditions.values()) {
+        if (cond.cond.allowed(condition)) {
+            allowed.push(cond.relation);
+        }
+    }
+
+    logger.debug(`allowed ${JSON.stringify(allowed.map((x) => x.node))}`);
+    return allowed;
+}
 
 /**
  * This relation chain is important to better understand the order of fragments to fetch
@@ -15,14 +99,14 @@ export class RelationChain {
     source: string;
     relations: SimpleRelation[];
     target: string;
-    private cmp?: (a: Value, b: Value) => number;
+    private cmp?: (a: RelationValue, b: RelationValue) => number;
 
     constructor(
         source: string,
         target: string,
         relations: SimpleRelation[] = [],
         additional?: SimpleRelation,
-        cmp?: (a: Value, b: Value) => number,
+        cmp?: (a: RelationValue, b: RelationValue) => number,
     ) {
         this.source = source;
         this.target = target;

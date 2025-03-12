@@ -22,6 +22,52 @@ export type ModulartorEvents<T> = {
 };
 
 /**
+ * Modulator is a structure that only buffers elements and only handles elements
+ * when the factory is not paused and when not too many items are active at once.
+ */
+export interface Modulator<T, M> {
+    push(item: T): void;
+
+    finished(index: number): void;
+
+    length(): number;
+
+    seen(url: string): boolean;
+
+    recordMutable(url: string, item: T): void
+
+    recordImmutable(url: string): void
+
+    recordEmitted(url: string): void
+
+    recordUnemitted(url: string, member: M): void
+
+    getTodo(): ReadonlyArray<T>
+
+    getInFlight(): ReadonlyArray<T>
+
+    getMutable(): ReadonlyMap<string, T>
+
+    getUnemitted(): Array<M>
+
+    getEmitted(): ReadonlySet<string>
+}
+
+type Indexed<T> = {
+    item: T;
+    index: number;
+};
+
+type ModulatorInstanceState<T, M> = {
+    todo: Indexed<T>[];
+    inflight: Indexed<T>[];
+    mutable: Map<string, T>;
+    immutable: Set<string>;
+    emitted: Set<string>;
+    unemitted: Map<string, M>;
+};
+
+/**
  * Factory that creates Modulator's
  * This is a factory to keep track whether or not the Modulator should be paused or not.
  */
@@ -30,7 +76,7 @@ export class ModulatorFactory {
     paused: boolean = false;
 
     factory: StateFactory;
-    children: ModulatorInstance<unknown>[] = [];
+    children: ModulatorInstance<unknown, unknown>[] = [];
 
     constructor(stateFactory: StateFactory, concurrent?: number) {
         this.factory = stateFactory;
@@ -40,21 +86,43 @@ export class ModulatorFactory {
     }
 
     /**
-     * Note: `T` should be plain javascript objects (because that how state is saved)
+     * Note: `T` and `M` should be plain javascript objects (because that how state is saved)
      */
-    create<T>(
+    create<T, M>(
         name: string,
         ranker: Ranker<Indexed<T>>,
         notifier: Notifier<ModulartorEvents<T>, unknown>,
         parse?: (item: unknown) => T,
-    ): Modulator<T> {
-        const state = this.factory.build<ModulatorInstanceState<T>>(
+    ): Modulator<T, M> {
+        const state = this.factory.build<ModulatorInstanceState<T, M>>(
             name,
-            JSON.stringify,
-            JSON.parse,
+            (stateObj) => JSON.stringify(stateObj, (_, value) => {
+                if (value instanceof Set) {
+                    return { datatype: "Set", value: Array.from(value) };
+                } else if (value instanceof Map) {
+                    return { datatype: "Map", value: Array.from(value.entries()) };
+                } else {
+                    return value;
+                }
+            }),
+            (input) => {
+                return JSON.parse(input, (_, value) => {
+                    if (value && value.datatype === "Set") {
+                        return new Set(value.value);
+                    } else if (value && value.datatype === "Map") {
+                        return new Map(value.value);
+                    } else {
+                        return value;
+                    }
+                }) as ModulatorInstanceState<T, M>;
+            },
             () => ({
                 todo: [],
                 inflight: [],
+                mutable: new Map(),
+                immutable: new Set(),
+                emitted: new Set(),
+                unemitted: new Map(),
             }),
         );
 
@@ -69,10 +137,16 @@ export class ModulatorFactory {
                     item: parse(item),
                 }),
             );
+            state.item.mutable = new Map(
+                Array.from(state.item.mutable.entries()).map(([k, v]) => [
+                    k,
+                    parse(v),
+                ]),
+            );
         }
 
         const modulator = new ModulatorInstance(state, ranker, notifier, this);
-        this.children.push(<ModulatorInstance<unknown>>modulator);
+        this.children.push(<ModulatorInstance<unknown, unknown>>modulator);
         return modulator;
     }
 
@@ -86,34 +160,11 @@ export class ModulatorFactory {
     }
 }
 
-/**
- * Modulator is a structure that only buffers elements and only handles elements
- * when the factory is not paused and when not too many items are active at once.
- */
-export interface Modulator<T> {
-    push(item: T): void;
-
-    finished(index: number): void;
-
-    length(): number;
-}
-
-type Indexed<T> = {
-    item: T;
-    index: number;
-};
-
-type ModulatorInstanceState<T> = {
-    todo: Indexed<T>[];
-    inflight: Indexed<T>[];
-};
-
-class ModulatorInstance<T> implements Modulator<T> {
+export class ModulatorInstance<T, M> implements Modulator<T, M> {
     at: number = 0;
     index = 0;
 
-    private state: StateT<ModulatorInstanceState<T>>;
-
+    private state: StateT<ModulatorInstanceState<T, M>>;
     private ranker: Ranker<Indexed<T>>;
     private notifier: Notifier<ModulartorEvents<T>, unknown>;
     private factory: ModulatorFactory;
@@ -121,20 +172,25 @@ class ModulatorInstance<T> implements Modulator<T> {
     private logger = getLoggerFor(this);
 
     constructor(
-        state: StateT<ModulatorInstanceState<T>>,
+        state: StateT<ModulatorInstanceState<T, M>>,
         ranker: Ranker<Indexed<T>>,
         notifier: Notifier<ModulartorEvents<T>, unknown>,
         factory: ModulatorFactory,
     ) {
         this.state = state;
-        const readd = [...this.state.item.todo, ...this.state.item.inflight];
-        this.state.item.todo.push(...this.state.item.inflight);
+        const readd = [
+            ...this.state.item.todo,
+            ...this.state.item.inflight,
+        ];
+
+        // Clean up previous record lists
         while (this.state.item.inflight.pop()) {
             // pass
         }
         while (this.state.item.todo.pop()) {
             // pass
         }
+
         this.ranker = ranker;
         this.notifier = notifier;
         this.factory = factory;
@@ -153,6 +209,52 @@ class ModulatorInstance<T> implements Modulator<T> {
         this.index += 1;
         this.ranker.push(indexed);
         this.checkReady();
+    }
+
+    seen(url: string): boolean {
+        return this.state.item.immutable.has(url);
+    }
+
+    recordMutable(url: string, item: T): void {
+        this.state.item.mutable.set(url, item);
+    }
+
+    recordImmutable(url: string): void {
+        this.state.item.immutable.add(url);
+        // Remove from mutable list
+        this.state.item.mutable.delete(url);
+    }
+
+    recordEmitted(url: string): void {
+        this.state.item.emitted.add(url);
+        // Remove form unemitted list
+        if (this.state.item.unemitted.has(url)) {
+            this.state.item.unemitted.delete(url);
+        }
+    }
+
+    recordUnemitted(url: string, member: M): void {
+        this.state.item.unemitted.set(url, member);
+    }
+
+    getTodo(): ReadonlyArray<T> {
+        return this.state.item.todo.map((x) => x.item);
+    }
+
+    getInFlight(): ReadonlyArray<T> {
+        return this.state.item.inflight.map((x) => x.item);
+    }
+
+    getMutable(): ReadonlyMap<string, T> {
+        return <ReadonlyMap<string, T>>this.state.item.mutable;
+    }
+
+    getUnemitted(): Array<M> {
+        return Array.from(this.state.item.unemitted.values());
+    }
+
+    getEmitted(): ReadonlySet<string> {
+        return <ReadonlySet<string>>this.state.item.emitted;
     }
 
     finished(index: number) {

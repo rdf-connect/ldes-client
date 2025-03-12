@@ -1,10 +1,11 @@
-import { BaseQuad } from "n3";
+import { BaseQuad, Writer, Parser } from "n3";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
 import { RDF, SHACL } from "@treecg/types";
 import { getLoggerFor } from "./logUtil";
 
 import type { LDESInfo, Member } from "../fetcher";
+import type { SerializedMember } from "../strategy";
 import type {
     NamedNode,
     Quad,
@@ -83,6 +84,19 @@ export function streamToArray<T extends BaseQuad>(
             logger.error("[streamToArray] Stream to Array failed");
             rej(ex);
         });
+    });
+}
+
+export function streamToString(stream: Stream): Promise<string> {
+    const chunks: Buffer[] = [];
+    return new Promise((resolve, reject) => {
+        stream.on("data", (chunk: ArrayBuffer) =>
+            chunks.push(Buffer.from(chunk)),
+        );
+        stream.on("error", (err: unknown) => reject(err));
+        stream.on("end", () =>
+            resolve(Buffer.concat(chunks).toString("utf8")),
+        );
     });
 }
 
@@ -177,6 +191,38 @@ export function memberFromQuads(
         (x) => x.subject.equals(member) && x.predicate.value === RDF.type,
     )?.object;
     return { quads, id: member, isVersionOf, timestamp, type, created };
+}
+
+export function serializeMember(member: Member): SerializedMember {
+    return {
+        id: member.id.value,
+        quads: new Writer().quadsToString(member.quads),
+        timestamp: member.timestamp instanceof Date 
+            ? member.timestamp.toISOString() 
+            : member.timestamp?.toString(),
+        isVersionOf: member.isVersionOf,
+        type: member.type?.value,
+        created: member.created?.toISOString(),
+    };
+}
+
+export function deserializeMember(serialized: SerializedMember): Member {
+    let timestamp: string | Date | undefined;
+    if (serialized.timestamp) {
+        try {
+            timestamp = new Date(serialized.timestamp);
+        } catch {
+            timestamp = serialized.timestamp;
+        }
+    }
+    return {
+        id: df.namedNode(serialized.id),
+        quads: new Parser().parse(serialized.quads),
+        timestamp,
+        isVersionOf: serialized.isVersionOf,
+        type: serialized.type ? df.namedNode(serialized.type) : undefined,
+        created: serialized.created ? new Date(serialized.created) : undefined,
+    };
 }
 
 /**
