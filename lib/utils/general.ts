@@ -1,11 +1,15 @@
-import { BaseQuad } from "n3";
+import { BaseQuad, Writer, Parser } from "n3";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
 import { RDF, SHACL } from "@treecg/types";
 import { getLoggerFor } from "./logUtil";
 
+import type { LDESInfo, Member } from "../fetcher";
+import type { SerializedMember } from "../strategy";
 import type {
     NamedNode,
+    Quad,
+    Quad_Predicate,
     Quad_Subject,
     Quad_Object,
     Stream,
@@ -83,6 +87,19 @@ export function streamToArray<T extends BaseQuad>(
     });
 }
 
+export function streamToString(stream: Stream): Promise<string> {
+    const chunks: Buffer[] = [];
+    return new Promise((resolve, reject) => {
+        stream.on("data", (chunk: ArrayBuffer) =>
+            chunks.push(Buffer.from(chunk)),
+        );
+        stream.on("error", (err: unknown) => reject(err));
+        stream.on("end", () =>
+            resolve(Buffer.concat(chunks).toString("utf8")),
+        );
+    });
+}
+
 /**
  * Find the main sh:NodeShape subject of a given Shape Graph.
  * We determine this by assuming that the main node shape
@@ -135,4 +152,128 @@ export function urlToUrl(input: Parameters<typeof fetch>[0]): URL {
     } else {
         throw "Not a real url";
     }
+}
+
+export function memberFromQuads(
+    member: Term,
+    quads: Quad[],
+    timestampPath: Term | undefined,
+    isVersionOfPath: Term | undefined,
+    created?: Date,
+): Member {
+    // Get timestamp
+    let timestamp: string | Date | undefined;
+    if (timestampPath) {
+        const ts = quads.find(
+            (x) =>
+                x.subject.equals(member) && x.predicate.equals(timestampPath),
+        )?.object.value;
+        if (ts) {
+            try {
+                timestamp = new Date(ts);
+            } catch (ex: unknown) {
+                timestamp = ts;
+            }
+        }
+    }
+
+    // Get isVersionof
+    let isVersionOf: string | undefined;
+    if (isVersionOfPath) {
+        isVersionOf = quads.find(
+            (x) =>
+                x.subject.equals(member) && x.predicate.equals(isVersionOfPath),
+        )?.object.value;
+    }
+
+    // Get type
+    const type: Term | undefined = quads.find(
+        (x) => x.subject.equals(member) && x.predicate.value === RDF.type,
+    )?.object;
+    return { quads, id: member, isVersionOf, timestamp, type, created };
+}
+
+export function serializeMember(member: Member): SerializedMember {
+    return {
+        id: member.id.value,
+        quads: new Writer().quadsToString(member.quads),
+        timestamp: member.timestamp instanceof Date 
+            ? member.timestamp.toISOString() 
+            : member.timestamp?.toString(),
+        isVersionOf: member.isVersionOf,
+        type: member.type?.value,
+        created: member.created?.toISOString(),
+    };
+}
+
+export function deserializeMember(serialized: SerializedMember): Member {
+    let timestamp: string | Date | undefined;
+    if (serialized.timestamp) {
+        try {
+            timestamp = new Date(serialized.timestamp);
+        } catch {
+            timestamp = serialized.timestamp;
+        }
+    }
+    return {
+        id: df.namedNode(serialized.id),
+        quads: new Parser().parse(serialized.quads),
+        timestamp,
+        isVersionOf: serialized.isVersionOf,
+        type: serialized.type ? df.namedNode(serialized.type) : undefined,
+        created: serialized.created ? new Date(serialized.created) : undefined,
+    };
+}
+
+/**
+ * Version materialization function that sets the declared ldes:versionOfPath property value
+ * as the member's subject IRI
+ */
+export function maybeVersionMaterialize(
+    member: Member,
+    materialize: boolean,
+    ldesInfo: LDESInfo,
+): Member {
+    if (materialize && ldesInfo.versionOfPath) {
+        // Create RDF store with member quads
+        const memberStore = RdfStore.createDefault();
+        member.quads.forEach((q) => memberStore.addQuad(q));
+        // Get materialized subject IRI
+        const newSubject = getObjects(
+            memberStore,
+            member.id,
+            ldesInfo.versionOfPath,
+        )[0];
+        if (newSubject) {
+            // Remove version property
+            memberStore.removeQuad(
+                df.quad(
+                    <Quad_Subject>member.id,
+                    <Quad_Predicate>ldesInfo.versionOfPath,
+                    newSubject,
+                ),
+            );
+            // Updated all quads with materialized subject
+            for (const q of memberStore.getQuads(member.id)) {
+                //q.subject = <Quad_Subject>newSubject;
+                const newQ = df.quad(
+                    <Quad_Subject>newSubject,
+                    q.predicate,
+                    q.object,
+                    q.graph,
+                );
+                memberStore.removeQuad(q);
+                memberStore.addQuad(newQ);
+            }
+            // Update member object
+            member.id = newSubject;
+            member.quads = memberStore.getQuads();
+        } else {
+            console.error(
+                `No version property found in Member (${member.id}) as specified by ldes:isVersionOfPath ${ldesInfo.versionOfPath}`,
+            );
+        }
+    }
+
+    return member;
 }

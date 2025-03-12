@@ -1,22 +1,21 @@
 import { Heap } from "heap-js";
 import { TREE } from "@treecg/types";
 import { Fetcher, ModulatorFactory, RelationChain, Manager } from "../fetcher";
-import { parseInBetweenRelation, getLoggerFor } from "../utils";
-import { GTRs, LTR } from ".";
+import { parseInBetweenRelation, getLoggerFor, deserializeMember, serializeMember } from "../utils";
+import { GTRs, LTR } from "./types";
 
-import type { Value } from "../condition";
 import type {
-    Fragment,
     Member,
     Relations,
+    RelationValue,
     FetchedPage,
     FetchEvent,
-    Modulator,
     Notifier,
     SimpleRelation,
-    MemberEvents
+    MemberEvents,
+    Modulator
 } from "../fetcher";
-import type { StrategyEvents, Ordered } from ".";
+import type { StrategyEvents, Ordered, SerializedMember } from ".";
 
 export type StateItem = {
     rel: RelationChain;
@@ -42,13 +41,22 @@ export class OrderedStrategy {
     // With ordering descending LT relations are important
     private readonly launchedRelations: Heap<RelationChain>;
 
-    private modulator: Modulator<{ chain: RelationChain; expected: string[] }>;
-
+    private modulator: Modulator<
+        { chain: RelationChain; expected: string[] },
+        SerializedMember
+    >;
     private fetchNotifier: Notifier<
         FetchEvent,
         { chain: RelationChain; index: number }
     >;
-    private memberNotifer: Notifier<MemberEvents, RelationChain>;
+    private memberNotifer: Notifier<
+        MemberEvents,
+        {
+            chain: RelationChain;
+            index: number;
+            emitted: ReadonlySet<string>
+        }
+    >;
     private state: Array<StateItem>;
 
     private ordered: Ordered;
@@ -58,7 +66,7 @@ export class OrderedStrategy {
     private pollInterval?: number;
     private pollingIsScheduled: boolean;
 
-    private cancled = false;
+    private canceled = false;
 
     private logger = getLoggerFor(this);
 
@@ -84,8 +92,7 @@ export class OrderedStrategy {
         this.state = [];
 
         // Callbacks for the fetcher
-        // - seen: the strategy wanted to fetch an uri, but it was already seen
-        //         so one fetch request is terminated, inFlight -= 1, and remove it from the launchedRelations
+        // - scheduleFetch: a mutable page was fetched, we keep track of it for future polling
         // - pageFetched: a complete page is fetched and the relations have been extracted
         //         start member extraction
         // - relationFound: a relation has been found, put the extended chain in the queue
@@ -94,25 +101,30 @@ export class OrderedStrategy {
                 this.notifier.error(error, {});
             },
             scheduleFetch: ({ target, expected }, { chain }) => {
-                this.logger.debug(`Scheduling fetch for mutable page: ${target}`);
+                this.logger.debug(`[fetchNotifier - scheduleFetch] Scheduling fetch for mutable page: ${target}`);
                 chain.target = target;
                 this.toPoll.push({ chain, expected });
+                // Register in the state that this page needs to be refetched in the future
+                this.modulator.recordMutable(target, { chain, expected });
                 this.notifier.mutable({}, {});
             },
-            pageFetched: (page, { chain, index }) => {
-                this.logger.debug(`Page fetched ${page.url}`);
-                this.modulator.finished(index);
-                this.handleFetched(page, chain);
+            pageFetched: (page, state) => {
+                this.logger.debug(`[fetchNotifier - pageFetched] Page fetched ${page.url}`);
+                this.modulator.finished(state.index);
+                this.handleFetched(page, state);
             },
             relationFound: ({ from, target }, { chain }) => {
                 from.expected.push(target.node);
-                this.logger.debug(`Relation found ${target.node}`);
+                this.logger.debug(`[fetchNotifier - relationFound] Relation found ${target.node}`);
                 const newChain = chain.push(
                     target.node,
                     this.extractRelation(target),
                 );
                 if (newChain.ordering(chain) >= 0) {
-                    this.fetch(newChain, [from.target]);
+                    // Only launch the fetching of this relation if it hasn't been launched already
+                    if (!this.launchedRelations.contains(newChain, (e, o) => e.target === o.target)) {
+                        this.fetch(newChain, [from.target]);
+                    }
                 } else {
                     this.logger.error(
                         "Found relation backwards in time, this indicates wrong tree structure. Ignoring",
@@ -128,15 +140,26 @@ export class OrderedStrategy {
             error: (error) => {
                 this.notifier.error(error, {});
             },
-            done: (fragment: Fragment, rel) => {
-                this.logger.debug(`Member done ${rel.target}`);
-                const found = this.findOrDefault(rel);
+            done: (fragment: FetchedPage, { chain }) => {
+                this.logger.debug(`[memberNotifier - done] Member extraction done for ${chain.target}`);
+                const found = this.findOrDefault(chain);
                 found.extracting -= 1;
                 this.notifier.fragment(fragment, {});
+
+                if (fragment.immutable) {
+                    this.logger.debug(`[memberNotifier - done] Remembering immutable page to avoid future refetching: ${fragment.url}`);
+                    this.modulator.recordImmutable(fragment.url);
+                }
+
                 this.checkEmit();
             },
             extracted: (member) => {
-                this.members.push(member);
+                // Only proceed to emit if the member is not already in process of being emitted
+                if (!this.members.contains(member, (e, o) => e.id.value === o.id.value)) {
+                    this.members.push(member);
+                    // Register extracted member in the unemitted list
+                    this.modulator.recordUnemitted(member.id.value, serializeMember(member));
+                }
             },
         };
 
@@ -145,11 +168,18 @@ export class OrderedStrategy {
             new Heap((a, b) => a.item.chain.ordering(b.item.chain)),
             {
                 ready: ({ item: { chain, expected }, index }) => {
-                    this.fetcher.fetch(
-                        { target: chain.target, expected },
-                        { chain, index },
-                        this.fetchNotifier,
-                    );
+                    if (!this.modulator.seen(chain.target)) {
+                        this.logger.debug(`[modulator - ready] Ready to fetch page: ${chain.target}`);
+                        this.fetcher.fetch(
+                            { target: chain.target, expected },
+                            { chain, index },
+                            this.fetchNotifier,
+                        );
+                    } else {
+                        this.logger.debug(`[modulator - ready] Skipping fetch for previously fetched immutable page: ${chain.target}`);
+                        this.findOrDefault(chain).inFlight -= 1;
+                        this.modulator.finished(index);
+                    }
                 },
             },
             (inp: unknown) => {
@@ -161,12 +191,12 @@ export class OrderedStrategy {
                     >inp;
                 const cmp =
                     this.ordered === "ascending"
-                        ? (a: Value, b: Value) => {
+                        ? (a: RelationValue, b: RelationValue) => {
                             if (a > b) return 1;
                             if (a < b) return -1;
                             return 0;
                         }
-                        : (a: Value, b: Value) => {
+                        : (a: RelationValue, b: RelationValue) => {
                             if (a > b) return -1;
                             if (a < b) return 1;
                             return 0;
@@ -207,70 +237,117 @@ export class OrderedStrategy {
     }
 
     start(url: string, root?: FetchedPage) {
+        // Check for any unemitted members from a previous run
+        const unemitted = this.modulator.getUnemitted();
+        if (unemitted.length > 0) {
+            this.logger.debug(`[start] Found ${unemitted.length} unemitted members in the saved state`);
+            unemitted
+                .map(deserializeMember)
+                .forEach((member) => this.members.push(member));
+        }
+
+        // Check for any mutable pages from a previous run
+        const mutable = Array.from(this.modulator.getMutable().values());
+        if (mutable.length > 0) {
+            this.logger.debug(`[start] Found ${mutable.length} mutable pages in the saved state`);
+
+            mutable.forEach((item) => {
+                this.toPoll.push(item);
+                this.notifier.mutable({}, {});
+                // Make sure the expected list does not prevent fetching of pages that haven't been fetched yet
+                this.fetch(
+                    item.chain,
+                    item.expected.filter(
+                        (x) => this.modulator.seen(x) // exclude alredy fetched immutable pages
+                            || this.modulator.getMutable().has(x) // exclude already fetched mutable pages
+                            || this.modulator.getTodo()
+                                .some((y) => y.chain.target === x) // exclude pages that are already in todo list
+                            || this.modulator.getInFlight()
+                                .some((y) => y.chain.target === x) // exclude pages that are already in flight
+                    )
+                );
+            });
+        }
+
         if (root) {
             // This is a local dump. Proceed to extract members
-            this.manager.extractMembers(root, new RelationChain("", ""), this.memberNotifer);
+            this.manager.extractMembers(
+                root,
+                {
+                    chain: new RelationChain("", ""),
+                    index: 0,
+                    emitted: new Set<string>()
+                },
+                this.memberNotifer
+            );
         } else {
-            this.logger.debug(`Starting at ${url}`);
-            const cmp = (a: Value, b: Value) => {
-                if (a > b) return 1;
-                if (a < b) return -1;
-                return 0;
-            };
+            if (this.modulator.length() < 1) {
+                this.logger.debug(`[start] Starting at ${url}`);
+                const cmp = (a: RelationValue, b: RelationValue) => {
+                    if (a > b) return 1;
+                    if (a < b) return -1;
+                    return 0;
+                };
 
-            if (this.ordered === "ascending") {
-                this.fetch(
-                    new RelationChain(
-                        "",
-                        url,
+                if (this.ordered === "ascending") {
+                    this.fetch(
+                        new RelationChain(
+                            "",
+                            url,
+                            [],
+                            undefined,
+                            (a, b) => +1 * cmp(a, b),
+                        ).push(url, {
+                            important: false,
+                            value: 0,
+                        }),
                         [],
-                        undefined,
-                        (a, b) => +1 * cmp(a, b),
-                    ).push(url, {
-                        important: false,
-                        value: 0,
-                    }),
-                    [],
-                );
+                    );
+                } else {
+                    this.fetch(
+                        new RelationChain(
+                            "",
+                            url,
+                            [],
+                            undefined,
+                            (a, b) => -1 * cmp(a, b),
+                        ).push(url, {
+                            important: false,
+                            value: 0,
+                        }),
+                        [],
+                    );
+                }
             } else {
-                this.fetch(
-                    new RelationChain(
-                        "",
-                        url,
-                        [],
-                        undefined,
-                        (a, b) => -1 * cmp(a, b),
-                    ).push(url, {
-                        important: false,
-                        value: 0,
-                    }),
-                    [],
+                this.logger.debug(
+                    "[start] Things are already inflight, not adding start url",
                 );
             }
         }
     }
 
     cancel() {
-        this.cancled = true;
+        this.canceled = true;
     }
 
     checkEnd() {
-        if (this.cancled) return;
+        if (this.canceled) return;
 
         // There are no relations more to be had, emit the other members
         if (this.launchedRelations.isEmpty()) {
-            this.logger.debug("No more launched relations");
+            this.logger.debug("[checkEnd] No more launched relations");
             let member = this.members.pop();
             while (member) {
                 this.notifier.member(member, {});
+                this.modulator.recordEmitted(member.id.value);
                 member = this.members.pop();
             }
 
             // Make sure polling task is only scheduled once
             if (this.polling && !this.pollingIsScheduled) {
-                this.logger.debug(`Polling is enabled, setting timeout of ${this.pollInterval || 1000} ms to poll`);
+                this.logger.debug(`[checkEnd] Polling is enabled, setting timeout of ${this.pollInterval || 1000} ms to poll`);
                 setTimeout(() => {
-                    if (this.cancled) return;
+                    if (this.canceled) return;
 
                     this.pollingIsScheduled = false;
                     this.notifier.pollCycle({}, {});
@@ -291,8 +368,8 @@ export class OrderedStrategy {
                 }, this.pollInterval || 1000);
                 this.pollingIsScheduled = true;
             } else {
-                this.logger.debug("Closing the notifier, polling is not set");
-                this.cancled = true;
+                this.logger.debug("[checkEnd] Closing the notifier, polling is not set");
+                this.canceled = true;
                 this.notifier.close({}, {});
             }
         }
@@ -413,14 +490,21 @@ export class OrderedStrategy {
         this.modulator.push({ chain: rel, expected });
     }
 
-    private handleFetched(page: FetchedPage, relation: RelationChain) {
+    private handleFetched(page: FetchedPage, state: { chain: RelationChain, index: number }) {
         // Update internal state
         // Page is fetched and will now be extracted
-        const found = this.findOrDefault(relation);
+        const found = this.findOrDefault(state.chain);
         found.extracting += 1;
         found.inFlight -= 1;
 
-        this.manager.extractMembers(page, relation, this.memberNotifer);
+        this.manager.extractMembers(
+            page,
+            {
+                emitted: this.modulator.getEmitted(),
+                ...state
+            },
+            this.memberNotifer
+        );
     }
 
     /**
@@ -428,6 +512,8 @@ export class OrderedStrategy {
      * Only the case when our current relation is important
      */
     private checkEmit() {
+        if (this.canceled) return;
+
         let head = this.launchedRelations.pop();
         while (head) {
             // Earlier we looked at head.relations[0] whether or not that relation was important
@@ -441,7 +527,7 @@ export class OrderedStrategy {
             const found = this.findOrDefault(head);
 
             // If this relation still has things in transit, or getting extracted, we must wait
-            if (found.inFlight != 0 || found.extracting != 0) {
+            if (found.inFlight > 0 || found.extracting > 0) {
                 break;
             }
 
@@ -453,12 +539,15 @@ export class OrderedStrategy {
                     // Euhm yeah, what to do if there is no timestamp?
                     if (!member.timestamp) {
                         this.notifier.member(member, {});
+                        this.modulator.recordEmitted(member.id.value);
                     } else if (
                         this.ordered == "ascending"
                             ? member.timestamp < marker.value
                             : member.timestamp > marker.value
                     ) {
                         this.notifier.member(member, {});
+                        // Record member as emitted
+                        this.modulator.recordEmitted(member.id.value);
                     } else {
                         break;
                     }
@@ -468,9 +557,11 @@ export class OrderedStrategy {
                 // This member failed, let's put him back
                 if (member) {
                     this.members.push(member);
+                    this.modulator.recordUnemitted(member.id.value, serializeMember(member));
                 }
             }
 
+            // At this point we are done with this relation
             head = this.launchedRelations.pop();
         }
 

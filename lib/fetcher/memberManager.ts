@@ -1,32 +1,29 @@
 import { CBDShapeExtractor } from "extract-cbd-shape";
-import { RDF, DC, LDES, TREE } from "@treecg/types";
+import { DC, LDES, TREE } from "@treecg/types";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
-import { getObjects, getLoggerFor } from "../utils";
+import { getObjects, memberFromQuads, getLoggerFor } from "../utils";
 
-import type { Quad, Term, Quad_Subject, Quad_Predicate } from "@rdfjs/types";
+import type { Quad, Term } from "@rdfjs/types";
 import type { Notifier } from "./modulator";
-import type { Fragment, Member } from "./page";
 import type { FetchedPage } from "./pageFetcher";
 
-const { quad, namedNode, defaultGraph } = new DataFactory();
+const { namedNode } = new DataFactory();
+
+export interface Member {
+    id: Term;
+    quads: Quad[];
+    timestamp?: string | Date;
+    isVersionOf?: string;
+    type?: Term;
+    created?: Date;
+}
 
 export type LDESInfo = {
     shape: Term;
     extractor: CBDShapeExtractor;
     timestampPath?: Term;
     versionOfPath?: Term;
-};
-
-export interface Options {
-    ldesId?: Term;
-    shapeId?: Term;
-    callback?: (member: Member) => void;
-    extractor?: CBDShapeExtractor;
-}
-
-export type ExtractedMember = {
-    member: Member;
 };
 
 export type ExtractError = {
@@ -37,100 +34,12 @@ export type ExtractError = {
 export type Error = ExtractError;
 export type MemberEvents = {
     extracted: Member;
-    done: Fragment;
+    done: FetchedPage;
     error: Error;
 };
 
-export function memberFromQuads(
-    member: Term,
-    quads: Quad[],
-    timestampPath: Term | undefined,
-    isVersionOfPath: Term | undefined,
-    created?: Date,
-): Member {
-    // Get timestamp
-    let timestamp: string | Date | undefined;
-    if (timestampPath) {
-        const ts = quads.find(
-            (x) =>
-                x.subject.equals(member) && x.predicate.equals(timestampPath),
-        )?.object.value;
-        if (ts) {
-            try {
-                timestamp = new Date(ts);
-            } catch (ex: unknown) {
-                timestamp = ts;
-            }
-        }
-    }
-
-    // Get isVersionof
-    let isVersionOf: string | undefined;
-    if (isVersionOfPath) {
-        isVersionOf = quads.find(
-            (x) =>
-                x.subject.equals(member) && x.predicate.equals(isVersionOfPath),
-        )?.object.value;
-    }
-
-    // Get type
-    const type: Term | undefined = quads.find(
-        (x) => x.subject.equals(member) && x.predicate.value === RDF.type,
-    )?.object;
-    return { quads, id: member, isVersionOf, timestamp, type, created };
-}
-
-/**
- * Version materialization function that sets the declared ldes:versionOfPath property value
- * as the member's subject IRI
- */
-export function maybeVersionMaterialize(
-    member: Member,
-    materialize: boolean,
-    ldesInfo: LDESInfo,
-): Member {
-    if (materialize && ldesInfo.versionOfPath) {
-        // Create RDF store with member quads
-        const memberStore = RdfStore.createDefault();
-        member.quads.forEach((q) => memberStore.addQuad(q));
-        // Get materialized subject IRI
-        const newSubject = getObjects(
-            memberStore,
-            member.id,
-            ldesInfo.versionOfPath,
-        )[0];
-        if (newSubject) {
-            // Remove version property
-            memberStore.removeQuad(
-                quad(
-                    <Quad_Subject>member.id,
-                    <Quad_Predicate>ldesInfo.versionOfPath,
-                    newSubject,
-                    defaultGraph(),
-                ),
-            );
-            // Updated all quads with materialized subject
-            for (const q of memberStore.getQuads(member.id)) {
-                const newQ = quad(
-                    <Quad_Subject>newSubject,
-                    q.predicate,
-                    q.object,
-                    q.graph,
-                );
-                memberStore.removeQuad(q);
-                memberStore.addQuad(newQ);
-            }
-            // Update member object
-            member.id = newSubject;
-            member.quads = memberStore.getQuads();
-        } else {
-            console.error(
-                `No version property found in Member (${member.id}) as specified by ldes:isVersionOfPath ${ldesInfo.versionOfPath}`,
-            );
-        }
-    }
-
-    return member;
+interface ExtractionState {
+    emitted: ReadonlySet<string>;    
 }
 
 export class Manager {
@@ -140,7 +49,6 @@ export class Manager {
     private resolve?: () => void;
     private ldesId: Term | null;
 
-    private state: Set<string>;
     private extractor: CBDShapeExtractor;
     private shapeId?: Term;
 
@@ -149,9 +57,8 @@ export class Manager {
 
     private logger = getLoggerFor(this);
 
-    constructor(ldesId: Term | null, state: Set<string>, info: LDESInfo) {
+    constructor(ldesId: Term | null, info: LDESInfo) {
         this.ldesId = ldesId;
-        this.state = state;
         this.extractor = info.extractor;
         this.timestampPath = info.timestampPath;
         this.isVersionOfPath = info.versionOfPath;
@@ -179,7 +86,7 @@ export class Manager {
     }
 
     // Extract members found in this page, this does not yet emit the members
-    extractMembers<S>(
+    extractMembers<S extends ExtractionState>(
         page: FetchedPage,
         state: S,
         notifier: Notifier<MemberEvents, S>,
@@ -206,12 +113,12 @@ export class Manager {
         )[0];
         const pageUpdated = pageUpdatedIso ? new Date(pageUpdatedIso.value) : undefined;
 
-        this.logger.debug(`Extracting ${members.length} members`);
+        this.logger.debug(`Extracting ${members.length} members for ${page.url}`);
 
         const promises: Promise<Member | undefined | void>[] = [];
 
         for (const member of members) {
-            if (!this.state.has(member.value)) {
+            if (!state.emitted.has(member.value)) {
                 const promise = this.extractMember(member, page.data)
                     .then((member) => {
                         if (member) {
@@ -233,13 +140,12 @@ export class Manager {
             }
         }
 
-        Promise.all(promises).then((members) => {
-            this.logger.debug("All members extracted");
+        Promise.all(promises).then(() => {
             if (!this.closed) {
-                notifier.done(
-                    { id: namedNode(page.url), created: pageCreated, updated: pageUpdated },
-                    state,
-                );
+                this.logger.debug(`All members extracted for ${page.url}`);
+                page.created = pageCreated;
+                page.updated = pageUpdated;
+                notifier.done(page, state);
             }
         });
     }
@@ -251,11 +157,6 @@ export class Manager {
             this.resolve = undefined;
         }
         this.closed = true;
-        this.logger.debug("this.resolve()");
-    }
-
-    length(): number {
-        return this.state.size;
     }
 
     /// Only listen to this promise if a member is queued
@@ -277,14 +178,16 @@ export class Manager {
         member: Term,
         data: RdfStore,
     ): Promise<Member | undefined> {
-        if (this.state.has(member.value)) return;
-
         try {
             const quads: Quad[] = await this.extractMemberQuads(member, data);
-            const created = getObjects(data, member, DC.terms.custom("created"), namedNode(LDES.custom("IngestionMetadata")))[0]?.value;
+            const created = getObjects(
+                data, 
+                member, 
+                DC.terms.custom("created"), 
+                namedNode(LDES.custom("IngestionMetadata"))
+            )[0]?.value;
 
             if (quads.length > 0) {
-                this.state.add(member.value);
                 return memberFromQuads(
                     member,
                     quads,
