@@ -269,9 +269,7 @@ export function maybeVersionMaterialize(
             member.id = newSubject;
             member.quads = memberStore.getQuads();
         } else {
-            console.error(
-                `No version property found in Member (${member.id}) as specified by ldes:isVersionOfPath ${ldesInfo.versionOfPath}`,
-            );
+            logger.warn(`No version property found in Member (${member.id.value}) as specified by ldes:isVersionOfPath ${ldesInfo.versionOfPath.value}`);
         }
     }
 

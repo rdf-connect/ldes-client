@@ -2,7 +2,9 @@ import winston, { format, Logger } from "winston";
 
 const PROCESSOR_NAME = "ldes-client";
 
-const consoleTransport = new winston.transports.Console();
+const consoleTransport = new winston.transports.Console({
+    stderrLevels: ["error", "warn"]
+});
 
 if (typeof process !== "undefined") {
     consoleTransport.level =
