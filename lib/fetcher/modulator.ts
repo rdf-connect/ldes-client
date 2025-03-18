@@ -290,7 +290,7 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
                     this.state.item.todo.splice(removeIdx, 1);
                 } else {
                     this.logger.error(
-                        "[checkReady] Expected to be able to remove inflight item",
+                        "[checkReady] Expected to be able to remove todo item",
                     );
                 }
 
