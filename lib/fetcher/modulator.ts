@@ -228,9 +228,7 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
     recordEmitted(url: string): void {
         this.state.item.emitted.add(url);
         // Remove form unemitted list
-        if (this.state.item.unemitted.has(url)) {
-            this.state.item.unemitted.delete(url);
-        }
+        this.state.item.unemitted.delete(url);
     }
 
     recordUnemitted(url: string, member: M): void {
