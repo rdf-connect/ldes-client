@@ -22,8 +22,21 @@ export type ModulartorEvents<T> = {
 };
 
 /**
- * Modulator is a structure that only buffers elements and only handles elements
- * when the factory is not paused and when not too many items are active at once.
+ * Modulator is a state and flow management structure that buffers, ranks and handles elements (T)
+ * when its factory is not paused and when not too many elements are active at once.
+ * It keeps track of the state of all encountered elements and data entities (M) derived from such elements.
+ * 
+ * Possible states for elements T are:
+ * - Todo: element has been encountered but it has not been handled yet.
+ * - InFlight: element is currently being handled.
+ * - Mutable: element has been handled but it needs to be handled again in the future.
+ * - Immutable: element has been handled and there is no need to handle it again anymore.
+ * 
+ * Possible states for data entities M are:
+ * - Unemitted: data entity has been extracted but has not been emitted yet. 
+ *              This is relevant when the modulator follows a ordered strategy, 
+ *              where data entities are buffered and are emitted only when possible. 
+ * - Emitted: data entity has been emitted.
  */
 export interface Modulator<T, M> {
     push(item: T): void;
