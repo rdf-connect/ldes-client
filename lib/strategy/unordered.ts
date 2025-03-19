@@ -26,7 +26,6 @@ export class UnorderedStrategy {
 
     private modulator: Modulator<Node, SerializedMember>;
 
-    private toPoll: Node[] = [];
     private polling: boolean;
     private pollInterval?: number;
     private pollingIsScheduled: boolean;
@@ -62,7 +61,6 @@ export class UnorderedStrategy {
             },
             scheduleFetch: (node: Node) => {
                 this.logger.debug(`[fetchNotifier - pageFetched] Scheduling fetch for mutable page: ${node.target}`);
-                this.toPoll.push(node);
                 // Register in the state that this page needs to be refetched in the future
                 this.modulator.recordMutable(node.target, node);
                 this.notifier.mutable({}, {});
@@ -129,7 +127,6 @@ export class UnorderedStrategy {
         if (mutable.length > 0) {
             this.logger.debug(`[start] Found ${mutable.length} mutable pages in the saved state`);
             mutable.forEach((node) => {
-                this.toPoll.push(node);
                 this.notifier.mutable({}, {});
                 this.inFlight += 1;
                 this.modulator.push(node);
@@ -181,9 +178,9 @@ export class UnorderedStrategy {
 
                     this.pollingIsScheduled = false;
                     this.notifier.pollCycle({}, {});
-                    const tp = this.toPoll.slice();
-                    this.toPoll = [];
-                    for (const mutable of tp) {
+                    const toPoll = Array.from(this.modulator.getMutable().values());
+                      
+                    for (const mutable of toPoll) {
                         this.inFlight += 1;
                         this.modulator.push(mutable);
                     }
