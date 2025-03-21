@@ -17,13 +17,6 @@ import type {
 } from "../fetcher";
 import type { StrategyEvents, Ordered, SerializedMember } from ".";
 
-export type StateItem = {
-    rel: RelationChain;
-    closed: boolean;
-    inFlight: number;
-    extracting: number;
-};
-
 export class OrderedStrategy {
     private members: Heap<Member>;
 
