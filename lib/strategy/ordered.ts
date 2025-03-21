@@ -57,7 +57,6 @@ export class OrderedStrategy {
             emitted: ReadonlySet<string>
         }
     >;
-    private state: Array<StateItem>;
 
     private ordered: Ordered;
 
@@ -89,7 +88,6 @@ export class OrderedStrategy {
 
         this.toPoll = new Heap((a, b) => a.chain.ordering(b.chain));
         this.launchedRelations = new Heap((a, b) => a.ordering(b));
-        this.state = [];
 
         // Callbacks for the fetcher
         // - scheduleFetch: a mutable page was fetched, we keep track of it for future polling
@@ -110,7 +108,6 @@ export class OrderedStrategy {
             },
             pageFetched: (page, state) => {
                 this.logger.debug(`[fetchNotifier - pageFetched] Page fetched ${page.url}`);
-                this.modulator.finished(state.index);
                 this.handleFetched(page, state);
             },
             relationFound: ({ from, target }, { chain }) => {
@@ -140,10 +137,9 @@ export class OrderedStrategy {
             error: (error) => {
                 this.notifier.error(error, {});
             },
-            done: (fragment: FetchedPage, { chain }) => {
+            done: (fragment: FetchedPage, { chain, index }) => {
                 this.logger.debug(`[memberNotifier - done] Member extraction done for ${chain.target}`);
-                const found = this.findOrDefault(chain);
-                found.extracting -= 1;
+                this.modulator.finished(index);
                 this.notifier.fragment(fragment, {});
 
                 if (fragment.immutable) {
@@ -177,7 +173,6 @@ export class OrderedStrategy {
                         );
                     } else {
                         this.logger.debug(`[modulator - ready] Skipping fetch for previously fetched immutable page: ${chain.target}`);
-                        this.findOrDefault(chain).inFlight -= 1;
                         this.modulator.finished(index);
                         // See if we can emit some members or end the process
                         this.checkEmit();
@@ -338,8 +333,6 @@ export class OrderedStrategy {
 
                     for (const rel of toPollArray) {
                         this.launchedRelations.push(rel.chain);
-                        this.findOrDefault(rel.chain).inFlight += 1;
-                        this.findOrDefault(rel.chain).closed = false;
                         this.modulator.push(rel);
                     }
                 }, this.pollInterval || 1000);
@@ -350,17 +343,6 @@ export class OrderedStrategy {
                 this.notifier.close({}, {});
             }
         }
-    }
-
-    private findOrDefault(chain: RelationChain): StateItem {
-        const out = this.state.find((x) => x.rel.ordering(chain) == 0);
-        if (out) {
-            return out;
-        }
-
-        const nel = { rel: chain, inFlight: 0, extracting: 0, closed: false };
-        this.state.push(nel);
-        return nel;
     }
 
     /**
@@ -463,17 +445,11 @@ export class OrderedStrategy {
 
     private fetch(rel: RelationChain, expected: string[]) {
         this.launchedRelations.push(rel);
-        this.findOrDefault(rel).inFlight += 1;
         this.modulator.push({ chain: rel, expected });
     }
 
     private handleFetched(page: FetchedPage, state: { chain: RelationChain, index: number }) {
-        // Update internal state
         // Page is fetched and will now be extracted
-        const found = this.findOrDefault(state.chain);
-        found.extracting += 1;
-        found.inFlight -= 1;
-
         this.manager.extractMembers(
             page,
             {
@@ -501,16 +477,17 @@ export class OrderedStrategy {
                 important: false,
             };
 
-            const found = this.findOrDefault(head);
-
             // If this relation still has things in transit, or getting extracted, we must wait
-            if (found.inFlight > 0 || found.extracting > 0) {
+            const inTransit = 
+                this.modulator.getInFlight().find((x) => x.chain.ordering(head!) == 0)
+                || this.modulator.getTodo().find((x) => x.chain.ordering(head!) == 0)
+
+            if (inTransit) {
                 break;
             }
 
             // Actually emit some members in order
             if (marker.important) {
-                found.closed = true;
                 let member = this.members.pop();
                 while (member) {
                     // Euhm yeah, what to do if there is no timestamp?

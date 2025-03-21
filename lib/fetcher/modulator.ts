@@ -275,7 +275,7 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
         if (removeIdx >= 0) {
             this.state.item.inflight.splice(removeIdx, 1);
         } else {
-            this.logger.error(
+            this.logger.warn(
                 "[finished] Expected to be able to remove inflight item",
             );
         }
