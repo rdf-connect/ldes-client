@@ -154,14 +154,6 @@ export class Manager {
         this.closed = true;
     }
 
-    /// Only listen to this promise if a member is queued
-    reset(): Promise<void> {
-        this.logger.debug(`Resetting with ${this.queued} members in queue`);
-
-        this.queued = 0;
-        return new Promise((res) => (this.resolve = res));
-    }
-
     private async extractMemberQuads(
         member: Term,
         data: RdfStore,
