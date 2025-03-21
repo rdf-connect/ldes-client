@@ -435,58 +435,46 @@ export function handleConditions(
     after?: Date,
     timestampPath?: Term,
 ): Condition {
+    if ((before || after) && !timestampPath) {
+        throw "Cannot apply 'before' or 'after' filters since the target LDES does not define a ldes:timestampPath predicate";
+    }
+
     // Check if before and after conditions are defined and build corresponding Condition object
     let handledCondition: Condition = empty_condition();
     const toDateLiteral = (date: Date) => {
         return df.literal(date.toISOString(), XSD.terms.dateTime);
     };
 
-    if (before) {
-        if (!timestampPath) {
-            throw "Cannot apply 'before' or 'after' filters since the target LDES does not define a ldes:timestampPath predicate";
-        }
+    const predLens = pred(timestampPath);
 
-        const predLens = pred(timestampPath);
-        const beforeCond = new LeafCondition({
+    if (before) {
+        handledCondition = new LeafCondition({
             relationType: TREE.terms.LessThanRelation,
             value: toDateLiteral(before),
             compareType: "date",
             path: predLens,
-            pathQuads: { entry: timestampPath, quads: [] },
+            pathQuads: { entry: timestampPath!, quads: [] },
             defaultTimezone,
         });
-        if (after) {
-            const afterCond = new LeafCondition({
-                relationType: TREE.terms.GreaterThanRelation,
-                value: toDateLiteral(after),
-                compareType: "date",
-                path: predLens,
-                pathQuads: { entry: timestampPath, quads: [] },
-                defaultTimezone,
-            });
-            // Got bi-condition with before & after filters
-            handledCondition = new AndCondition({
-                items: [beforeCond, afterCond],
-            });
-        } else {
-            // Got condition with before filter only
-            handledCondition = beforeCond;
-        }
-    } else if (after) {
-        if (!timestampPath) {
-            throw "Cannot apply 'before' or 'after' filters since the target LDES does not define a ldes:timestampPath predicate";
-        }
+    }
 
-        const predLens = pred(timestampPath);
-        // Got condition with after filter only
-        handledCondition = new LeafCondition({
+    if (after) {
+        const afterCond = new LeafCondition({
             relationType: TREE.terms.GreaterThanRelation,
             value: toDateLiteral(after),
             compareType: "date",
             path: predLens,
-            pathQuads: { entry: timestampPath, quads: [] },
+            pathQuads: { entry: timestampPath!, quads: [] },
             defaultTimezone,
         });
+        if (handledCondition instanceof EmptyCondition) {
+            handledCondition = afterCond;
+        } else {
+            // Got bi-condition with before & after filters
+            handledCondition = new AndCondition({
+                items: [handledCondition, afterCond],
+            });
+        }
     }
 
     // See if condition file was defined too
