@@ -94,8 +94,8 @@ type ModulatorInstanceState<T, M> = {
 };
 
 /**
- * Factory that creates Modulator's
- * This is a factory to keep track whether or not the Modulator should be paused or not.
+ * Factory that creates Modulators
+ * This is a factory to keep track whether the Modulator should be paused or not.
  */
 export class ModulatorFactory {
     concurrent = 10;
