@@ -179,6 +179,8 @@ export class OrderedStrategy {
                         this.logger.debug(`[modulator - ready] Skipping fetch for previously fetched immutable page: ${chain.target}`);
                         this.findOrDefault(chain).inFlight -= 1;
                         this.modulator.finished(index);
+                        // See if we can emit some members or end the process
+                        this.checkEmit();
                     }
                 },
             },
@@ -246,29 +248,6 @@ export class OrderedStrategy {
                 .forEach((member) => this.members.push(member));
         }
 
-        // Check for any mutable pages from a previous run
-        const mutable = Array.from(this.modulator.getMutable().values());
-        if (mutable.length > 0) {
-            this.logger.debug(`[start] Found ${mutable.length} mutable pages in the saved state`);
-
-            mutable.forEach((item) => {
-                this.toPoll.push(item);
-                this.notifier.mutable({}, {});
-                // Make sure the expected list does not prevent fetching of pages that haven't been fetched yet
-                this.fetch(
-                    item.chain,
-                    item.expected.filter(
-                        (x) => this.modulator.seen(x) // exclude alredy fetched immutable pages
-                            || this.modulator.getMutable().has(x) // exclude already fetched mutable pages
-                            || this.modulator.getTodo()
-                                .some((y) => y.chain.target === x) // exclude pages that are already in todo list
-                            || this.modulator.getInFlight()
-                                .some((y) => y.chain.target === x) // exclude pages that are already in flight
-                    )
-                );
-            });
-        }
-
         if (root) {
             // This is a local dump. Proceed to extract members
             this.manager.extractMembers(
@@ -280,49 +259,47 @@ export class OrderedStrategy {
                 },
                 this.memberNotifer
             );
-        } else {
-            if (this.modulator.length() < 1) {
-                this.logger.debug(`[start] Starting at ${url}`);
-                const cmp = (a: RelationValue, b: RelationValue) => {
-                    if (a > b) return 1;
-                    if (a < b) return -1;
-                    return 0;
-                };
+        } else if (this.modulator.length() < 1) {
+            this.logger.debug(`[start] Starting at ${url}`);
+            const cmp = (a: RelationValue, b: RelationValue) => {
+                if (a > b) return 1;
+                if (a < b) return -1;
+                return 0;
+            };
 
-                if (this.ordered === "ascending") {
-                    this.fetch(
-                        new RelationChain(
-                            "",
-                            url,
-                            [],
-                            undefined,
-                            (a, b) => +1 * cmp(a, b),
-                        ).push(url, {
-                            important: false,
-                            value: 0,
-                        }),
+            if (this.ordered === "ascending") {
+                this.fetch(
+                    new RelationChain(
+                        "",
+                        url,
                         [],
-                    );
-                } else {
-                    this.fetch(
-                        new RelationChain(
-                            "",
-                            url,
-                            [],
-                            undefined,
-                            (a, b) => -1 * cmp(a, b),
-                        ).push(url, {
-                            important: false,
-                            value: 0,
-                        }),
-                        [],
-                    );
-                }
+                        undefined,
+                        (a, b) => +1 * cmp(a, b),
+                    ).push(url, {
+                        important: false,
+                        value: 0,
+                    }),
+                    [],
+                );
             } else {
-                this.logger.debug(
-                    "[start] Things are already inflight, not adding start url",
+                this.fetch(
+                    new RelationChain(
+                        "",
+                        url,
+                        [],
+                        undefined,
+                        (a, b) => -1 * cmp(a, b),
+                    ).push(url, {
+                        important: false,
+                        value: 0,
+                    }),
+                    [],
                 );
             }
+        } else {
+            this.logger.debug(
+                "[start] Things are already inflight, not adding start url",
+            );
         }
     }
 

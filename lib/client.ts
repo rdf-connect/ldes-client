@@ -255,6 +255,8 @@ export class Client {
             this.dereferencer,
             this.config.fetch,
         );
+        this.fragmentCount++;
+        this.emit("fragment", root);
 
         const isLocalDump = !this.config.url.startsWith("http");
 
@@ -271,6 +273,7 @@ export class Client {
                 this.logger.error(
                     "Did not find tree:view predicate, this is required to interpret the LDES",
                 );
+                throw "No view found";
             } else {
                 viewId = viewQuads[0].object;
             }
@@ -278,7 +281,8 @@ export class Client {
 
         const ldesUri = viewQuads[0]?.subject || root.data.getQuads(null, RDF.terms.type, LDES.terms.EventStream)[0].subject;
         if (!ldesUri) {
-            this.logger.error("Could not find the LDES URI in the RDF.");
+            this.logger.error("Could not find the LDES IRI in the RDF data.");
+            throw "No LDES IRI found";
         }
         // This is the ID of the stream of data we are replicating.
         // Normally it corresponds to the actual LDES IRI, unless externally specified.
@@ -416,6 +420,8 @@ export class Client {
             `Found ${viewQuads.length} views, choosing ${viewId.value}`,
         );
 
+        // TODO: handle the case where root and view are the same.
+        // Currently the root page gets unnecessarily fetched for a second time when the strategy starts.
         this.strategy.start(viewId.value, isLocalDump ? root : undefined);
     }
 
@@ -463,9 +469,9 @@ export class Client {
             cancel: async () => {
                 this.logger.info("Stream canceled");
                 this.stateFactory.write();
-                this.strategy.cancel();
-                this.memberManager.close();
-                this.fetcher.close();
+                if (this.strategy) this.strategy.cancel();
+                if (this.memberManager) this.memberManager.close();
+                if (this.fetcher) this.fetcher.close();
             },
         };
 

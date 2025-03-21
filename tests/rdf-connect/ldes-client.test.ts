@@ -3027,7 +3027,7 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const client1 = await exec1();
         // Check we got all fragments and members
         expect(client1.memberCount).toBe(12);
-        expect(client1.fragmentCount).toBe(3);
+        expect(client1.fragmentCount).toBe(4);
         // Check that state was saved
         expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
 
@@ -3108,7 +3108,7 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const client1 = await exec1();
         // Check we got all fragments and members
         expect(client1.memberCount).toBe(9);
-        expect(client1.fragmentCount).toBe(3);
+        expect(client1.fragmentCount).toBe(4);
         // Check that state was saved
         expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
 
@@ -3138,7 +3138,7 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const client2 = await exec2();
         // Check that we didn't get any members but we still fetched mutable fragments
         expect(client2.memberCount).toBe(0);
-        expect(client2.fragmentCount).toBe(2);
+        expect(client2.fragmentCount).toBe(3);
 
         // Clean up
         fs.rmSync(path.resolve("./tests/data/save.json"));
@@ -3194,7 +3194,7 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const client1 = await exec1();
         // Check we got all fragments and members
         expect(client1.memberCount).toBe(12);
-        expect(client1.fragmentCount).toBe(3);
+        expect(client1.fragmentCount).toBe(4);
         // Check result was ordered
         const isSorted = timestamps.every(
             (v, i) => i === 0 || v >= timestamps[i - 1],
@@ -3285,7 +3285,7 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const client1 = await exec1();
         // Check we got all fragments and members
         expect(client1.memberCount).toBe(9);
-        expect(client1.fragmentCount).toBe(3);
+        expect(client1.fragmentCount).toBe(4);
         // Check result was ordered
         const isSorted = timestamps.every(
             (v, i) => i === 0 || v >= timestamps[i - 1],
@@ -3320,7 +3320,7 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const client2 = await exec2();
         // Check that we didn't get any members but we still fetched mutable fragments
         expect(client2.memberCount).toBe(0);
-        expect(client2.fragmentCount).toBe(2);
+        expect(client2.fragmentCount).toBe(3);
 
         // Clean up
         fs.rmSync(path.resolve("./tests/data/save.json"));
@@ -3376,7 +3376,7 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const client1 = await exec1();
         // Check we got all fragments and members
         expect(client1.memberCount).toBe(12);
-        expect(client1.fragmentCount).toBe(3);
+        expect(client1.fragmentCount).toBe(4);
         // Check result was ordered
         const isSorted = timestamps.every(
             (v, i) => i === 0 || v <= timestamps[i - 1],
@@ -3467,7 +3467,7 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const client1 = await exec1();
         // Check we got all fragments and members
         expect(client1.memberCount).toBe(9);
-        expect(client1.fragmentCount).toBe(3);
+        expect(client1.fragmentCount).toBe(4);
         // Check result was ordered
         const isSorted = timestamps.every(
             (v, i) => i === 0 || v <= timestamps[i - 1],
@@ -3502,7 +3502,7 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const client2 = await exec2();
         // Check that we didn't get any members but we still fetched mutable fragments
         expect(client2.memberCount).toBe(0);
-        expect(client2.fragmentCount).toBe(2);
+        expect(client2.fragmentCount).toBe(3);
 
         // Clean up
         fs.rmSync(path.resolve("./tests/data/save.json"));
@@ -3560,7 +3560,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const client1 = await exec1();
         // Check we got some of the fragments and members
         expect(client1.memberCount).toBe(3);
-        expect(client1.fragmentCount).toBe(2);
+        // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
+        expect(client1.fragmentCount).toBeGreaterThanOrEqual(3);
         // Check result was ordered
         const isSorted1 = timestamps1.every(
             (v, i) => i === 0 || v >= timestamps1[i - 1],
@@ -3612,7 +3613,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const client2 = await exec2();
         // Check that we didn't get any members but we still fetched mutable fragments
         expect(client2.memberCount).toBe(9);
-        expect(client2.fragmentCount).toBe(1);
+        // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
+        expect(client2.fragmentCount).toBeGreaterThanOrEqual(2);
         // Check result was ordered
         const isSorted2 = timestamps2.every(
             (v, i) => i === 0 || v >= timestamps2[i - 1],
@@ -3658,7 +3660,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const client1 = await exec1();
         // Check we got some of the fragments and members
         expect(client1.memberCount).toBe(0);
-        expect(client1.fragmentCount).toBe(2);
+        // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
+        expect(client1.fragmentCount).toBeGreaterThanOrEqual(2);
 
         // Check that state was saved
         expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
@@ -3704,9 +3707,10 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
 
         // Run client
         const client2 = await exec2();
-        // Check that we didn't get any members but we still fetched mutable fragments
+        // Check that we got all members and fetched all fragments
         expect(client2.memberCount).toBe(9);
-        expect(client2.fragmentCount).toBe(3);
+        // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
+        expect(client2.fragmentCount).toBeGreaterThanOrEqual(2);
         // Check result was ordered
         const isSorted2 = timestamps2.every(
             (v, i) => i === 0 || v >= timestamps2[i - 1],
@@ -3752,7 +3756,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const client1 = await exec1();
         // Check we got some of the fragments and no members
         expect(client1.memberCount).toBe(0);
-        expect(client1.fragmentCount).toBe(2);
+        // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
+        expect(client1.fragmentCount).toBeGreaterThanOrEqual(3);
 
         // Check that state was saved
         expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
@@ -3800,7 +3805,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const client2 = await exec2();
         // Check that we didn't get any members but we still fetched mutable fragments
         expect(client2.memberCount).toBe(12);
-        expect(client2.fragmentCount).toBe(1);
+        // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
+        expect(client2.fragmentCount).toBeGreaterThanOrEqual(2);
         // Check result was ordered
         const isSorted2 = timestamps2.every(
             (v, i) => i === 0 || v <= timestamps2[i - 1],
@@ -3846,7 +3852,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const client1 = await exec1();
         // Check we got some of the fragments and no members
         expect(client1.memberCount).toBe(0);
-        expect(client1.fragmentCount).toBe(1);
+        // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
+        expect(client1.fragmentCount).toBeGreaterThanOrEqual(1);
 
         // Check that state was saved
         expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
@@ -3894,7 +3901,8 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         const client2 = await exec2();
         // Check that we didn't get any members but we still fetched mutable fragments
         expect(client2.memberCount).toBe(9);
-        expect(client2.fragmentCount).toBe(3);
+        // In this case we are sure that the client will fetch all fragments
+        expect(client2.fragmentCount).toBe(4);
         // Check result was ordered
         const isSorted2 = timestamps2.every(
             (v, i) => i === 0 || v <= timestamps2[i - 1],

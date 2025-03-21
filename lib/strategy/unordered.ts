@@ -16,8 +16,6 @@ export class UnorderedStrategy {
     private fetcher: Fetcher;
     private notifier: Notifier<StrategyEvents, unknown>;
 
-    private inFlight: number = 0;
-
     private fetchNotifier: Notifier<FetchEvent, { index: number }>;
     private memberNotifier: Notifier<
         MemberEvents,
@@ -70,8 +68,8 @@ export class UnorderedStrategy {
                 this.handleFetched(page, index);
             },
             relationFound: ({ from, target }) => {
+                this.logger.debug(`[fetchNotifier - relationFound] Found relation leading to ${target.node}`);
                 from.expected.push(target.node);
-                this.inFlight += 1;
                 this.modulator.push({
                     target: target.node,
                     expected: [from.target],
@@ -86,10 +84,10 @@ export class UnorderedStrategy {
             error: (error) => {
                 this.notifier.error(error, {});
             },
-            done: (fragment: FetchedPage) => {
+            done: (fragment: FetchedPage, { index }) => {
                 this.logger.debug("[memberNotifier - done] Members on page done");
-                this.inFlight -= 1;
                 this.notifier.fragment(fragment, {});
+                this.modulator.finished(index)
 
                 if (fragment.immutable) {
                     this.logger.debug(`[memberNotifier - done] Remembering immutable page to avoid future refetching: ${fragment.url}`);
@@ -98,7 +96,7 @@ export class UnorderedStrategy {
                 this.checkEnd();
             },
             extracted: (mem) => {
-                // Member is emitted immediately after extraction, so no need to record it in the not emitted state
+                // Member is emitted immediately after extraction, so no need to record it in the unemitted state
                 this.notifier.member(mem, {});
                 this.modulator.recordEmitted(mem.id.value);
             },
@@ -113,26 +111,13 @@ export class UnorderedStrategy {
                 } else {
                     this.logger.debug(`[modulator - ready] Skipping fetch for previously fetched immutable page: ${item.target}`);
                     this.modulator.finished(index);
+                    this.checkEnd();
                 }
             },
         });
     }
 
     start(url: string, root?: FetchedPage) {
-        // Here we would check for unemitted members from a previous run,
-        // but in this strategy we never have any unemitted members.
-
-        // Check for any mutable pages from a previous run
-        const mutable = Array.from(this.modulator.getMutable().values());
-        if (mutable.length > 0) {
-            this.logger.debug(`[start] Found ${mutable.length} mutable pages in the saved state`);
-            mutable.forEach((node) => {
-                this.notifier.mutable({}, {});
-                this.inFlight += 1;
-                this.modulator.push(node);
-            });
-        }
-
         if (root) {
             // This is a local dump. Proceed to extract members
             this.manager.extractMembers(
@@ -140,17 +125,14 @@ export class UnorderedStrategy {
                 { index: 0, emitted: new Set<string>() },
                 this.memberNotifier
             );
+        } else if (this.modulator.getInFlight().length < 1 
+            && this.modulator.getTodo().length < 1) {
+            this.logger.debug("[start] Nothing in flight, adding start url");
+            this.modulator.push({ target: url, expected: [] });
         } else {
-            this.inFlight = this.modulator.length();
-            if (this.inFlight < 1) {
-                this.inFlight = 1;
-                this.modulator.push({ target: url, expected: [] });
-                this.logger.debug("[start] Nothing in flight, adding start url");
-            } else {
-                this.logger.debug(
-                    "[start] Things are already inflight, not adding start url",
-                );
-            }
+            this.logger.debug(
+                "[start] Things are already inflight, not adding start url",
+            );
         }
     }
 
@@ -159,17 +141,17 @@ export class UnorderedStrategy {
     }
 
     private handleFetched(page: FetchedPage, index: number) {
-        this.modulator.finished(index);
         this.manager.extractMembers(
-            page, 
-            { index, emitted: this.modulator.getEmitted() }, 
+            page,
+            { index, emitted: this.modulator.getEmitted() },
             this.memberNotifier
         );
     }
 
     private checkEnd() {
         if (this.canceled) return;
-        if (this.inFlight <= 0) {
+        if (this.modulator.getInFlight().length < 1
+            && this.modulator.getTodo().length < 1){
             // Make sure we don't schedule multiple polling cycles
             if (this.polling && !this.pollingIsScheduled) {
                 this.logger.debug(`[checkEnd] Polling is enabled, setting timeout of ${this.pollInterval || 1000} ms to poll`);
@@ -179,9 +161,8 @@ export class UnorderedStrategy {
                     this.pollingIsScheduled = false;
                     this.notifier.pollCycle({}, {});
                     const toPoll = Array.from(this.modulator.getMutable().values());
-                      
+
                     for (const mutable of toPoll) {
-                        this.inFlight += 1;
                         this.modulator.push(mutable);
                     }
                 }, this.pollInterval || 1000);

@@ -66,23 +66,18 @@ export class Manager {
 
         if (!this.ldesId) {
             this.logger.debug(
-                `new local dump member extractor ${JSON.stringify({
-                    extractor: info.extractor.constructor.name,
-                    shape: info.shape,
-                    timestampPath: info.timestampPath,
-                    isVersionOfPath: info.versionOfPath,
-                })}`
+                `new local dump member extractor`
             );
         } else {
             this.logger.debug(
-                `new member extractor for ${this.ldesId.value} ${JSON.stringify({
-                    extractor: info.extractor.constructor.name,
-                    shape: info.shape,
-                    timestampPath: info.timestampPath,
-                    isVersionOfPath: info.versionOfPath,
-                })}`,
-            );
+                `new member extractor for ${this.ldesId.value}:`);
         }
+        this.logger.debug(`${JSON.stringify({
+            extractor: info.extractor.constructor.name,
+            shape: info.shape,
+            timestampPath: info.timestampPath,
+            isVersionOfPath: info.versionOfPath,
+        })}`);
     }
 
     // Extract members found in this page, this does not yet emit the members
