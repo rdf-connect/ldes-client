@@ -39,30 +39,43 @@ export type ModulartorEvents<T> = {
  * - Emitted: data entity has been emitted.
  */
 export interface Modulator<T, M> {
+    // Starts the handling of an element by adding it to the todo list.
     push(item: T): void;
 
+    // Called when an element has been handled, which removes it from the inflight list.
     finished(index: number): void;
 
+    // Returns the number of elements that are still in the todo list.
     length(): number;
 
+    // Returns whether an element has been encountered before and is in the immutable list.
     seen(url: string): boolean;
 
+    // Records the fact that an element is mutable
     recordMutable(url: string, item: T): void
 
+    // Records the fact that an element is immutable.
     recordImmutable(url: string): void
 
+    // Records the fact that a data entity has been emitted.
     recordEmitted(url: string): void
 
+    // Records the fact that a data entity has been extracted but not emitted yet.
     recordUnemitted(url: string, member: M): void
 
+    // Returns all elements that are still in the todo list.
     getTodo(): ReadonlyArray<T>
 
+    // Returns all elements that are currently being handled.
     getInFlight(): ReadonlyArray<T>
 
+    // Returns all elements that are mutable.
     getMutable(): ReadonlyMap<string, T>
 
-    getUnemitted(): Array<M>
+    // Returns all data entities that have been extracted but not emitted yet.
+    getUnemitted(): ReadonlyArray<M>
 
+    // Returns all data entities that have been emitted.
     getEmitted(): ReadonlySet<string>
 }
 
@@ -260,8 +273,8 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
         return <ReadonlyMap<string, T>>this.state.item.mutable;
     }
 
-    getUnemitted(): Array<M> {
-        return Array.from(this.state.item.unemitted.values());
+    getUnemitted(): ReadonlyArray<M> {
+        return <ReadonlyArray<M>>Array.from(this.state.item.unemitted.values());
     }
 
     getEmitted(): ReadonlySet<string> {
