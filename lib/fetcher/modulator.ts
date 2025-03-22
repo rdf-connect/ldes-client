@@ -204,7 +204,7 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
         factory: ModulatorFactory,
     ) {
         this.state = state;
-        const readd = [
+        const read = [
             ...this.state.item.todo,
             ...this.state.item.inflight,
         ];
@@ -220,7 +220,7 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
         this.ranker = ranker;
         this.notifier = notifier;
         this.factory = factory;
-        for (const item of readd) {
+        for (const item of read) {
             this.push(item.item);
         }
     }
