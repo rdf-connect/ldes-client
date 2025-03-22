@@ -210,12 +210,8 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
         ];
 
         // Clean up previous record lists
-        while (this.state.item.inflight.pop()) {
-            // pass
-        }
-        while (this.state.item.todo.pop()) {
-            // pass
-        }
+        this.state.item.inflight.splice(0, this.state.item.inflight.length);
+        this.state.item.todo.splice(0, this.state.item.todo.length);
 
         this.ranker = ranker;
         this.notifier = notifier;
