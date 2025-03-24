@@ -302,14 +302,13 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
             const item = this.ranker.pop();
             if (item) {
                 // This item is no longer todo
-                // I'm quite afraid to use filter for this
                 const removeIdx = this.state.item.todo.findIndex(
                     (x) => x.index == item.index,
                 );
                 if (removeIdx >= 0) {
                     this.state.item.todo.splice(removeIdx, 1);
                 } else {
-                    this.logger.error(
+                    this.logger.warn(
                         "[checkReady] Expected to be able to remove todo item",
                     );
                 }
