@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, afterEach, describe, expect, test } from "vitest";
 import fs from "fs";
 import path from "path";
 import { createUriAndTermNamespace, RDF, SDS, DC } from "@treecg/types";
@@ -80,6 +80,12 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
     afterAll(async () => {
         await server.close();
     });
+
+    afterEach(() => {
+        if (fs.existsSync("./tests/data/save.json")) {
+            fs.rmSync(path.resolve("./tests/data/save.json"));
+        }
+    })
 
     test("Fetching an LDES unordered and no filters to get all members", async () => {
         const outputStream = new SimpleStream<string>();
@@ -2997,12 +3003,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
         });
 
-        // Hack needed because for some reason this file remains after the test
-        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
-        if (fs.existsSync("./tests/data/save.json")) {
-            fs.rmSync(path.resolve("./tests/data/save.json"));
-        }
-
         // Setup client 1
         const exec1 = await processor(
             outputStream1,
@@ -3058,9 +3058,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         // Check that we didn't get any members but we still fetched mutable fragments
         expect(client2.memberCount).toBe(0);
         expect(client2.fragmentCount).toBe(1);
-
-        // Clean up
-        fs.rmSync(path.resolve("./tests/data/save.json"));
     });
 
     test("Fetching a Linked List LDES unordered and checking if state is saved and enforced upon resume", async () => {
@@ -3077,12 +3074,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             // Check that all member data is present
             expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
         });
-
-        // Hack needed because for some reason this file remains after the test
-        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
-        if (fs.existsSync("./tests/data/save.json")) {
-            fs.rmSync(path.resolve("./tests/data/save.json"));
-        }
 
         // Setup client 1
         const exec1 = await processor(
@@ -3139,9 +3130,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         // Check that we didn't get any members but we still fetched mutable fragments
         expect(client2.memberCount).toBe(0);
         expect(client2.fragmentCount).toBe(3);
-
-        // Clean up
-        fs.rmSync(path.resolve("./tests/data/save.json"));
     });
 
     test("Fetching an LDES in ascending ordered and checking if state is saved and enforced upon resume", async () => {
@@ -3164,12 +3152,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
         });
 
-        // Hack needed because for some reason this file remains after the test
-        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
-        if (fs.existsSync("./tests/data/save.json")) {
-            fs.rmSync(path.resolve("./tests/data/save.json"));
-        }
-
         // Setup client 1
         const exec1 = await processor(
             outputStream1,
@@ -3230,9 +3212,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         // Check that we didn't get any members but we still fetched mutable fragments
         expect(client2.memberCount).toBe(0);
         expect(client2.fragmentCount).toBe(1);
-
-        // Clean up
-        fs.rmSync(path.resolve("./tests/data/save.json"));
     });
 
     test("Fetching a Linked List LDES in ascending order and checking if state is saved and enforced upon resume", async () => {
@@ -3255,12 +3234,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
         });
 
-        // Hack needed because for some reason this file remains after the test
-        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
-        if (fs.existsSync("./tests/data/save.json")) {
-            fs.rmSync(path.resolve("./tests/data/save.json"));
-        }
-
         // Setup client 1
         const exec1 = await processor(
             outputStream1,
@@ -3321,9 +3294,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         // Check that we didn't get any members but we still fetched mutable fragments
         expect(client2.memberCount).toBe(0);
         expect(client2.fragmentCount).toBe(3);
-
-        // Clean up
-        fs.rmSync(path.resolve("./tests/data/save.json"));
     });
 
     test("Fetching an LDES in descending ordered and checking if state is saved and enforced upon resume", async () => {
@@ -3345,12 +3315,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             // Check that all member data is present
             expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
         });
-
-        // Hack needed because for some reason this file remains after the test
-        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
-        if (fs.existsSync("./tests/data/save.json")) {
-            fs.rmSync(path.resolve("./tests/data/save.json"));
-        }
 
         // Setup client 1
         const exec1 = await processor(
@@ -3412,9 +3376,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         // Check that we didn't get any members but we still fetched mutable fragments
         expect(client2.memberCount).toBe(0);
         expect(client2.fragmentCount).toBe(1);
-
-        // Clean up
-        fs.rmSync(path.resolve("./tests/data/save.json"));
     });
 
     test("Fetching a Linked List LDES in descending ordered and checking if state is saved and enforced upon resume", async () => {
@@ -3436,12 +3397,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             // Check that all member data is present
             expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
         });
-
-        // Hack needed because for some reason this file remains after the test
-        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
-        if (fs.existsSync("./tests/data/save.json")) {
-            fs.rmSync(path.resolve("./tests/data/save.json"));
-        }
 
         // Setup client 1
         const exec1 = await processor(
@@ -3503,9 +3458,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
         // Check that we didn't get any members but we still fetched mutable fragments
         expect(client2.memberCount).toBe(0);
         expect(client2.fragmentCount).toBe(3);
-
-        // Clean up
-        fs.rmSync(path.resolve("./tests/data/save.json"));
     });
 
     test("Fetching an LDES in ascending ordered, interrupting it and checking if state is saved and enforced upon resume", async () => {
@@ -3527,12 +3479,6 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             // Check that all member data is present
             expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
         });
-
-        // Hack needed because for some reason this file remains after the test
-        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
-        if (fs.existsSync("./tests/data/save.json")) {
-            fs.rmSync(path.resolve("./tests/data/save.json"));
-        }
 
         // Setup client 1
         const exec1 = await processor(
@@ -3620,19 +3566,10 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             (v, i) => i === 0 || v >= timestamps2[i - 1],
         );
         expect(isSorted2).toBeTruthy();
-
-        // Clean up
-        fs.rmSync(path.resolve("./tests/data/save.json"));
     });
 
     test("Fetching a Linked List LDES in ascending ordered, interrupting it and checking if state is saved and enforced upon resume", async () => {
         const outputStream1 = new SimpleStream<string>();
-
-        // Hack needed because for some reason this file remains after the test
-        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
-        if (fs.existsSync("./tests/data/save.json")) {
-            fs.rmSync(path.resolve("./tests/data/save.json"));
-        }
 
         // Setup client 1
         const exec1 = await processor(
@@ -3716,19 +3653,10 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             (v, i) => i === 0 || v >= timestamps2[i - 1],
         );
         expect(isSorted2).toBeTruthy();
-
-        // Clean up
-        fs.rmSync(path.resolve("./tests/data/save.json"));
     });
 
     test("Fetching an LDES in descending ordered, interrupting it and checking if state is saved and enforced upon resume", async () => {
         const outputStream1 = new SimpleStream<string>();
-
-        // Hack needed because for some reason this file remains after the test
-        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
-        if (fs.existsSync("./tests/data/save.json")) {
-            await fs.rmSync(path.resolve("./tests/data/save.json"));
-        }
 
         // Setup client 1
         const exec1 = await processor(
@@ -3812,19 +3740,10 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             (v, i) => i === 0 || v <= timestamps2[i - 1],
         );
         expect(isSorted2).toBeTruthy();
-
-        // Clean up
-        fs.rmSync(path.resolve("./tests/data/save.json"));
     });
 
     test("Fetching a Linked List LDES in descending ordered, interrupting it and checking if state is saved and enforced upon resume", async () => {
         const outputStream1 = new SimpleStream<string>();
-
-        // Hack needed because for some reason this file remains after the test
-        // when using npm test. It does not happen when using bun though ¯\_(ツ)_/¯
-        if (fs.existsSync("./tests/data/save.json")) {
-            await fs.rmSync(path.resolve("./tests/data/save.json"));
-        }
 
         // Setup client 1
         const exec1 = await processor(
@@ -3908,8 +3827,5 @@ describe("Functional tests for the js:LdesClient RDF-Connect processor", () => {
             (v, i) => i === 0 || v <= timestamps2[i - 1],
         );
         expect(isSorted2).toBeTruthy();
-
-        // Clean up
-        fs.rmSync(path.resolve("./tests/data/save.json"));
     });
 });
