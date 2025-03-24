@@ -42,7 +42,7 @@ export class OrderedStrategy {
         FetchEvent,
         { chain: RelationChain; index: number }
     >;
-    private memberNotifer: Notifier<
+    private memberNotifier: Notifier<
         MemberEvents,
         {
             chain: RelationChain;
