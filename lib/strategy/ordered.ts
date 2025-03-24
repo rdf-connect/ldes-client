@@ -126,7 +126,7 @@ export class OrderedStrategy {
         // Callbacks for member manager
         // - done: extracting is done, indicate this
         // - extract: a member is extracted, add it to our heap
-        this.memberNotifer = {
+        this.memberNotifier = {
             error: (error) => {
                 this.notifier.error(error, {});
             },
@@ -245,7 +245,7 @@ export class OrderedStrategy {
                     index: 0,
                     emitted: new Set<string>()
                 },
-                this.memberNotifer
+                this.memberNotifier
             );
         } else if (this.modulator.length() < 1) {
             this.logger.debug(`[start] Starting at ${url}`);
@@ -449,7 +449,7 @@ export class OrderedStrategy {
                 emitted: this.modulator.getEmitted(),
                 ...state
             },
-            this.memberNotifer
+            this.memberNotifier
         );
     }
 
