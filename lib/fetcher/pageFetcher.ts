@@ -8,7 +8,7 @@ import { extractRelations } from "./relation";
 import type { IDereferenceOptions } from "rdf-dereference";
 import type { Condition } from "../condition";
 import type { Notifier } from "./modulator";
-import type { SimpleRelation, Relation, Relations } from "./relation";
+import type { Relations } from "./relation";
 
 const { namedNode } = new DataFactory();
 
