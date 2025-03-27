@@ -59,7 +59,7 @@
     "benchmark": "^2.1.4",
     "eslint": "^9.21.0",
     "eslint-config-prettier": "^10.1.1",
-    "fastify": "^5.2.1",
+    "fastify": "^5.2.2",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.0",
     "prettier": "^3.5.3",
