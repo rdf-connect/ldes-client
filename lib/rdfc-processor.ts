@@ -1,13 +1,14 @@
-import { getLoggerFor } from "./utils/logUtil";
-import { replicateLDES } from "./client";
-import { enhanced_fetch, processConditionFile } from "./utils";
 import { DataFactory } from "rdf-data-factory";
 import { SDS } from "@treecg/types";
 import { Writer as NWriter } from "n3";
+import { replicateLDES } from "./client";
+import { enhanced_fetch } from "./fetcher"
+import { processConditionFile } from "./condition";
+import { getLoggerFor } from "./utils";
 
 import type { Writer } from "@rdfc/js-runner";
 import type { Quad_Object } from "@rdfjs/types";
-import type { Ordered } from "./client";
+import type { Ordered } from "./strategy";
 
 const df = new DataFactory();
 
@@ -40,6 +41,7 @@ export async function processor(
     materialize?: boolean,
     lastVersionOnly?: boolean,
     streamId?: string,
+    interruptOnFragment?: string[],
 ) {
     const logger = getLoggerFor("processor");
 
@@ -69,9 +71,15 @@ export async function processor(
         streamId ? df.namedNode(streamId) : undefined,
     );
 
-    client.on("fragment", (fragment) => logger.verbose(`Got fragment: ${fragment.id.value}`));
-
     const reader = client.stream({ highWaterMark: 10 }).getReader();
+
+    client.on("fragment", async (fragment) => {
+        logger.verbose(`Got fragment: ${fragment.url}`);
+        if (interruptOnFragment?.includes(fragment.url)) {
+            logger.info(`Interrupting on fragment ${fragment.url}`);
+            await reader.cancel();
+        }
+    });
 
     writer.on("end", async () => {
         await reader.cancel();
@@ -83,13 +91,11 @@ export async function processor(
         const seen = new Set();
         while (el) {
             if (el.value) {
-                seen.add(el.value.id);
+                seen.add(el.value.id.value);
 
-                if (seen.size % 100 == 1) {
-                    logger.verbose(
-                        `Got member ${seen.size} with ${el.value.quads.length} quads`,
-                    );
-                }
+                logger.verbose(
+                    `Got member ${el.value.id.value} with ${el.value.quads.length} quads`,
+                );
 
                 const blank = df.blankNode();
                 const quads = el.value.quads.slice();
@@ -119,8 +125,10 @@ export async function processor(
         }
 
         logger.verbose(`Found ${seen.size} members`);
-        
+
         // We extracted all members, so we can close the writer
         await writer.end();
+
+        return client;
     };
 }
