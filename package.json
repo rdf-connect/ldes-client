@@ -63,7 +63,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^15.5.0",
     "prettier": "^3.5.3",
-    "tsc-alias": "^1.8.11",
+    "tsc-alias": "^1.8.13",
     "typescript": "^5.8.2",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.0.9"
@@ -76,6 +76,6 @@
   },
   "optionalDependencies": {
     "@esbuild/darwin-arm64": "^0.25.1",
-    "@rollup/rollup-linux-x64-gnu": "^4.37.0"
+    "@rollup/rollup-linux-x64-gnu": "^4.38.0"
   }
 }
