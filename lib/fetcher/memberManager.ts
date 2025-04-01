@@ -1,25 +1,29 @@
-import { Quad, Term } from "@rdfjs/types";
-import { Fragment, Member } from "./page";
-import { FetchedPage } from "./pageFetcher";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { DC, LDES, TREE } from "@treecg/types";
-import { LDESInfo } from "./client";
-import { getObjects, memberFromQuads, Notifier } from "./utils";
 import { RdfStore } from "rdf-stores";
-import { getLoggerFor } from "./utils/logUtil";
-import { DataFactory } from "n3";
+import { DataFactory } from "rdf-data-factory";
+import { getObjects, memberFromQuads, getLoggerFor } from "../utils";
 
-const { namedNode } = DataFactory;
+import type { Quad, Term } from "@rdfjs/types";
+import type { Notifier } from "./modulator";
+import type { FetchedPage } from "./pageFetcher";
 
-export interface Options {
-    ldesId?: Term;
-    shapeId?: Term;
-    callback?: (member: Member) => void;
-    extractor?: CBDShapeExtractor;
+const { namedNode } = new DataFactory();
+
+export interface Member {
+    id: Term;
+    quads: Quad[];
+    timestamp?: string | Date;
+    isVersionOf?: string;
+    type?: Term;
+    created?: Date;
 }
 
-export type ExtractedMember = {
-    member: Member;
+export type LDESInfo = {
+    shape: Term;
+    extractor: CBDShapeExtractor;
+    timestampPath?: Term;
+    versionOfPath?: Term;
 };
 
 export type ExtractError = {
@@ -30,9 +34,13 @@ export type ExtractError = {
 export type Error = ExtractError;
 export type MemberEvents = {
     extracted: Member;
-    done: Fragment;
+    done: FetchedPage;
     error: Error;
 };
+
+interface ExtractionState {
+    emitted: ReadonlySet<string>;    
+}
 
 export class Manager {
     public queued: number = 0;
@@ -41,7 +49,6 @@ export class Manager {
     private resolve?: () => void;
     private ldesId: Term | null;
 
-    private state: Set<string>;
     private extractor: CBDShapeExtractor;
     private shapeId?: Term;
 
@@ -50,9 +57,8 @@ export class Manager {
 
     private logger = getLoggerFor(this);
 
-    constructor(ldesId: Term | null, state: Set<string>, info: LDESInfo) {
+    constructor(ldesId: Term | null, info: LDESInfo) {
         this.ldesId = ldesId;
-        this.state = state;
         this.extractor = info.extractor;
         this.timestampPath = info.timestampPath;
         this.isVersionOfPath = info.versionOfPath;
@@ -60,27 +66,22 @@ export class Manager {
 
         if (!this.ldesId) {
             this.logger.debug(
-                `new local dump member extractor ${JSON.stringify({
-                    extractor: info.extractor.constructor.name,
-                    shape: info.shape,
-                    timestampPath: info.timestampPath,
-                    isVersionOfPath: info.versionOfPath,
-                })}`
+                `new local dump member extractor`
             );
         } else {
             this.logger.debug(
-                `new member extractor for ${this.ldesId.value} ${JSON.stringify({
-                    extractor: info.extractor.constructor.name,
-                    shape: info.shape,
-                    timestampPath: info.timestampPath,
-                    isVersionOfPath: info.versionOfPath,
-                })}`,
-            );
+                `new member extractor for ${this.ldesId.value}:`);
         }
+        this.logger.debug(`${JSON.stringify({
+            extractor: info.extractor.constructor.name,
+            shape: info.shape,
+            timestampPath: info.timestampPath,
+            isVersionOfPath: info.versionOfPath,
+        })}`);
     }
 
     // Extract members found in this page, this does not yet emit the members
-    extractMembers<S>(
+    extractMembers<S extends ExtractionState>(
         page: FetchedPage,
         state: S,
         notifier: Notifier<MemberEvents, S>,
@@ -107,12 +108,12 @@ export class Manager {
         )[0];
         const pageUpdated = pageUpdatedIso ? new Date(pageUpdatedIso.value) : undefined;
 
-        this.logger.debug(`Extracting ${members.length} members`);
+        this.logger.debug(`Extracting ${members.length} members for ${page.url}`);
 
         const promises: Promise<Member | undefined | void>[] = [];
 
         for (const member of members) {
-            if (!this.state.has(member.value)) {
+            if (!state.emitted.has(member.value)) {
                 const promise = this.extractMember(member, page.data)
                     .then((member) => {
                         if (member) {
@@ -134,13 +135,12 @@ export class Manager {
             }
         }
 
-        Promise.all(promises).then((members) => {
-            this.logger.debug("All members extracted");
+        Promise.all(promises).then(() => {
             if (!this.closed) {
-                notifier.done(
-                    { id: namedNode(page.url), created: pageCreated, updated: pageUpdated },
-                    state,
-                );
+                this.logger.debug(`All members extracted for ${page.url}`);
+                page.created = pageCreated;
+                page.updated = pageUpdated;
+                notifier.done(page, state);
             }
         });
     }
@@ -152,19 +152,6 @@ export class Manager {
             this.resolve = undefined;
         }
         this.closed = true;
-        this.logger.debug("this.resolve()");
-    }
-
-    length(): number {
-        return this.state.size;
-    }
-
-    /// Only listen to this promise if a member is queued
-    reset(): Promise<void> {
-        this.logger.debug(`Resetting with ${this.queued} members in queue`);
-
-        this.queued = 0;
-        return new Promise((res) => (this.resolve = res));
     }
 
     private async extractMemberQuads(
@@ -178,14 +165,16 @@ export class Manager {
         member: Term,
         data: RdfStore,
     ): Promise<Member | undefined> {
-        if (this.state.has(member.value)) return;
-
         try {
             const quads: Quad[] = await this.extractMemberQuads(member, data);
-            const created = getObjects(data, member, DC.terms.custom("created"), namedNode(LDES.custom("IngestionMetadata")))[0]?.value;
+            const created = getObjects(
+                data, 
+                member, 
+                DC.terms.custom("created"), 
+                namedNode(LDES.custom("IngestionMetadata"))
+            )[0]?.value;
 
             if (quads.length > 0) {
-                this.state.add(member.value);
                 return memberFromQuads(
                     member,
                     quads,
