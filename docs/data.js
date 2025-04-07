@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743733541193,
+  "lastUpdate": 1743993010280,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -2509,6 +2509,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6.04,
             "range": "±2.38%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "29139614+renovate[bot]@users.noreply.github.com",
+            "name": "renovate[bot]",
+            "username": "renovate[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4aa077e6c87366f5fc81b55fd9dbb61e5f1a9d1d",
+          "message": "chore(deps): update dependency typescript to ^5.8.3",
+          "timestamp": "2025-04-06T22:40:33Z",
+          "tree_id": "4a830826bab34b10041ea47bd0d10875e52df9fb",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/4aa077e6c87366f5fc81b55fd9dbb61e5f1a9d1d"
+        },
+        "date": 1743993009896,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 5.94,
+            "range": "±2.93%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
