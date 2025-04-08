@@ -6,7 +6,7 @@ import { Modulator, ModulatorFactory, Notifier } from "../utils";
 import { RelationChain, SimpleRelation } from "../relation";
 
 import { Ordered } from "../client";
-import { GTRs, LTR, PageAndRelation, StrategyEvents } from ".";
+import { GTRs, LTR, StrategyEvents } from ".";
 import { getLoggerFor } from "../utils/logUtil";
 import { Value } from "../condition";
 import { TREE } from "@treecg/types";
@@ -50,6 +50,7 @@ export class OrderedStrategy {
     private polling: boolean;
     private toPoll: Heap<{ chain: RelationChain; expected: string[] }>;
     private pollInterval?: number;
+    private pollingIsScheduled: boolean;
 
     private cancled = false;
 
@@ -70,6 +71,7 @@ export class OrderedStrategy {
         this.notifier = notifier;
         this.polling = polling;
         this.pollInterval = pollInterval;
+        this.pollingIsScheduled = false;
 
         this.toPoll = new Heap((a, b) => a.chain.ordering(b.chain));
         this.launchedRelations = new Heap((a, b) => a.ordering(b));
@@ -86,6 +88,7 @@ export class OrderedStrategy {
                 this.notifier.error(error, {});
             },
             scheduleFetch: ({ target, expected }, { chain }) => {
+                this.logger.debug(`Scheduling fetch for mutable page: ${target}`);
                 chain.target = target;
                 this.toPoll.push({ chain, expected });
                 this.notifier.mutable({}, {});
@@ -149,19 +152,19 @@ export class OrderedStrategy {
                         chain: RelationChain;
                         expected: string[];
                     }
-                >inp;
+                    >inp;
                 const cmp =
                     this.ordered === "ascending"
                         ? (a: Value, b: Value) => {
-                              if (a > b) return 1;
-                              if (a < b) return -1;
-                              return 0;
-                          }
+                            if (a > b) return 1;
+                            if (a < b) return -1;
+                            return 0;
+                        }
                         : (a: Value, b: Value) => {
-                              if (a > b) return -1;
-                              if (a < b) return 1;
-                              return 0;
-                          };
+                            if (a > b) return -1;
+                            if (a < b) return 1;
+                            return 0;
+                        };
 
                 return {
                     chain: new RelationChain(
@@ -197,42 +200,47 @@ export class OrderedStrategy {
         }
     }
 
-    start(url: string) {
-        this.logger.debug(`Starting at ${url}`);
-        const cmp = (a: Value, b: Value) => {
-            if (a > b) return 1;
-            if (a < b) return -1;
-            return 0;
-        };
-
-        if (this.ordered === "ascending") {
-            this.fetch(
-                new RelationChain(
-                    "",
-                    url,
-                    [],
-                    undefined,
-                    (a, b) => +1 * cmp(a, b),
-                ).push(url, {
-                    important: false,
-                    value: 0,
-                }),
-                [],
-            );
+    start(url: string, root?: FetchedPage) {
+        if (root) {
+            // This is a local dump. Proceed to extract members
+            this.manager.extractMembers(root, new RelationChain("", ""), this.memberNotifer);
         } else {
-            this.fetch(
-                new RelationChain(
-                    "",
-                    url,
+            this.logger.debug(`Starting at ${url}`);
+            const cmp = (a: Value, b: Value) => {
+                if (a > b) return 1;
+                if (a < b) return -1;
+                return 0;
+            };
+
+            if (this.ordered === "ascending") {
+                this.fetch(
+                    new RelationChain(
+                        "",
+                        url,
+                        [],
+                        undefined,
+                        (a, b) => +1 * cmp(a, b),
+                    ).push(url, {
+                        important: false,
+                        value: 0,
+                    }),
                     [],
-                    undefined,
-                    (a, b) => -1 * cmp(a, b),
-                ).push(url, {
-                    important: false,
-                    value: 0,
-                }),
-                [],
-            );
+                );
+            } else {
+                this.fetch(
+                    new RelationChain(
+                        "",
+                        url,
+                        [],
+                        undefined,
+                        (a, b) => -1 * cmp(a, b),
+                    ).push(url, {
+                        important: false,
+                        value: 0,
+                    }),
+                    [],
+                );
+            }
         }
     }
 
@@ -252,11 +260,13 @@ export class OrderedStrategy {
                 member = this.members.pop();
             }
 
-            if (this.polling) {
-                this.logger.debug("Polling is enabled, settings timeout");
+            // Make sure polling task is only scheduled once
+            if (this.polling && !this.pollingIsScheduled) {
+                this.logger.debug(`Polling is enabled, setting timeout of ${this.pollInterval || 1000} ms to poll`);
                 setTimeout(() => {
                     if (this.cancled) return;
 
+                    this.pollingIsScheduled = false;
                     this.notifier.pollCycle({}, {});
                     const toPollArray = this.toPoll.toArray();
                     this.logger.debug(
@@ -273,6 +283,7 @@ export class OrderedStrategy {
                         this.modulator.push(rel);
                     }
                 }, this.pollInterval || 1000);
+                this.pollingIsScheduled = true;
             } else {
                 this.logger.debug("Closing the notifier, polling is not set");
                 this.cancled = true;

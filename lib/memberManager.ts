@@ -39,7 +39,7 @@ export class Manager {
 
     private closed = false;
     private resolve?: () => void;
-    private ldesId: Term;
+    private ldesId: Term | null;
 
     private state: Set<string>;
     private extractor: CBDShapeExtractor;
@@ -52,7 +52,7 @@ export class Manager {
     private loose: boolean;
 
     constructor(
-        ldesId: Term,
+        ldesId: Term | null,
         state: Set<string>,
         info: LDESInfo,
         loose = false,
@@ -61,18 +61,24 @@ export class Manager {
         this.state = state;
         this.extractor = info.extractor;
         this.timestampPath = info.timestampPath;
-        this.isVersionOfPath = info.isVersionOfPath;
+        this.isVersionOfPath = info.versionOfPath;
         this.shapeId = info.shape;
-
-        this.logger.debug(
-            `new ${ldesId.value} ${JSON.stringify({
-                extractor: info.extractor.constructor.name,
-                shape: info.shape,
-                timestampPath: info.timestampPath,
-                isVersionOfPath: info.isVersionOfPath,
-            })}`,
-        );
         this.loose = loose;
+
+        if (!this.ldesId) {
+            this.logger.debug(
+                `new local dump member extractor`
+            );
+        } else {
+            this.logger.debug(
+                `new member extractor for ${this.ldesId.value}:`);
+        }
+        this.logger.debug(`${JSON.stringify({
+            extractor: info.extractor.constructor.name,
+            shape: info.shape,
+            timestampPath: info.timestampPath,
+            isVersionOfPath: info.versionOfPath,
+        })}`);
     }
 
     // Extract members found in this page, this does not yet emit the members

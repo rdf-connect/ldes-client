@@ -1,0 +1,181 @@
+@prefix tree: <https://w3id.org/tree#> .
+@prefix ldes: <https://w3id.org/ldes#> .
+@prefix dc: <http://purl.org/dc/terms/> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix gsp: <http://www.opengis.net/ont/geosparql#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix mr: <http://marineregions.org/ns/ontology#> .
+@prefix schema: <https://schema.org/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix mrt: <http://marineregions.org/ns/placetypes#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+
+<https://www.marineregions.org/export/MRGID-LDES-export.zip>
+  a tree:Node ;
+  ldes:retentionPolicy [
+    a ldes:LatestVersionSubset ;
+    ldes:amount 1 ;
+    ldes:versionKey ( dc:isVersionOf )
+  ] .
+
+<http://www.marineregions.org/feed>
+  a ldes:EventStream ;
+  ldes:timestampPath dc:modified ;
+  ldes:versionOfPath dc:isVersionOf ;
+  tree:shape [
+    a sh:NodeShape ;
+    sh:nodeKind sh:IRI ;
+    sh:property [
+      sh:datatype xsd:dateTime ;
+      sh:minCount 1 ;
+      sh:path dc:modified
+    ], [
+      sh:minCount 1 ;
+      sh:nodeKind sh:IRI ;
+      sh:path dc:isVersionOf;
+      sh:node [
+        a sh:NodeShape ;
+        sh:targetClass mr:MRGeoObject ;
+        sh:property [
+          sh:datatype gsp:wktLiteral ;
+          sh:maxCount 1 ;
+          sh:minCount 0 ;
+          sh:path dcat:centroid
+        ], [
+          sh:datatype gsp:wktLiteral ;
+          sh:maxCount 1 ;
+          sh:minCount 0 ;
+          sh:path dcat:bbox
+        ], [
+          sh:minCount 0 ;
+          sh:nodeKind sh:IRI ;
+          sh:path mr:hasGeometry ;
+        ], [
+          sh:minCount 0 ;
+          sh:path skos:exactMatch ;
+          sh:node [
+            a sh:NodeShape ;
+            sh:nodeKind sh:IRI ;
+            sh:property [
+              sh:class schema:PropertyValue ;
+              sh:maxCount 1 ;
+              sh:minCount 1 ;
+              sh:path schema:identifier
+            ], [
+              sh:maxCount 1 ;
+              sh:minCount 1 ;
+              sh:nodeKind sh:IRI ;
+              sh:path schema:url
+            ]
+          ] ;
+        ], [
+          sh:datatype rdf:langString ;
+          sh:minCount 1 ;
+          sh:path skos:prefLabel
+        ], [
+          sh:datatype rdf:langString ;
+          sh:minCount 0 ;
+          sh:path skos:altLabel
+        ], [
+          sh:class mr:MRGeoObject ;
+          sh:minCount 0 ;
+          sh:nodeKind sh:IRI ;
+          sh:path mr:isRelatedTo
+        ], [ 
+          sh:path skos:note 
+        ], [ 
+          sh:path skos:historyNote 
+        ]
+      ]
+    ]
+  ] ;
+  tree:view <https://www.marineregions.org/export/MRGID-LDES-export.zip> ;
+  tree:member <http://marineregions.org/mrgid/14?t=1724302617> .
+
+<http://marineregions.org/mrgid/14?t=1724302617>
+  dc:isVersionOf <http://marineregions.org/mrgid/14> ;
+  dc:modified "2024-09-22T06:56:57Z"^^xsd:dateTime .
+
+<http://marineregions.org/mrgid/14>
+  a mr:MRGeoObject, mrt:Nation ;
+  mr:contains <http://marineregions.org/mrgid/2469>, <http://marineregions.org/mrgid/2471>, <http://marineregions.org/mrgid/2472>, <http://marineregions.org/mrgid/3293>, <http://marineregions.org/mrgid/26567>, <http://marineregions.org/mrgid/29855>, <http://marineregions.org/mrgid/30617>, <http://marineregions.org/mrgid/30631>, <http://marineregions.org/mrgid/30669>, <http://marineregions.org/mrgid/30727>, <http://marineregions.org/mrgid/49010>, <http://marineregions.org/mrgid/64454> ;
+  mr:containsWatercourse <http://marineregions.org/mrgid/2542>, <http://marineregions.org/mrgid/2555>, <http://marineregions.org/mrgid/3193> ;
+  mr:hasGeometry <http://marineregions.org/mrgid/14/geometries?source=252&attributeValue=Belgium> ;
+  mr:isPartOf <http://marineregions.org/mrgid/1920> ;
+  mr:isPreferredAlternativeOf <http://marineregions.org/mrgid/47978>, <http://marineregions.org/mrgid/47551> ;
+  mr:partlyContains <http://marineregions.org/mrgid/63364>, <http://marineregions.org/mrgid/30771> ;
+  dc:modified "2024-08-22T06:56:57Z"^^xsd:dateTime ;
+  rdfs:seeAlso <http://www.belgium.be> ;
+  skos:altLabel "België"@nl, "Belgique"@fr, "Bélgica"@es, "Belgien"@de, "Belgio"@it ;
+  skos:prefLabel "Belgium"@en ;
+  dcat:bbox "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POLYGON ((6.4074997901917 51.504199981689,2.5466001033783 51.504199981689,2.5466001033783 49.497299194336,6.4074997901917 49.497299194336,6.4074997901917 51.504199981689))"^^gsp:wktLiteral ;
+  dcat:centroid "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT (4.477049946785 50.500749588013)"^^gsp:wktLiteral ;
+  prov:hadPrimarySource [ prov:wasAttributedTo [ rdfs:label "(2001). The Times comprehensive atlas of the world. 10th ed. Times Books: London. ISBN 0-7230-0792-6. 67, 220, 124 plates pp."^^xsd:string ] ] .
+
+<http://www.marineregions.org/feed> tree:member <http://marineregions.org/mrgid/15?t=1724302617> .
+<http://marineregions.org/mrgid/15?t=1724302617>
+  dc:isVersionOf <http://marineregions.org/mrgid/15> ;
+  dc:modified "2024-08-22T06:56:57Z"^^xsd:dateTime .
+
+<http://marineregions.org/mrgid/15>
+  a mr:MRGeoObject, mrt:Nation ;
+  mr:contains <http://marineregions.org/mrgid/19>, <http://marineregions.org/mrgid/3667>, <http://marineregions.org/mrgid/2258>, <http://marineregions.org/mrgid/5668>, <http://marineregions.org/mrgid/14705>, <http://marineregions.org/mrgid/14706>, <http://marineregions.org/mrgid/14708>, <http://marineregions.org/mrgid/14709>, <http://marineregions.org/mrgid/14710>, <http://marineregions.org/mrgid/14711>, <http://marineregions.org/mrgid/14712>, <http://marineregions.org/mrgid/14713>, <http://marineregions.org/mrgid/14714>, <http://marineregions.org/mrgid/14715>, <http://marineregions.org/mrgid/17518>, <http://marineregions.org/mrgid/17605>, <http://marineregions.org/mrgid/17613>, <http://marineregions.org/mrgid/17626>, <http://marineregions.org/mrgid/17633>, <http://marineregions.org/mrgid/17675>, <http://marineregions.org/mrgid/18611>, <http://marineregions.org/mrgid/18617>, <http://marineregions.org/mrgid/18637>, <http://marineregions.org/mrgid/19668>, <http://marineregions.org/mrgid/20849>, <http://marineregions.org/mrgid/20856>, <http://marineregions.org/mrgid/22135>, <http://marineregions.org/mrgid/23364>, <http://marineregions.org/mrgid/24300>, <http://marineregions.org/mrgid/24304>, <http://marineregions.org/mrgid/24326>, <http://marineregions.org/mrgid/30727>, <http://marineregions.org/mrgid/31332>, <http://marineregions.org/mrgid/31514>, <http://marineregions.org/mrgid/31970>, <http://marineregions.org/mrgid/33412>, <http://marineregions.org/mrgid/33413>, <http://marineregions.org/mrgid/2354>, <http://marineregions.org/mrgid/49011>, <http://marineregions.org/mrgid/49565>, <http://marineregions.org/mrgid/63370> ;
+  mr:containsWatercourse <http://marineregions.org/mrgid/2542>, <http://marineregions.org/mrgid/2555> ;
+  mr:hasGeometry <http://marineregions.org/mrgid/15/geometries?source=252&attributeValue=Netherlands> ;
+  mr:isAdjacentTo <http://marineregions.org/mrgid/3224>, <http://marineregions.org/mrgid/30729>, <http://marineregions.org/mrgid/30745>, <http://marineregions.org/mrgid/30883> ;
+  mr:isAdministrativePartOf <http://marineregions.org/mrgid/8652>, <http://marineregions.org/mrgid/19143>, <http://marineregions.org/mrgid/21802>, <http://marineregions.org/mrgid/5768>, <http://marineregions.org/mrgid/15074>, <http://marineregions.org/mrgid/19095>, <http://marineregions.org/mrgid/19100> ;
+  mr:isPartOf <http://marineregions.org/mrgid/23598> ;
+  mr:isPreferredAlternativeOf <http://marineregions.org/mrgid/48354>, <http://marineregions.org/mrgid/47743> ;
+  mr:partlyContains <http://marineregions.org/mrgid/63364>, <http://marineregions.org/mrgid/30771> ;
+  dc:modified "2024-08-22T06:56:57Z"^^xsd:dateTime ;
+  skos:altLabel "Nederland"@nl ;
+  skos:prefLabel "Netherlands"@en ;
+  dcat:bbox "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POLYGON ((7.2272 53.5607,3.3587 53.5607,3.3587 50.7516,7.2272 50.7516,7.2272 53.5607))"^^gsp:wktLiteral ;
+  dcat:centroid "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT (5.29295 52.15615)"^^gsp:wktLiteral ;
+  prov:hadPrimarySource [ prov:wasAttributedTo [ rdfs:label "(2001). The Times comprehensive atlas of the world. 10th ed. Times Books: London. ISBN 0-7230-0792-6. 67, 220, 124 plates pp."^^xsd:string ] ] .
+
+<http://www.marineregions.org/feed> tree:member <http://marineregions.org/mrgid/15A?t=1724302617> .
+<http://marineregions.org/mrgid/15A?t=1724302617>
+  dc:isVersionOf <http://marineregions.org/mrgid/15A> ;
+  dc:modified "2024-08-22T06:50:57Z"^^xsd:dateTime .
+
+<http://marineregions.org/mrgid/15A>
+  a mr:MRGeoObject, mrt:Nation ;
+  mr:contains <http://marineregions.org/mrgid/19>, <http://marineregions.org/mrgid/3667>, <http://marineregions.org/mrgid/2258>, <http://marineregions.org/mrgid/5668>, <http://marineregions.org/mrgid/14705>, <http://marineregions.org/mrgid/14706>, <http://marineregions.org/mrgid/14708>, <http://marineregions.org/mrgid/14709>, <http://marineregions.org/mrgid/14710>, <http://marineregions.org/mrgid/14711>, <http://marineregions.org/mrgid/14712>, <http://marineregions.org/mrgid/14713>, <http://marineregions.org/mrgid/14714>, <http://marineregions.org/mrgid/14715>, <http://marineregions.org/mrgid/17518>, <http://marineregions.org/mrgid/17605>, <http://marineregions.org/mrgid/17613>, <http://marineregions.org/mrgid/17626>, <http://marineregions.org/mrgid/17633>, <http://marineregions.org/mrgid/17675>, <http://marineregions.org/mrgid/18611>, <http://marineregions.org/mrgid/18617>, <http://marineregions.org/mrgid/18637>, <http://marineregions.org/mrgid/19668>, <http://marineregions.org/mrgid/20849>, <http://marineregions.org/mrgid/20856>, <http://marineregions.org/mrgid/22135>, <http://marineregions.org/mrgid/23364>, <http://marineregions.org/mrgid/24300>, <http://marineregions.org/mrgid/24304>, <http://marineregions.org/mrgid/24326>, <http://marineregions.org/mrgid/30727>, <http://marineregions.org/mrgid/31332>, <http://marineregions.org/mrgid/31514>, <http://marineregions.org/mrgid/31970>, <http://marineregions.org/mrgid/33412>, <http://marineregions.org/mrgid/33413>, <http://marineregions.org/mrgid/2354>, <http://marineregions.org/mrgid/49011>, <http://marineregions.org/mrgid/49565>, <http://marineregions.org/mrgid/63370> ;
+  mr:containsWatercourse <http://marineregions.org/mrgid/2542>, <http://marineregions.org/mrgid/2555> ;
+  mr:hasGeometry <http://marineregions.org/mrgid/15/geometries?source=252&attributeValue=Netherlands> ;
+  mr:isAdjacentTo <http://marineregions.org/mrgid/3224>, <http://marineregions.org/mrgid/30729>, <http://marineregions.org/mrgid/30745>, <http://marineregions.org/mrgid/30883> ;
+  mr:isAdministrativePartOf <http://marineregions.org/mrgid/8652>, <http://marineregions.org/mrgid/19143>, <http://marineregions.org/mrgid/21802>, <http://marineregions.org/mrgid/5768>, <http://marineregions.org/mrgid/15074>, <http://marineregions.org/mrgid/19095>, <http://marineregions.org/mrgid/19100> ;
+  mr:isPartOf <http://marineregions.org/mrgid/23598> ;
+  mr:isPreferredAlternativeOf <http://marineregions.org/mrgid/48354>, <http://marineregions.org/mrgid/47743> ;
+  mr:partlyContains <http://marineregions.org/mrgid/63364>, <http://marineregions.org/mrgid/30771> ;
+  dc:modified "2024-08-22T06:50:57Z"^^xsd:dateTime ;
+  skos:altLabel "Nederland"@nl ;
+  skos:prefLabel "Netherlands"@en ;
+  dcat:bbox "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POLYGON ((7.2272 53.5607,3.3587 53.5607,3.3587 50.7516,7.2272 50.7516,7.2272 53.5607))"^^gsp:wktLiteral ;
+  dcat:centroid "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT (5.29295 52.15615)"^^gsp:wktLiteral ;
+  prov:hadPrimarySource [ prov:wasAttributedTo [ rdfs:label "(2001). The Times comprehensive atlas of the world. 10th ed. Times Books: London. ISBN 0-7230-0792-6. 67, 220, 124 plates pp."^^xsd:string ] ] .
+
+<http://www.marineregions.org/feed> tree:member <http://marineregions.org/mrgid/16?t=1723179070> .
+<http://marineregions.org/mrgid/16?t=1723179070>
+  dc:isVersionOf <http://marineregions.org/mrgid/16> ;
+  dc:modified "2024-08-09T06:51:10Z"^^xsd:dateTime .
+
+<http://marineregions.org/mrgid/16>
+  a mr:MRGeoObject, mrt:Country ;
+  mr:contains <http://marineregions.org/mrgid/94>, <http://marineregions.org/mrgid/95>, <http://marineregions.org/mrgid/96>, <http://marineregions.org/mrgid/125>, <http://marineregions.org/mrgid/123>, <http://marineregions.org/mrgid/106>, <http://marineregions.org/mrgid/3143>, <http://marineregions.org/mrgid/3144>, <http://marineregions.org/mrgid/3147>, <http://marineregions.org/mrgid/3167>, <http://marineregions.org/mrgid/3168>, <http://marineregions.org/mrgid/3171>, <http://marineregions.org/mrgid/3175>, <http://marineregions.org/mrgid/3189>, <http://marineregions.org/mrgid/3204>, <http://marineregions.org/mrgid/3205>, <http://marineregions.org/mrgid/3208>, <http://marineregions.org/mrgid/3222>, <http://marineregions.org/mrgid/3231>, <http://marineregions.org/mrgid/3232>, <http://marineregions.org/mrgid/3233>, <http://marineregions.org/mrgid/3237>, <http://marineregions.org/mrgid/3238>, <http://marineregions.org/mrgid/3242>, <http://marineregions.org/mrgid/3245>, <http://marineregions.org/mrgid/4381>, <http://marineregions.org/mrgid/4382>, <http://marineregions.org/mrgid/4383>, <http://marineregions.org/mrgid/4384>, <http://marineregions.org/mrgid/4385>, <http://marineregions.org/mrgid/4386>, <http://marineregions.org/mrgid/4387>, <http://marineregions.org/mrgid/4388>, <http://marineregions.org/mrgid/4389>, <http://marineregions.org/mrgid/4390>, <http://marineregions.org/mrgid/4391>, <http://marineregions.org/mrgid/4392>, <http://marineregions.org/mrgid/4393>, <http://marineregions.org/mrgid/4396>, <http://marineregions.org/mrgid/4395>, <http://marineregions.org/mrgid/4394>, <http://marineregions.org/mrgid/4397>, <http://marineregions.org/mrgid/4398>, <http://marineregions.org/mrgid/4400>, <http://marineregions.org/mrgid/4401>, <http://marineregions.org/mrgid/4402>, <http://marineregions.org/mrgid/4403>, <http://marineregions.org/mrgid/4404>, <http://marineregions.org/mrgid/4405>, <http://marineregions.org/mrgid/4406>, <http://marineregions.org/mrgid/4407>, <http://marineregions.org/mrgid/4408>, <http://marineregions.org/mrgid/4409>, <http://marineregions.org/mrgid/4410>, <http://marineregions.org/mrgid/4411>, <http://marineregions.org/mrgid/4412>, <http://marineregions.org/mrgid/4413>, <http://marineregions.org/mrgid/4414>, <http://marineregions.org/mrgid/4415>, <http://marineregions.org/mrgid/4416>, <http://marineregions.org/mrgid/4417>, <http://marineregions.org/mrgid/4418>, <http://marineregions.org/mrgid/4419>, <http://marineregions.org/mrgid/4420>, <http://marineregions.org/mrgid/4421>, <http://marineregions.org/mrgid/4422>, <http://marineregions.org/mrgid/4423>, <http://marineregions.org/mrgid/4424>, <http://marineregions.org/mrgid/4425>, <http://marineregions.org/mrgid/4426>, <http://marineregions.org/mrgid/4427>, <http://marineregions.org/mrgid/4428>, <http://marineregions.org/mrgid/4429>, <http://marineregions.org/mrgid/4430>, <http://marineregions.org/mrgid/4431>, <http://marineregions.org/mrgid/4432>, <http://marineregions.org/mrgid/4433>, <http://marineregions.org/mrgid/4434>, <http://marineregions.org/mrgid/4435>, <http://marineregions.org/mrgid/4436>, <http://marineregions.org/mrgid/4437>, <http://marineregions.org/mrgid/4438>, <http://marineregions.org/mrgid/4439>, <http://marineregions.org/mrgid/4440>, <http://marineregions.org/mrgid/4441>, <http://marineregions.org/mrgid/4442>, <http://marineregions.org/mrgid/4443>, <http://marineregions.org/mrgid/4444>, <http://marineregions.org/mrgid/4445>, <http://marineregions.org/mrgid/4446>, <http://marineregions.org/mrgid/4447>, <http://marineregions.org/mrgid/4448>, <http://marineregions.org/mrgid/4449>, <http://marineregions.org/mrgid/4450>, <http://marineregions.org/mrgid/4451>, <http://marineregions.org/mrgid/5487>, <http://marineregions.org/mrgid/5509>, <http://marineregions.org/mrgid/7131>, <http://marineregions.org/mrgid/7132>, <http://marineregions.org/mrgid/9245>, <http://marineregions.org/mrgid/17523>, <http://marineregions.org/mrgid/17524>, <http://marineregions.org/mrgid/17525>, <http://marineregions.org/mrgid/17526>, <http://marineregions.org/mrgid/17868>, <http://marineregions.org/mrgid/17875>, <http://marineregions.org/mrgid/17896>, <http://marineregions.org/mrgid/17930>, <http://marineregions.org/mrgid/17934>, <http://marineregions.org/mrgid/18555>, <http://marineregions.org/mrgid/20129>, <http://marineregions.org/mrgid/20921>, <http://marineregions.org/mrgid/20922>, <http://marineregions.org/mrgid/20923>, <http://marineregions.org/mrgid/20924>, <http://marineregions.org/mrgid/20925>, <http://marineregions.org/mrgid/20926>, <http://marineregions.org/mrgid/20927>, <http://marineregions.org/mrgid/20928>, <http://marineregions.org/mrgid/20929>, <http://marineregions.org/mrgid/20930>, <http://marineregions.org/mrgid/20931>, <http://marineregions.org/mrgid/20932>, <http://marineregions.org/mrgid/20933>, <http://marineregions.org/mrgid/20934>, <http://marineregions.org/mrgid/20935>, <http://marineregions.org/mrgid/20936>, <http://marineregions.org/mrgid/20937>, <http://marineregions.org/mrgid/20938>, <http://marineregions.org/mrgid/20939>, <http://marineregions.org/mrgid/20940>, <http://marineregions.org/mrgid/20941>, <http://marineregions.org/mrgid/20942>, <http://marineregions.org/mrgid/20943>, <http://marineregions.org/mrgid/20944>, <http://marineregions.org/mrgid/20945>, <http://marineregions.org/mrgid/20946>, <http://marineregions.org/mrgid/20947>, <http://marineregions.org/mrgid/20948>, <http://marineregions.org/mrgid/20949>, <http://marineregions.org/mrgid/20950>, <http://marineregions.org/mrgid/20951>, <http://marineregions.org/mrgid/20952>, <http://marineregions.org/mrgid/20953>, <http://marineregions.org/mrgid/20954>, <http://marineregions.org/mrgid/20956>, <http://marineregions.org/mrgid/20957>, <http://marineregions.org/mrgid/20958>, <http://marineregions.org/mrgid/20959>, <http://marineregions.org/mrgid/20960>, <http://marineregions.org/mrgid/20973>, <http://marineregions.org/mrgid/20974>, <http://marineregions.org/mrgid/20975>, <http://marineregions.org/mrgid/20976>, <http://marineregions.org/mrgid/20977>, <http://marineregions.org/mrgid/20978>, <http://marineregions.org/mrgid/20979>, <http://marineregions.org/mrgid/20980>, <http://marineregions.org/mrgid/20981>, <http://marineregions.org/mrgid/20982>, <http://marineregions.org/mrgid/20983>, <http://marineregions.org/mrgid/20984>, <http://marineregions.org/mrgid/20985>, <http://marineregions.org/mrgid/20986>, <http://marineregions.org/mrgid/20987>, <http://marineregions.org/mrgid/20989>, <http://marineregions.org/mrgid/20990>, <http://marineregions.org/mrgid/20991>, <http://marineregions.org/mrgid/33338>, <http://marineregions.org/mrgid/33339>, <http://marineregions.org/mrgid/64686> ;
+  mr:containsWatercourse <http://marineregions.org/mrgid/3192>, <http://marineregions.org/mrgid/3240>, <http://marineregions.org/mrgid/4645>, <http://marineregions.org/mrgid/4648>, <http://marineregions.org/mrgid/4649>, <http://marineregions.org/mrgid/4652>, <http://marineregions.org/mrgid/4654>, <http://marineregions.org/mrgid/4656>, <http://marineregions.org/mrgid/5488>, <http://marineregions.org/mrgid/5531>, <http://marineregions.org/mrgid/17467> ;
+  mr:hasGeometry <http://marineregions.org/mrgid/16/geometries?source=52&attributeValue=303> ;
+  mr:isAdjacentTo <http://marineregions.org/mrgid/3241>, <http://marineregions.org/mrgid/2389>, <http://marineregions.org/mrgid/3141>, <http://marineregions.org/mrgid/3244>, <http://marineregions.org/mrgid/17614>, <http://marineregions.org/mrgid/20253>, <http://marineregions.org/mrgid/20652> ;
+  mr:isPartOf <http://marineregions.org/mrgid/2208> ;
+  dc:modified "2024-08-09T06:51:10Z"^^xsd:dateTime ;
+  skos:altLabel "Engeland"@nl ;
+  skos:prefLabel "England"@en ;
+  dcat:bbox "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POLYGON ((1.7629 55.8099,-6.4509 55.8099,-6.4509 49.1649,1.7629 49.1649,1.7629 55.8099))"^^gsp:wktLiteral ;
+  dcat:centroid "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT (-2.344 52.4874)"^^gsp:wktLiteral ;
+  prov:hadPrimarySource <http://www.vliz.be/projects/sail> .
+
+<http://www.vliz.be/projects/sail> rdfs:label "SAIL"^^xsd:string .

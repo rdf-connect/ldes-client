@@ -5,25 +5,22 @@ import { FileStateFactory, NoStateFactory, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
-import { Writer as NWriter } from "n3";
-import { Quad_Object, Term } from "@rdfjs/types";
+import { Term } from "@rdfjs/types";
 import {
-    enhanced_fetch,
     extractMainNodeShape,
     getObjects,
     handleConditions,
     maybeVersionMaterialize,
     ModulatorFactory,
     Notifier,
-    processConditionFile,
     streamToArray,
 } from "./utils";
-import { LDES, SDS, TREE } from "@treecg/types";
+import { LDES, RDF, TREE } from "@treecg/types";
 import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
 import { Manager } from "./memberManager";
 import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
-import type { Writer } from "@rdfc/js-runner";
 import { getLoggerFor } from "./utils/logUtil";
+import { handleExit } from "./exitHandler";
 
 export { intoConfig } from "./config";
 export { enhanced_fetch, extractMainNodeShape, retry_fetch } from "./utils";
@@ -48,12 +45,10 @@ export function replicateLDES(
 
 export type LDESInfo = {
     shape: Term;
-    // Note that this store might not contain any or all shape related quadsa
-    // If you want to be sure, the use should dereference the shape (Term) and merge the resulting quads
     shapeQuads: Term[];
     extractor: CBDShapeExtractor;
     timestampPath?: Term;
-    isVersionOfPath?: Term;
+    versionOfPath?: Term;
 };
 
 async function getInfo(
@@ -66,6 +61,7 @@ async function getInfo(
     const logger = getLoggerFor("getShape");
 
     if (config.shapeFile) {
+        // Shape file is given externally, so we need to fetch it
         const shapeId = config.shapeFile.startsWith("http")
             ? config.shapeFile
             : "file://" + config.shapeFile;
@@ -81,20 +77,39 @@ async function getInfo(
         };
     }
 
-    let shapeIds = config.noShape
-        ? []
-        : getObjects(store, ldesId, TREE.terms.shape);
-    let timestampPaths = getObjects(store, ldesId, LDES.terms.timestampPath);
-    let isVersionOfPaths = getObjects(store, ldesId, LDES.terms.versionOfPath);
+    let shapeIds;
+    let timestampPaths;
+    let versionOfPaths;
+
+    const isLocalDump = ldesId.value.startsWith("file://");
+
+    if (isLocalDump) {
+        // We are dealing with a local dump LDES
+        shapeIds = config.noShape ? [] : getObjects(store, null, TREE.terms.shape);
+        timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
+        versionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
+    } else {
+        // This is a normal LDES on the Web
+        shapeIds = config.noShape ? [] : getObjects(store, ldesId, TREE.terms.shape);
+        timestampPaths = getObjects(store, ldesId, LDES.terms.timestampPath);
+        versionOfPaths = getObjects(store, ldesId, LDES.terms.versionOfPath);
+    }
 
     logger.debug(
-        `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${isVersionOfPaths.length} isVersionOfPaths`,
+        `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${versionOfPaths.length} versionOfPaths`,
     );
 
-    if (shapeIds.length === 0 || timestampPaths.length === 0 || isVersionOfPaths.length === 0) {
+    // Only try to dereference the view if we are not dealing with a local dump
+    if (isLocalDump) {
+        logger.debug("Ignoring view since this is a local dump");
+    } else if (shapeIds.length === 0 || timestampPaths.length === 0 || versionOfPaths.length === 0) {
+        let tryAgainUrl = viewId.value;
+        if (config.urlIsView) {
+            tryAgainUrl = ldesId.value;
+        }
         try {
-            logger.debug(`Maybe find more info at ${viewId.value}`);
-            const resp = await dereferencer.dereference(viewId.value, {
+            logger.debug(`Maybe find more info at ${tryAgainUrl}`);
+            const resp = await dereferencer.dereference(tryAgainUrl, {
                 localFiles: true,
                 fetch: config.fetch,
             });
@@ -102,23 +117,23 @@ async function getInfo(
             await new Promise((resolve, reject) => {
                 store.import(resp.data).on("end", resolve).on("error", reject);
             });
-            
+
             const shapeInView = getObjects(store, null, TREE.terms.shape);
             if (shapeInView) {
                 shapeIds = config.noShape ? [] : shapeInView;
             }
-            
+
             if (!timestampPaths.length) {
                 timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
             }
-            if (!isVersionOfPaths.length) {
-                isVersionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
+            if (!versionOfPaths.length) {
+                versionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
             }
             logger.debug(
-                `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${isVersionOfPaths.length} isVersionOfPaths`,
+                `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${versionOfPaths.length} isVersionOfPaths`,
             );
         } catch (ex: unknown) {
-            logger.error(`Failed to fetch ${ldesId.value}`);
+            logger.error(`Failed to fetch ${tryAgainUrl}`);
             logger.error(ex);
         }
     }
@@ -131,8 +146,8 @@ async function getInfo(
         logger.error(`Expected at most one timestamp path, found ${timestampPaths.length}`);
     }
 
-    if (isVersionOfPaths.length > 1) {
-        logger.error(`Expected at most one versionOf path, found ${isVersionOfPaths.length}`);
+    if (versionOfPaths.length > 1) {
+        logger.error(`Expected at most one versionOf path, found ${versionOfPaths.length}`);
     }
 
     const shapeConfigStore = RdfStore.createDefault();
@@ -145,6 +160,7 @@ async function getInfo(
     } else {
         const shapeId = shapeIds[0];
         if (shapeId && shapeId.termType === 'NamedNode' && store.getQuads(shapeId, null, null).length === 0) {
+            // Dereference out-of-band shape
             const respShape = await rdfDereferencer.dereference(shapeId.value);
             await new Promise((resolve, reject) => {
                 store.import(respShape.data).on("end", resolve).on("error", reject);
@@ -161,7 +177,7 @@ async function getInfo(
         }),
         shape: config.shape ? config.shape.shapeId : shapeIds[0],
         timestampPath: timestampPaths[0],
-        isVersionOfPath: isVersionOfPaths[0],
+        versionOfPath: versionOfPaths[0],
         shapeQuads: shapeStore.getQuads(),
     };
 }
@@ -215,10 +231,10 @@ export class Client {
         this.modulatorFactory = new ModulatorFactory(this.stateFactory);
 
         if (typeof process !== "undefined") {
-            process.on("SIGINT", () => {
-                this.logger.info("Caught interrupt signal, saving");
+            // Handle exit gracefully
+            handleExit(() => {
+                // Save state if any
                 this.stateFactory.write();
-                process.exit();
             });
         }
     }
@@ -244,7 +260,12 @@ export class Client {
             this.dereferencer,
             this.config.fetch,
         );
-        const ldesId: Term = df.namedNode(this.config.url);
+
+        const isLocalDump = !this.config.url.startsWith("http");
+
+        const ldesId: Term = isLocalDump
+            ? df.namedNode("file://" + this.config.url)
+            : df.namedNode(this.config.url);
 
         // TODO Choose a view
         const viewQuads = root.data.getQuads(null, TREE.terms.view, null, null);
@@ -260,8 +281,16 @@ export class Client {
             }
         }
 
+        const ldesUri = viewQuads[0]?.subject || root.data.getQuads(null, RDF.terms.type, LDES.terms.EventStream)[0].subject;
+        if (!ldesUri) {
+            this.logger.error("Could not find the LDES URI in the RDF.");
+        }
+        // This is the ID of the stream of data we are replicating.
+        // Normally it corresponds to the actual LDES IRI, unless externally specified.
+        this.streamId = this.streamId || ldesUri;
+
         const info = await getInfo(
-            ldesId,
+            ldesUri,
             viewId,
             root.data,
             this.dereferencer,
@@ -304,10 +333,10 @@ export class Client {
               )
             : undefined;
 
-        this.streamId = this.streamId || viewQuads[0].subject;
-
         this.memberManager = new Manager(
-            this.streamId || viewQuads[0].subject,
+            isLocalDump
+                ? null // Local dump does not need to dereference a view
+                : ldesUri, // Point to the actual LDES IRI
             state.item,
             info,
             this.config.loose,
@@ -412,11 +441,11 @@ export class Client {
                     this.config.pollInterval,
                 );
 
-        this.logger.debug(
+        if (!isLocalDump) this.logger.debug(
             `Found ${viewQuads.length} views, choosing ${viewId.value}`,
         );
 
-        this.strategy.start(viewId.value);
+        this.strategy.start(viewId.value, isLocalDump ? root : undefined);
     }
 
     stream(strategy?: {
@@ -477,7 +506,7 @@ export class Client {
         key: K,
         data: ClientEvents[K],
     ) {
-        (this.listeners[key] || []).forEach(function(fn) {
+        (this.listeners[key] || []).forEach(function (fn) {
             fn(data);
         });
     }
@@ -498,111 +527,4 @@ async function fetchPage(
         data.import(resp.data).on("end", resolve).on("error", reject);
     });
     return <FetchedPage>{ url, data };
-}
-
-export async function processor(
-    writer: Writer<string>,
-    url: string,
-    before?: Date,
-    after?: Date,
-    ordered?: string,
-    follow?: boolean,
-    pollInterval?: number,
-    shape?: string,
-    noShape?: boolean,
-    save?: string,
-    loose?: boolean,
-    urlIsView?: boolean,
-    fetch_config?: {
-        auth?: {
-            type: "basic";
-            auth: string;
-            host: string;
-        };
-        concurrent?: number;
-        retry?: {
-            codes: number[];
-            maxRetries: number;
-        };
-    },
-    condition?: string,
-    materialize?: boolean,
-    lastVersionOnly?: boolean,
-) {
-    const logger = getLoggerFor("processor");
-
-    if (fetch_config?.auth) {
-        fetch_config.auth.host = new URL(url).host;
-    }
-    const client = replicateLDES(
-        {
-            loose,
-            noShape,
-            shapeFile: shape,
-            polling: follow,
-            url: url,
-            stateFile: save,
-            pollInterval: pollInterval,
-            urlIsView,
-            after,
-            before,
-            fetch: fetch_config ? enhanced_fetch(fetch_config) : fetch,
-            materialize,
-            lastVersionOnly,
-            condition: await processConditionFile(condition),
-        },
-        <Ordered>ordered || "none",
-    );
-
-    client.on("fragment", () => logger.verbose("Fragment!"));
-
-    const reader = client.stream({ highWaterMark: 10 }).getReader();
-
-    writer.on("end", async () => {
-        await reader.cancel();
-        logger.info("Writer closed, so closing reader as well.");
-    });
-
-    return async () => {
-        let el = await reader.read();
-        const seen = new Set();
-        while (el) {
-            if (el.value) {
-                seen.add(el.value.id);
-
-                if (seen.size % 100 == 1) {
-                    logger.verbose(
-                        `Got member ${seen.size} with ${el.value.quads.length} quads`,
-                    );
-                }
-
-                const blank = df.blankNode();
-                const quads = el.value.quads.slice();
-                quads.push(
-                    df.quad(
-                        blank,
-                        SDS.terms.stream,
-                        <Quad_Object>client.streamId!,
-                        SDS.terms.custom("DataDescription"),
-                    ),
-                    df.quad(
-                        blank,
-                        SDS.terms.payload,
-                        <Quad_Object>el.value.id!,
-                        SDS.terms.custom("DataDescription"),
-                    ),
-                );
-
-                await writer.push(new NWriter().quadsToString(quads));
-            }
-
-            if (el.done) {
-                break;
-            }
-
-            el = await reader.read();
-        }
-
-        logger.verbose(`Found ${seen.size} members`);
-    };
 }
