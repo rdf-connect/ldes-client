@@ -39,43 +39,84 @@ export type ModulartorEvents<T> = {
  * - Emitted: data entity has been emitted.
  */
 export interface Modulator<T, M> {
-    // Starts the handling of an element by adding it to the todo list.
+    /**
+     * Starts the handling of an element by adding it to the todo list.
+     * @param {T} item The element to be handled.
+    */
     push(item: T): void;
 
-    // Called when an element has been handled, which removes it from the inflight list.
+    /**
+     * Called when an element has been handled, which removes it from the inflight list.
+     * @param index The index of the element that has been handled.
+    */
     finished(index: number): void;
 
-    // Returns the number of elements that are still in the todo list.
+    /**
+     * @returns The number of elements in the todo list.
+    */
     length(): number;
 
-    // Returns whether an element has been encountered before and is in the immutable list.
+    /**
+     * Returns whether an element has been encountered before and is in the immutable list.
+     * @param {string} url The URL of the element to check.
+     * @return {boolean} True if the element is in the immutable list.
+    */
     seen(url: string): boolean;
 
-    // Records the fact that an element is mutable
+    /**
+     * Records the fact that an element is mutable
+     * @param {string} url The URL of the element to record.
+     * @param {T} item The element to record.
+    */
     recordMutable(url: string, item: T): void
 
-    // Records the fact that an element is immutable.
+    /**
+     * Records the fact that an element is immutable.
+     * @param {string} url The URL of the element to record.
+    */
     recordImmutable(url: string): void
 
-    // Records the fact that a data entity has been emitted.
+    /**
+     * Records the fact that a data entity has been emitted.
+     * @param {string} url The URL of the emitted data entity.
+    */
     recordEmitted(url: string): void
 
-    // Records the fact that a data entity has been extracted but not emitted yet.
+    /**
+     * Records the fact that a data entity has been extracted but not emitted yet.
+     * @param {string} url The URL of the data entity.
+     * @param {M} member The extracted data entity.
+    */
     recordUnemitted(url: string, member: M): void
 
-    // Returns all elements that are still in the todo list.
+    /**
+     * Returns all elements that are still in the todo list.
+     * @returns {ReadonlyArray<T>} The todo list.
+    */
     getTodo(): ReadonlyArray<T>
 
-    // Returns all elements that are currently being handled.
+    /**
+     * Returns all elements that are currently being handled.
+     * @returns {ReadonlyArray<T>} The inflight list.
+    */
     getInFlight(): ReadonlyArray<T>
 
-    // Returns all elements that are mutable.
+    /**
+     * Returns all elements that are mutable.
+     * @returns {ReadonlyMap<string, T>} The mutable list.
+    */
     getMutable(): ReadonlyMap<string, T>
 
-    // Returns all data entities that have been extracted but not emitted yet.
+    /**
+     * Returns all data entities that have been extracted but not emitted yet.
+     * @returns {ReadonlyArray<M>} The unemitted list.
+    */
     getUnemitted(): ReadonlyArray<M>
 
-    // Returns all data entities that have been emitted.
+    /**
+     * Returns all data entities that have been emitted.
+     * @returns {ReadonlySet<string>} The emitted list.
+    */
     getEmitted(): ReadonlySet<string>
 }
 
