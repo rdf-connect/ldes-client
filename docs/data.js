@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743993010280,
+  "lastUpdate": 1744116614166,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -2540,6 +2540,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 5.94,
             "range": "±2.93%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "julian.rojas87@gmail.com",
+            "name": "Julian Rojas",
+            "username": "julianrojas87"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "78dc71b557a15af709fe724bed48824b0efeb04a",
+          "message": "Merge pull request #97 from rdf-connect/rpio\n\nRedPencil features",
+          "timestamp": "2025-04-08T14:49:38+02:00",
+          "tree_id": "83ae52bd83342fa3e3bfd35478ac0a27fd05dc4f",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/78dc71b557a15af709fe724bed48824b0efeb04a"
+        },
+        "date": 1744116613628,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 5.92,
+            "range": "±5.04%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
