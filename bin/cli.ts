@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import * as process from "process";;
+import * as process from "process";
 import { Command, Option } from "commander";
 import { Writer } from "n3";
 import { replicateLDES } from "../lib/client";
