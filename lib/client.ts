@@ -5,7 +5,7 @@ import { FileStateFactory, NoStateFactory, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
-import { Term } from "@rdfjs/types";
+import { Term, Quad } from "@rdfjs/types";
 import {
     extractMainNodeShape,
     getObjects,
@@ -45,7 +45,7 @@ export function replicateLDES(
 
 export type LDESInfo = {
     shape: Term;
-    shapeQuads: Term[];
+    shapeQuads: Quad[];
     extractor: CBDShapeExtractor;
     timestampPath?: Term;
     versionOfPath?: Term;

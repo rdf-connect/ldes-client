@@ -149,6 +149,7 @@ program.parse(process.argv);
 
 async function main() {
     const t0 = Date.now();
+    const writer = new Writer();
     const logger = getLoggerFor("cli");
     let fragmentCount = 0;
 
@@ -175,6 +176,16 @@ async function main() {
         ordered,
     );
 
+    client.on("description", (info) => {
+        logger.verbose(`LDES description found: ${JSON.stringify({
+            url: paramURL,
+            shape: info.shape,
+            timestampPath: info.timestampPath,
+            isVersionOfPath: info.versionOfPath,
+            shapeQuads: writer.quadsToString(info.shapeQuads),
+        }, null, 2)}`);
+    });
+
     client.on("fragment", (fragment) => {
         fragmentCount += 1;
         logger.verbose(`Got fragment: ${fragment.id.value}`);
@@ -186,7 +197,7 @@ async function main() {
 
 
     const reader = client.stream({ highWaterMark: 10 }).getReader();
-    const writer = new Writer();
+
     let streamResult = await reader.read();
     let count = 0;
     while (streamResult) {
