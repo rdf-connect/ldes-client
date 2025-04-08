@@ -5,7 +5,7 @@ import { FileStateFactory, NoStateFactory, StateFactory } from "./state";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
-import { Term } from "@rdfjs/types";
+import { Term, Quad } from "@rdfjs/types";
 import {
     extractMainNodeShape,
     getObjects,
@@ -25,7 +25,7 @@ import { handleExit } from "./exitHandler";
 export { intoConfig } from "./config";
 export { enhanced_fetch, extractMainNodeShape, retry_fetch } from "./utils";
 export * from "./condition/index";
-export type { Member, Page, Relation, Fragment } from "./page";
+export type { Fragment, Member, Page, Relation } from "./page";
 export type { Config, ShapeConfig } from "./config";
 
 const df = new DataFactory();
@@ -45,6 +45,7 @@ export function replicateLDES(
 
 export type LDESInfo = {
     shape: Term;
+    shapeQuads: Quad[];
     extractor: CBDShapeExtractor;
     timestampPath?: Term;
     versionOfPath?: Term;
@@ -167,18 +168,17 @@ async function getInfo(
         }
     }
 
+    const shapeStore = config.shape ? shapeConfigStore : store;
+
     return {
-        extractor: new CBDShapeExtractor(
-            config.shape ? shapeConfigStore : store,
-            dereferencer,
-            {
-                cbdDefaultGraph: config.onlyDefaultGraph,
-                fetch: config.fetch,
-            },
-        ),
+        extractor: new CBDShapeExtractor(shapeStore, dereferencer, {
+            cbdDefaultGraph: config.onlyDefaultGraph,
+            fetch: config.fetch,
+        }),
         shape: config.shape ? config.shape.shapeId : shapeIds[0],
         timestampPath: timestampPaths[0],
         versionOfPath: versionOfPaths[0],
+        shapeQuads: shapeStore.getQuads(),
     };
 }
 
@@ -189,6 +189,7 @@ type EventReceiver<T> = (params: T) => void;
 
 export type ClientEvents = {
     fragment: Fragment;
+    description: LDESInfo;
     mutable: void;
     poll: void;
     error: unknown;
@@ -296,6 +297,8 @@ export class Client {
             this.config,
         );
 
+        this.emit("description", info);
+
         // Build factory to keep track of the replication state
         const state = this.stateFactory.build<Set<string>>(
             "members",
@@ -310,14 +313,24 @@ export class Client {
         // Build factory to keep track of member versions
         const versionState = this.config.lastVersionOnly
             ? this.stateFactory.build<Map<string, Date>>(
-                "versions",
-                (map) => {
-                    const arr = [...map.entries()];
-                    return JSON.stringify(arr);
-                },
-                (inp) => new Map(JSON.parse(inp)),
-                () => new Map(),
-            )
+                  "versions",
+                  (map) => {
+                      const arr = [...map.entries()];
+                      return JSON.stringify(arr);
+                  },
+                  (inp) => {
+                      const obj = JSON.parse(inp);
+                      for (const key of Object.keys(obj)) {
+                          try {
+                              obj[key] = new Date(obj[key]);
+                          } catch (ex: unknown) {
+                              // pass
+                          }
+                      }
+                      return new Map(obj);
+                  },
+                  () => new Map(),
+              )
             : undefined;
 
         this.memberManager = new Manager(
@@ -326,6 +339,7 @@ export class Client {
                 : ldesUri, // Point to the actual LDES IRI
             state.item,
             info,
+            this.config.loose,
         );
 
         this.logger.debug(`timestampPath ${!!info.timestampPath}`);
@@ -375,7 +389,10 @@ export class Client {
                             }
                         } else {
                             // First time we see this member
-                            versions.set(m.isVersionOf, <Date>m.timestamp);
+                            versions.set(
+                                JSON.parse(JSON.stringify(m.isVersionOf)),
+                                <Date>m.timestamp,
+                            );
                         }
                     }
                     // Check if versioned member is to be materialized

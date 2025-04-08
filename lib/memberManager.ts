@@ -49,34 +49,36 @@ export class Manager {
     private isVersionOfPath?: Term;
 
     private logger = getLoggerFor(this);
+    private loose: boolean;
 
-    constructor(ldesId: Term | null, state: Set<string>, info: LDESInfo) {
+    constructor(
+        ldesId: Term | null,
+        state: Set<string>,
+        info: LDESInfo,
+        loose = false,
+    ) {
         this.ldesId = ldesId;
         this.state = state;
         this.extractor = info.extractor;
         this.timestampPath = info.timestampPath;
         this.isVersionOfPath = info.versionOfPath;
         this.shapeId = info.shape;
+        this.loose = loose;
 
         if (!this.ldesId) {
             this.logger.debug(
-                `new local dump member extractor ${JSON.stringify({
-                    extractor: info.extractor.constructor.name,
-                    shape: info.shape,
-                    timestampPath: info.timestampPath,
-                    isVersionOfPath: info.versionOfPath,
-                })}`
+                `new local dump member extractor`
             );
         } else {
             this.logger.debug(
-                `new member extractor for ${this.ldesId.value} ${JSON.stringify({
-                    extractor: info.extractor.constructor.name,
-                    shape: info.shape,
-                    timestampPath: info.timestampPath,
-                    isVersionOfPath: info.versionOfPath,
-                })}`,
-            );
+                `new member extractor for ${this.ldesId.value}:`);
         }
+        this.logger.debug(`${JSON.stringify({
+            extractor: info.extractor.constructor.name,
+            shape: info.shape,
+            timestampPath: info.timestampPath,
+            isVersionOfPath: info.versionOfPath,
+        })}`);
     }
 
     // Extract members found in this page, this does not yet emit the members
@@ -85,12 +87,9 @@ export class Manager {
         state: S,
         notifier: Notifier<MemberEvents, S>,
     ) {
-        const members = getObjects(
-            page.data,
-            this.ldesId,
-            TREE.terms.member,
-            null,
-        );
+        const members = this.loose
+            ? getObjects(page.data, null, TREE.terms.member, null)
+            : getObjects(page.data, this.ldesId, TREE.terms.member, null);
 
         const pageCreatedIso = getObjects(
             page.data,
@@ -98,14 +97,18 @@ export class Manager {
             DC.terms.custom("created"),
             null,
         )[0]?.value;
-        const pageCreated = pageCreatedIso ? new Date(pageCreatedIso) : undefined;
+        const pageCreated = pageCreatedIso
+            ? new Date(pageCreatedIso)
+            : undefined;
         const pageUpdatedIso = getObjects(
             page.data,
             namedNode(page.url),
             DC.terms.modified,
             null,
         )[0];
-        const pageUpdated = pageUpdatedIso ? new Date(pageUpdatedIso.value) : undefined;
+        const pageUpdated = pageUpdatedIso
+            ? new Date(pageUpdatedIso.value)
+            : undefined;
 
         this.logger.debug(`Extracting ${members.length} members`);
 
@@ -138,7 +141,11 @@ export class Manager {
             this.logger.debug("All members extracted");
             if (!this.closed) {
                 notifier.done(
-                    { id: namedNode(page.url), created: pageCreated, updated: pageUpdated },
+                    {
+                        id: namedNode(page.url),
+                        created: pageCreated,
+                        updated: pageUpdated,
+                    },
                     state,
                 );
             }
@@ -171,7 +178,9 @@ export class Manager {
         member: Term,
         data: RdfStore,
     ): Promise<Quad[]> {
-        return await this.extractor.extract(data, member, this.shapeId, [namedNode(LDES.custom("IngestionMetadata"))]);
+        return await this.extractor.extract(data, member, this.shapeId, [
+            namedNode(LDES.custom("IngestionMetadata")),
+        ]);
     }
 
     private async extractMember(
@@ -182,7 +191,12 @@ export class Manager {
 
         try {
             const quads: Quad[] = await this.extractMemberQuads(member, data);
-            const created = getObjects(data, member, DC.terms.custom("created"), namedNode(LDES.custom("IngestionMetadata")))[0]?.value;
+            const created = getObjects(
+                data,
+                member,
+                DC.terms.custom("created"),
+                namedNode(LDES.custom("IngestionMetadata")),
+            )[0]?.value;
 
             if (quads.length > 0) {
                 this.state.add(member.value);
