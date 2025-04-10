@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744185931820,
+  "lastUpdate": 1744257286442,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -2601,6 +2601,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "tree-3-3",
             "value": 6.03,
+            "range": "±2.39%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "29139614+renovate[bot]@users.noreply.github.com",
+            "name": "renovate[bot]",
+            "username": "renovate[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cb3d2522dba841fa3d5089d388fddaa168db60cf",
+          "message": "chore(deps): update dependency tsc-alias to ^1.8.14",
+          "timestamp": "2025-04-09T23:45:33Z",
+          "tree_id": "502da4c9522e5f935862eefae6ea885313220aba",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/cb3d2522dba841fa3d5089d388fddaa168db60cf"
+        },
+        "date": 1744257285909,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.01,
             "range": "±2.39%",
             "unit": "ops/sec",
             "extra": "34 samples"
