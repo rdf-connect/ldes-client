@@ -125,7 +125,7 @@ export class UnorderedStrategy {
                 { index: 0, emitted: new Set<string>() },
                 this.memberNotifier
             );
-        } else if (this.modulator.getInFlight().length < 1 
+        } else if (this.modulator.getInFlight().length < 1
             && this.modulator.getTodo().length < 1) {
             this.logger.debug("[start] Nothing in flight, adding start url");
             this.modulator.push({ target: url, expected: [] });
@@ -151,7 +151,7 @@ export class UnorderedStrategy {
     private checkEnd() {
         if (this.canceled) return;
         if (this.modulator.getInFlight().length < 1
-            && this.modulator.getTodo().length < 1){
+            && this.modulator.getTodo().length < 1) {
             // Make sure we don't schedule multiple polling cycles
             if (this.polling && !this.pollingIsScheduled) {
                 this.logger.debug(`[checkEnd] Polling is enabled, setting timeout of ${this.pollInterval || 1000} ms to poll`);

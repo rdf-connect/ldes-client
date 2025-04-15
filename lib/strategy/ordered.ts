@@ -255,35 +255,23 @@ export class OrderedStrategy {
                 return 0;
             };
 
-            if (this.ordered === "ascending") {
-                this.fetch(
-                    new RelationChain(
-                        "",
-                        url,
-                        [],
-                        undefined,
-                        (a, b) => +1 * cmp(a, b),
-                    ).push(url, {
-                        important: false,
-                        value: 0,
-                    }),
+            const relCmp = this.ordered === "ascending"
+                ? (a: RelationValue, b: RelationValue) => +1 * cmp(a, b)
+                : (a: RelationValue, b: RelationValue) => -1 * cmp(a, b);
+
+            this.fetch(
+                new RelationChain(
+                    "",
+                    url,
                     [],
-                );
-            } else {
-                this.fetch(
-                    new RelationChain(
-                        "",
-                        url,
-                        [],
-                        undefined,
-                        (a, b) => -1 * cmp(a, b),
-                    ).push(url, {
-                        important: false,
-                        value: 0,
-                    }),
-                    [],
-                );
-            }
+                    undefined,
+                    relCmp,
+                ).push(url, {
+                    important: false,
+                    value: 0,
+                }),
+                [],
+            );
         } else {
             this.logger.debug(
                 "[start] Things are already inflight, not adding start url",
@@ -471,7 +459,7 @@ export class OrderedStrategy {
             };
 
             // If this relation still has things in transit, or getting extracted, we must wait
-            const inTransit = 
+            const inTransit =
                 this.modulator.getInFlight().find((x) => x.chain.ordering(head!) == 0)
                 || this.modulator.getTodo().find((x) => x.chain.ordering(head!) == 0)
 

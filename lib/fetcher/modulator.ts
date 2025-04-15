@@ -7,6 +7,11 @@ export type Notifier<Events, S> = {
     [K in keyof Events]: (event: Events[K], state: S) => void;
 };
 
+type Indexed<T> = {
+    item: T;
+    index: number;
+};
+
 /**
  * Generic interface that represents a structure that ranks elements.
  * Most common is a Priority Queue (heap like) that pops elements in order.
@@ -120,14 +125,9 @@ export interface Modulator<T, M> {
     getEmitted(): ReadonlySet<string>
 }
 
-type Indexed<T> = {
-    item: T;
-    index: number;
-};
-
 type ModulatorInstanceState<T, M> = {
-    todo: Indexed<T>[];
-    inflight: Indexed<T>[];
+    todo: Map<number, T>;
+    inflight: Map<number, T>;
     mutable: Map<string, T>;
     immutable: Set<string>;
     emitted: Set<string>;
@@ -184,8 +184,8 @@ export class ModulatorFactory {
                 }) as ModulatorInstanceState<T, M>;
             },
             () => ({
-                todo: [],
-                inflight: [],
+                todo: new Map(),
+                inflight: new Map(),
                 mutable: new Map(),
                 immutable: new Set(),
                 emitted: new Set(),
@@ -194,21 +194,17 @@ export class ModulatorFactory {
         );
 
         if (parse) {
-            state.item.todo = state.item.todo.map(({ item, index }) => ({
-                index,
-                item: parse(item),
-            }));
-            state.item.inflight = state.item.inflight.map(
-                ({ item, index }) => ({
-                    index,
-                    item: parse(item),
-                }),
+            state.item.todo = new Map(
+                Array.from(state.item.todo.entries())
+                    .map(([k, v]) => [k, parse(v)])
+            );
+            state.item.inflight = new Map(
+                Array.from(state.item.inflight.entries())
+                    .map(([k, v]) => [k, parse(v)])
             );
             state.item.mutable = new Map(
-                Array.from(state.item.mutable.entries()).map(([k, v]) => [
-                    k,
-                    parse(v),
-                ]),
+                Array.from(state.item.mutable.entries())
+                    .map(([k, v]) => [k, parse(v)])
             );
         }
 
@@ -246,29 +242,29 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
     ) {
         this.state = state;
         const read = [
-            ...this.state.item.todo,
-            ...this.state.item.inflight,
+            ...this.state.item.todo.values(),
+            ...this.state.item.inflight.values(),
         ];
 
         // Clean up previous record lists
-        this.state.item.inflight.splice(0, this.state.item.inflight.length);
-        this.state.item.todo.splice(0, this.state.item.todo.length);
+        this.state.item.inflight.clear();
+        this.state.item.todo.clear();
 
         this.ranker = ranker;
         this.notifier = notifier;
         this.factory = factory;
         for (const item of read) {
-            this.push(item.item);
+            this.push(item);
         }
     }
 
     length(): number {
-        return this.state.item.todo.length;
+        return this.state.item.todo.size;
     }
 
     push(item: T) {
         const indexed = { item, index: this.index };
-        this.state.item.todo.push(indexed);
+        this.state.item.todo.set(this.index, item);
         this.index += 1;
         this.ranker.push(indexed);
         this.checkReady();
@@ -299,11 +295,11 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
     }
 
     getTodo(): ReadonlyArray<T> {
-        return this.state.item.todo.map((x) => x.item);
+        return <ReadonlyArray<T>>Array.from(this.state.item.todo.values());
     }
 
     getInFlight(): ReadonlyArray<T> {
-        return this.state.item.inflight.map((x) => x.item);
+        return <ReadonlyArray<T>>Array.from(this.state.item.inflight.values());
     }
 
     getMutable(): ReadonlyMap<string, T> {
@@ -319,12 +315,9 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
     }
 
     finished(index: number) {
-        const removeIdx = this.state.item.inflight.findIndex(
-            (x) => x.index == index,
-        );
-        if (removeIdx >= 0) {
-            this.state.item.inflight.splice(removeIdx, 1);
-        } else {
+        const deleted = this.state.item.inflight.delete(index);
+
+        if (!deleted) {
             this.logger.warn(
                 "[finished] Expected to be able to remove inflight item",
             );
@@ -340,25 +333,21 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
         }
 
         while (this.at < this.factory.concurrent) {
-            const item = this.ranker.pop();
-            if (item) {
+            const indexedItem = this.ranker.pop();
+            if (indexedItem) {
                 // This item is no longer todo
-                const removeIdx = this.state.item.todo.findIndex(
-                    (x) => x.index == item.index,
-                );
-                if (removeIdx >= 0) {
-                    this.state.item.todo.splice(removeIdx, 1);
-                } else {
+                const removed = this.state.item.todo.delete(indexedItem.index);
+                if (!removed) {
                     this.logger.warn(
                         "[checkReady] Expected to be able to remove todo item",
                     );
                 }
 
                 // This item is now inflight
-                this.state.item.inflight.push(item);
+                this.state.item.inflight.set(indexedItem.index, indexedItem.item);
 
                 this.at += 1;
-                this.notifier.ready(item, {});
+                this.notifier.ready(indexedItem, {});
             } else {
                 break;
             }
