@@ -246,7 +246,7 @@ export class Client {
     }
 
     async init(
-        emit: (member: Member) => void,
+        streamOut: (member: Member) => void,
         close: () => void,
     ): Promise<void> {
         // Fetch the url
@@ -295,6 +295,7 @@ export class Client {
             this.dereferencer,
             this.config,
         );
+        this.emit("description", info);
 
         // Build state entry to keep track of member versions
         const versionState = this.config.lastVersionOnly
@@ -384,7 +385,7 @@ export class Client {
                         }
                     }
                     // Check if versioned member is to be materialized
-                    emit(
+                    streamOut(
                         maybeVersionMaterialize(
                             m,
                             this.config.materialize === true,
