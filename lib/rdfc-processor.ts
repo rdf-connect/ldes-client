@@ -41,7 +41,6 @@ export async function processor(
     materialize?: boolean,
     lastVersionOnly?: boolean,
     streamId?: string,
-    interruptOnFragment?: string[],
 ) {
     const logger = getLoggerFor("processor");
 
@@ -75,10 +74,6 @@ export async function processor(
 
     client.on("fragment", async (fragment) => {
         logger.verbose(`Got fragment: ${fragment.url}`);
-        if (interruptOnFragment?.includes(fragment.url)) {
-            logger.info(`Interrupting on fragment ${fragment.url}`);
-            await reader.cancel();
-        }
     });
 
     writer.on("end", async () => {
