@@ -22,7 +22,7 @@ export interface Ranker<T> {
     pop(): T | undefined;
 }
 
-export type ModulartorEvents<T> = {
+export type ModulatorEvents<T> = {
     ready: Indexed<T>;
 };
 
@@ -158,7 +158,7 @@ export class ModulatorFactory {
     create<T, M>(
         name: string,
         ranker: Ranker<Indexed<T>>,
-        notifier: Notifier<ModulartorEvents<T>, unknown>,
+        notifier: Notifier<ModulatorEvents<T>, unknown>,
         parse?: (item: unknown) => T,
     ): Modulator<T, M> {
         const state = this.factory.build<ModulatorInstanceState<T, M>>(
@@ -229,7 +229,7 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
 
     private state: StateT<ModulatorInstanceState<T, M>>;
     private ranker: Ranker<Indexed<T>>;
-    private notifier: Notifier<ModulartorEvents<T>, unknown>;
+    private notifier: Notifier<ModulatorEvents<T>, unknown>;
     private factory: ModulatorFactory;
 
     private logger = getLoggerFor(this);
@@ -237,7 +237,7 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
     constructor(
         state: StateT<ModulatorInstanceState<T, M>>,
         ranker: Ranker<Indexed<T>>,
-        notifier: Notifier<ModulartorEvents<T>, unknown>,
+        notifier: Notifier<ModulatorEvents<T>, unknown>,
         factory: ModulatorFactory,
     ) {
         this.state = state;
