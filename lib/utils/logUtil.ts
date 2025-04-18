@@ -3,14 +3,22 @@ import winston, { format, Logger } from "winston";
 const PROCESSOR_NAME = "ldes-client";
 
 const consoleTransport = new winston.transports.Console({
-    stderrLevels: ["error", "warn"]
+    stderrLevels: [
+        "error",
+        "warn",
+        "info",
+        "http",
+        "verbose",
+        "debug",
+        "silly"
+    ]
 });
 
 if (typeof process !== "undefined") {
     consoleTransport.level =
         process.env.LOG_LEVEL ||
         (process.env.DEBUG?.includes(PROCESSOR_NAME) ||
-        process.env.DEBUG === "*"
+            process.env.DEBUG === "*"
             ? "debug"
             : "info");
 }

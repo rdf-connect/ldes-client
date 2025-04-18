@@ -85,7 +85,7 @@ program
         "--url-is-view",
         "the url is the view url, don't try to find the correct view",
     )
-    .option("-q --quiet", "be quiet")
+    .option("-q --quiet", "be quiet and don't stream out the members")
     .option("--basic-auth <username>:<password>", "HTTP basic auth information")
     .option(
         "--concurrent <requests>",
@@ -180,21 +180,17 @@ async function main() {
     );
 
     client.on("description", (info) => {
-        if (!quiet) {
-            logger.verbose(`LDES description found: ${JSON.stringify({
-                url: paramURL,
-                shape: info.shape,
-                timestampPath: info.timestampPath,
-                isVersionOfPath: info.versionOfPath,
-                shapeQuads: writer.quadsToString(info.shapeQuads),
-            }, null, 2)}`);
-        }
+        logger.verbose(`LDES description found: ${JSON.stringify({
+            url: paramURL,
+            shape: info.shape,
+            timestampPath: info.timestampPath,
+            isVersionOfPath: info.versionOfPath,
+            shapeQuads: writer.quadsToString(info.shapeQuads),
+        }, null, 2)}`);
     });
 
     client.on("fragment", (fragment) => {
-        if (!quiet) {
-            logger.debug(`Got fragment: ${fragment.url} (immutable: ${fragment.immutable})`);
-        }
+        logger.debug(`Got fragment: ${fragment.url} (immutable: ${fragment.immutable})`);
     });
 
     client.on("error", (error) => {
@@ -210,15 +206,15 @@ async function main() {
     while (streamResult) {
         if (streamResult.value) {
             memCount += 1;
+
+            if (memCount % 100 == 1) {
+                logger.verbose(
+                    `Got member number ${memCount} with ID ${streamResult.value.id.value} and ${streamResult.value.quads.length} quads`,
+                );
+            }
             
             if (!quiet) {
                 console.log(writer.quadsToString(streamResult.value.quads));
-
-                if (memCount % 100 == 1) {
-                    logger.verbose(
-                        `Got member number ${memCount} with ID ${streamResult.value.id.value} and ${streamResult.value.quads.length} quads`,
-                    );
-                }
             }
         }
 
@@ -229,9 +225,7 @@ async function main() {
         streamResult = await reader.read();
     }
 
-    if (!quiet) {
-        logger.verbose(`Found ${client.memberCount} members in ${client.fragmentCount} fragments (took ${Date.now() - t0} ms)`);
-    }
+    logger.verbose(`Found ${client.memberCount} members in ${client.fragmentCount} fragments (took ${Date.now() - t0} ms)`);
 }
 
 main().catch((e) => {
