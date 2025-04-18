@@ -155,13 +155,12 @@ async function main() {
     const t0 = Date.now();
     const writer = new Writer();
     const logger = getLoggerFor("cli");
-    let fragmentCount = 0;
 
     const client = replicateLDES(
         intoConfig({
             loose,
             noShape,
-            polling: polling,
+            polling,
             url: paramURL,
             stateFile: save,
             pollInterval: paramPollInterval,
@@ -181,18 +180,21 @@ async function main() {
     );
 
     client.on("description", (info) => {
-        logger.verbose(`LDES description found: ${JSON.stringify({
-            url: paramURL,
-            shape: info.shape,
-            timestampPath: info.timestampPath,
-            isVersionOfPath: info.versionOfPath,
-            shapeQuads: writer.quadsToString(info.shapeQuads),
-        }, null, 2)}`);
+        if (!quiet) {
+            logger.verbose(`LDES description found: ${JSON.stringify({
+                url: paramURL,
+                shape: info.shape,
+                timestampPath: info.timestampPath,
+                isVersionOfPath: info.versionOfPath,
+                shapeQuads: writer.quadsToString(info.shapeQuads),
+            }, null, 2)}`);
+        }
     });
 
     client.on("fragment", (fragment) => {
-        fragmentCount += 1;
-        logger.verbose(`Got fragment: ${fragment.url}`);
+        if (!quiet) {
+            logger.debug(`Got fragment: ${fragment.url} (immutable: ${fragment.immutable})`);
+        }
     });
 
     client.on("error", (error) => {
@@ -203,17 +205,18 @@ async function main() {
     const reader = client.stream({ highWaterMark: 10 }).getReader();
 
     let streamResult = await reader.read();
-    let count = 0;
+    let memCount = 0;
+
     while (streamResult) {
         if (streamResult.value) {
-            count += 1;
-
+            memCount += 1;
+            
             if (!quiet) {
                 console.log(writer.quadsToString(streamResult.value.quads));
 
-                if (count % 100 == 1) {
+                if (memCount % 100 == 1) {
                     logger.verbose(
-                        `Got member ${count} with ${streamResult.value.quads.length} quads`,
+                        `Got member number ${memCount} with ID ${streamResult.value.id.value} and ${streamResult.value.quads.length} quads`,
                     );
                 }
             }
@@ -226,7 +229,9 @@ async function main() {
         streamResult = await reader.read();
     }
 
-    logger.verbose(`Found ${count} members in ${fragmentCount} fragments (took ${Date.now() - t0} ms)`);
+    if (!quiet) {
+        logger.verbose(`Found ${client.memberCount} members in ${client.fragmentCount} fragments (took ${Date.now() - t0} ms)`);
+    }
 }
 
 main().catch((e) => {

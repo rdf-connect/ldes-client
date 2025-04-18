@@ -43,6 +43,7 @@ export async function processor(
     streamId?: string,
 ) {
     const logger = getLoggerFor("processor");
+    const t0 = Date.now();
 
     if (fetch_config?.auth) {
         fetch_config.auth.host = new URL(url).host;
@@ -82,15 +83,18 @@ export async function processor(
     });
 
     return async () => {
+        let memCount = 0;
         let el = await reader.read();
-        const seen = new Set();
+
         while (el) {
             if (el.value) {
-                seen.add(el.value.id.value);
+                memCount += 1;
 
-                logger.verbose(
-                    `Got member ${el.value.id.value} with ${el.value.quads.length} quads`,
-                );
+                if (memCount % 100 === 0) {
+                    logger.verbose(
+                        `Got member number ${memCount} with ID ${el.value.id.value} and ${el.value.quads.length} quads`,
+                    );
+                }
 
                 const blank = df.blankNode();
                 const quads = el.value.quads.slice();
@@ -119,7 +123,7 @@ export async function processor(
             el = await reader.read();
         }
 
-        logger.verbose(`Found ${seen.size} members`);
+        logger.verbose(`Found ${client.memberCount} members in ${client.fragmentCount} fragments (took ${Date.now() - t0} ms)`);
 
         // We extracted all members, so we can close the writer
         await writer.end();
