@@ -71,53 +71,57 @@ describe("Client tests", () => {
         }
     });
 
-    // test("Client runs successfuly and all events are triggered", async () => {
-    //     // Setup client
-    //     const client = replicateLDES({
-    //         url: LDES,
-    //         stateFile: "./tests/data/client-state.json",
-    //     });
+    test("Client runs successfuly and all events are triggered", async () => {
+        // Setup client
+        const client = replicateLDES({
+            url: LDES,
+            stateFile: "./tests/data/client-state.json",
+        });
 
-    //     // Check that fragment event is triggered
-    //     let gotFragmentEvent = false;
-    //     client.on("fragment", async () => {
-    //         gotFragmentEvent = true;
-    //     });
+        // Check that fragment event is triggered
+        let gotFragmentEvent = false;
+        client.on("fragment", async () => {
+            gotFragmentEvent = true;
+        });
 
-    //     // Check that description event is triggered
-    //     let gotDescEvent = false;
-    //     client.on("description", async (info: LDESInfo) => {
-    //         expect(info).toBeDefined();
-    //         expect(info.shape).toBeDefined();
-    //         expect(info.timestampPath?.value).toBe(EX.modified);
-    //         expect(info.versionOfPath?.value).toBe(EX.isVersionOf);
-    //         gotDescEvent = true;
-    //     });
+        // Check that description event is triggered
+        let gotDescEvent = false;
+        client.on("description", async (info: LDESInfo) => {
+            expect(info).toBeDefined();
+            expect(info.shape).toBeDefined();
+            expect(info.timestampPath?.value).toBe(EX.modified);
+            expect(info.versionOfPath?.value).toBe(EX.isVersionOf);
+            gotDescEvent = true;
+        });
 
-    //     // Start stream of members
-    //     const members = client.stream({ highWaterMark: 10 });
+        // Start stream of members
+        let memCount = 0;
+        const members = client.stream({ highWaterMark: 10 });
 
-    //     for await (const mem of members) {
-    //         expect(mem.id.value).toBeDefined();
-    //         expect(mem.quads.length).toBeGreaterThan(0);
-    //         expect(mem.timestamp).toBeDefined();
-    //         expect(mem.isVersionOf).toBeDefined();
+        for await (const mem of members) {
+            memCount += 1;
+            expect(mem.id.value).toBeDefined();
+            expect(mem.quads.length).toBeGreaterThan(0);
+            expect(mem.timestamp).toBeDefined();
+            expect(mem.isVersionOf).toBeDefined();
 
-    //         // Check quad content
-    //         const store = RdfStore.createDefault();
-    //         mem.quads.forEach((q) => store.addQuad(q));
+            // Check quad content
+            const store = RdfStore.createDefault();
+            mem.quads.forEach((q) => store.addQuad(q));
 
-    //         // Check that all member data is present
-    //         expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
-    //     }
+            // Check that all member data is present
+            expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+        }
 
-    //     expect(client.memberCount).toBe(12);
-    //     expect(client.fragmentCount).toBe(4);
-    //     expect(gotFragmentEvent).toBe(true);
-    //     expect(gotDescEvent).toBe(true);
-    //     // Check that state was saved
-    //     expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
-    // })
+        expect(client.memberCount).toBe(12);
+        expect(client.fragmentCount).toBe(4);
+        // Check that we received all memebers
+        expect(memCount).toBe(client.memberCount);
+        expect(gotFragmentEvent).toBe(true);
+        expect(gotDescEvent).toBe(true);
+        // Check that state was saved
+        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+    })
 
     test("Client interruption and resuming in unoredered replication", async () => {
         // Setup client 1
@@ -125,6 +129,8 @@ describe("Client tests", () => {
             url: LDES,
             stateFile: "./tests/data/client-state.json",
         });
+
+        let memCount = 0;
 
         // Member stream object
         const members1 = client1.stream({ highWaterMark: 10 }).getReader();
@@ -155,6 +161,7 @@ describe("Client tests", () => {
             const mem = memRes1.value;
 
             if (mem) {
+                memCount += 1;
                 expect(mem.id.value).toBeDefined();
                 expect(mem.quads.length).toBeGreaterThan(0);
                 expect(mem.timestamp).toBeDefined();
@@ -177,6 +184,8 @@ describe("Client tests", () => {
         // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
         expect(client1.memberCount).toBeGreaterThanOrEqual(3);
         expect(client1.fragmentCount).toBeGreaterThanOrEqual(3);
+        // Check that we received all memebers
+        expect(memCount).toBe(client1.memberCount);
         expect(gotFragmentEvent1).toBe(true);
         expect(gotDescEvent1).toBe(true);
         // Check that state was saved
@@ -216,6 +225,7 @@ describe("Client tests", () => {
             const mem = memRes2.value;
 
             if (mem) {
+                memCount += 1;
                 expect(mem.id.value).toBeDefined();
                 expect(mem.quads.length).toBeGreaterThan(0);
                 expect(mem.timestamp).toBeDefined();
@@ -238,6 +248,8 @@ describe("Client tests", () => {
         expect(client2.fragmentCount).toBeGreaterThanOrEqual(1);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(12);
+        // Check that we received all memebers
+        expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
         // Check that state was saved
@@ -253,6 +265,8 @@ describe("Client tests", () => {
             },
             "ascending"
         );
+
+        let memCount = 0;
 
         // Member stream object
         const members1 = client1.stream({ highWaterMark: 10 }).getReader();
@@ -284,6 +298,7 @@ describe("Client tests", () => {
             const mem = memRes1.value;
 
             if (mem) {
+                memCount += 1;
                 expect(mem.id.value).toBeDefined();
                 expect(mem.quads.length).toBeGreaterThan(0);
                 expect(mem.timestamp).toBeDefined();
@@ -308,6 +323,8 @@ describe("Client tests", () => {
         // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
         expect(client1.memberCount).toBeGreaterThanOrEqual(3);
         expect(client1.fragmentCount).toBeGreaterThanOrEqual(3);
+        // Check that we received all memebers
+        expect(memCount).toBe(client1.memberCount);
         expect(gotFragmentEvent1).toBe(true);
         expect(gotDescEvent1).toBe(true);
         // Check that the timestamps are in ascending order
@@ -355,6 +372,7 @@ describe("Client tests", () => {
             const mem = memRes2.value;
 
             if (mem) {
+                memCount += 1;
                 expect(mem.id.value).toBeDefined();
                 expect(mem.quads.length).toBeGreaterThan(0);
                 expect(mem.timestamp).toBeDefined();
@@ -379,6 +397,8 @@ describe("Client tests", () => {
         expect(client2.fragmentCount).toBeGreaterThanOrEqual(2);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(12);
+        // Check that we received all memebers
+        expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
         // Check that the timestamps are in ascending order
@@ -398,6 +418,8 @@ describe("Client tests", () => {
             },
             "descending"
         );
+
+        let memCount = 0;
 
         // Member stream object
         const members1 = client1.stream({ highWaterMark: 10 }).getReader();
@@ -423,25 +445,12 @@ describe("Client tests", () => {
             }
         });
 
-        const timestamps1: number[] = [];
         let memRes1 = await members1.read();
         while (memRes1) {
             const mem = memRes1.value;
 
             if (mem) {
-                expect(mem.id.value).toBeDefined();
-                expect(mem.quads.length).toBeGreaterThan(0);
-                expect(mem.timestamp).toBeDefined();
-                expect(mem.isVersionOf).toBeDefined();
-
-                // Keep track o the timestamps
-                timestamps1.push((<Date>mem.timestamp).getTime());
-                // Check quad content
-                const store = RdfStore.createDefault();
-                mem.quads.forEach((q) => store.addQuad(q));
-
-                // Check that all member data is present
-                expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+                memCount += 1;
             }
 
             if (memRes1.done) {
@@ -453,12 +462,10 @@ describe("Client tests", () => {
         // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
         expect(client1.memberCount).toBe(0);
         expect(client1.fragmentCount).toBeGreaterThanOrEqual(3);
+        // Check that no members were received
+        expect(memCount).toBe(client1.memberCount);
         expect(gotFragmentEvent1).toBe(true);
         expect(gotDescEvent1).toBe(true);
-        // Check that the timestamps are in ascending order
-        expect(timestamps1.every(
-            (v, i) => i === 0 || v <= timestamps1[i - 1],
-        )).toBeTruthy();
         // Check that state was saved
         expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
 
@@ -500,6 +507,7 @@ describe("Client tests", () => {
             const mem = memRes2.value;
 
             if (mem) {
+                memCount += 1;
                 expect(mem.id.value).toBeDefined();
                 expect(mem.quads.length).toBeGreaterThan(0);
                 expect(mem.timestamp).toBeDefined();
@@ -524,6 +532,8 @@ describe("Client tests", () => {
         expect(client2.fragmentCount).toBeGreaterThanOrEqual(2);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(12);
+        // Check that we received all memebers
+        expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
         // Check that the timestamps are in ascending order
@@ -543,6 +553,8 @@ describe("Client tests", () => {
             },
             "ascending"
         );
+
+        let memCount = 0;
 
         // Member stream object
         const members1 = client1.stream({ highWaterMark: 10 }).getReader();
@@ -568,25 +580,12 @@ describe("Client tests", () => {
             }
         });
 
-        const timestamps1: number[] = [];
         let memRes1 = await members1.read();
         while (memRes1) {
             const mem = memRes1.value;
 
             if (mem) {
-                expect(mem.id.value).toBeDefined();
-                expect(mem.quads.length).toBeGreaterThan(0);
-                expect(mem.timestamp).toBeDefined();
-                expect(mem.isVersionOf).toBeDefined();
-
-                // Keep track o the timestamps
-                timestamps1.push((<Date>mem.timestamp).getTime());
-                // Check quad content
-                const store = RdfStore.createDefault();
-                mem.quads.forEach((q) => store.addQuad(q));
-
-                // Check that all member data is present
-                expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+                memCount += 1;
             }
 
             if (memRes1.done) {
@@ -598,12 +597,10 @@ describe("Client tests", () => {
         // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
         expect(client1.memberCount).toBe(0);
         expect(client1.fragmentCount).toBeGreaterThanOrEqual(2);
+        // Check that no members were received
+        expect(memCount).toBe(client1.memberCount);
         expect(gotFragmentEvent1).toBe(true);
         expect(gotDescEvent1).toBe(true);
-        // Check that the timestamps are in ascending order
-        expect(timestamps1.every(
-            (v, i) => i === 0 || v >= timestamps1[i - 1],
-        )).toBeTruthy();
         // Check that state was saved
         expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
 
@@ -645,6 +642,7 @@ describe("Client tests", () => {
             const mem = memRes2.value;
 
             if (mem) {
+                memCount += 1;
                 expect(mem.id.value).toBeDefined();
                 expect(mem.quads.length).toBeGreaterThan(0);
                 expect(mem.timestamp).toBeDefined();
@@ -669,6 +667,8 @@ describe("Client tests", () => {
         expect(client2.fragmentCount).toBeGreaterThanOrEqual(2);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(9);
+        // Check that we received all memebers
+        expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
         // Check that the timestamps are in ascending order
@@ -689,6 +689,8 @@ describe("Client tests", () => {
             "descending"
         );
 
+        let memCount = 0;
+
         // Member stream object
         const members1 = client1.stream({ highWaterMark: 10 }).getReader();
 
@@ -703,25 +705,12 @@ describe("Client tests", () => {
             }
         });
 
-        const timestamps1: number[] = [];
         let memRes1 = await members1.read();
         while (memRes1) {
             const mem = memRes1.value;
 
             if (mem) {
-                expect(mem.id.value).toBeDefined();
-                expect(mem.quads.length).toBeGreaterThan(0);
-                expect(mem.timestamp).toBeDefined();
-                expect(mem.isVersionOf).toBeDefined();
-
-                // Keep track o the timestamps
-                timestamps1.push((<Date>mem.timestamp).getTime());
-                // Check quad content
-                const store = RdfStore.createDefault();
-                mem.quads.forEach((q) => store.addQuad(q));
-
-                // Check that all member data is present
-                expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+                memCount += 1;
             }
 
             if (memRes1.done) {
@@ -733,11 +722,9 @@ describe("Client tests", () => {
         // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
         expect(client1.memberCount).toBe(0);
         expect(client1.fragmentCount).toBeGreaterThanOrEqual(1);
+        // Check that no members were received
+        expect(memCount).toBe(client1.memberCount);
         expect(gotFragmentEvent1).toBe(true);
-        // Check that the timestamps are in ascending order
-        expect(timestamps1.every(
-            (v, i) => i === 0 || v <= timestamps1[i - 1],
-        )).toBeTruthy();
         // Check that state was saved
         expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
 
@@ -779,6 +766,7 @@ describe("Client tests", () => {
             const mem = memRes2.value;
 
             if (mem) {
+                memCount += 1;
                 expect(mem.id.value).toBeDefined();
                 expect(mem.quads.length).toBeGreaterThan(0);
                 expect(mem.timestamp).toBeDefined();
@@ -803,6 +791,8 @@ describe("Client tests", () => {
         expect(client2.fragmentCount).toBe(4);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(9);
+        // Check that we received all memebers
+        expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
         // Check that the timestamps are in ascending order
