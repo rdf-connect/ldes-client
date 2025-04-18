@@ -2,3 +2,4 @@ node_modules
 dist/
 coverage
 save.json
+client-state.json
