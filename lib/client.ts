@@ -1,38 +1,38 @@
-import { Config, intoConfig } from "./config";
-import { Fragment, Member } from "./page";
 import { RdfDereferencer, rdfDereferencer } from "rdf-dereference";
-import { FileStateFactory, NoStateFactory, StateFactory } from "./state";
+import { LDES, RDF, TREE } from "@treecg/types";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
-import { Term, Quad } from "@rdfjs/types";
+import { intoConfig } from "./config";
+import { handleConditions } from "./condition";
+import { FileStateFactory, NoStateFactory } from "./state";
+import { OrderedStrategy, UnorderedStrategy } from "./strategy";
+import {
+    ModulatorFactory,
+    Fetcher,
+    longPromise,
+    resetPromise,
+    Manager,
+    statelessPageFetch
+} from "./fetcher";
 import {
     extractMainNodeShape,
     getObjects,
-    handleConditions,
     maybeVersionMaterialize,
-    ModulatorFactory,
-    Notifier,
     streamToArray,
+    getLoggerFor,
+    handleExit
 } from "./utils";
-import { LDES, RDF, TREE } from "@treecg/types";
-import { FetchedPage, Fetcher, longPromise, resetPromise } from "./pageFetcher";
-import { Manager } from "./memberManager";
-import { OrderedStrategy, StrategyEvents, UnorderedStrategy } from "./strategy";
-import { getLoggerFor } from "./utils/logUtil";
-import { handleExit } from "./exitHandler";
 
-export { intoConfig } from "./config";
-export { enhanced_fetch, extractMainNodeShape, retry_fetch } from "./utils";
-export * from "./condition/index";
-export type { Fragment, Member, Page, Relation } from "./page";
-export type { Config, ShapeConfig } from "./config";
+import type { Term } from "@rdfjs/types";
+import type { Config } from "./config";
+import type { StateFactory } from "./state";
+import type { Ordered, StrategyEvents } from "./strategy";
+import type { LDESInfo, Notifier, FetchedPage, Member } from "./fetcher";
 
 const df = new DataFactory();
 
 type Controller = ReadableStreamDefaultController<Member>;
-
-export type Ordered = "ascending" | "descending" | "none";
 
 export function replicateLDES(
     config: Partial<Config> & { url: string },
@@ -42,14 +42,6 @@ export function replicateLDES(
 ): Client {
     return new Client(intoConfig(config), ordered, dereferencer, streamId);
 }
-
-export type LDESInfo = {
-    shape: Term;
-    shapeQuads: Quad[];
-    extractor: CBDShapeExtractor;
-    timestampPath?: Term;
-    versionOfPath?: Term;
-};
 
 async function getInfo(
     ldesId: Term,
@@ -188,7 +180,7 @@ type EventKey<T extends EventMap> = string & keyof T;
 type EventReceiver<T> = (params: T) => void;
 
 export type ClientEvents = {
-    fragment: Fragment;
+    fragment: FetchedPage;
     description: LDESInfo;
     mutable: void;
     poll: void;
@@ -196,6 +188,8 @@ export type ClientEvents = {
 };
 
 export class Client {
+    public memberCount: number;
+    public fragmentCount: number;
     public streamId?: Term;
     private config: Config;
     private dereferencer: RdfDereferencer;
@@ -220,6 +214,8 @@ export class Client {
         dereferencer?: RdfDereferencer,
         stream?: Term,
     ) {
+        this.memberCount = 0;
+        this.fragmentCount = 0;
         this.config = config;
         this.dereferencer = dereferencer ?? rdfDereferencer;
 
@@ -250,16 +246,17 @@ export class Client {
     }
 
     async init(
-        emit: (member: Member) => void,
+        streamOut: (member: Member) => void,
         close: () => void,
-        factory: ModulatorFactory,
     ): Promise<void> {
         // Fetch the url
-        const root = await fetchPage(
+        const root = await statelessPageFetch(
             this.config.url,
             this.dereferencer,
             this.config.fetch,
         );
+        this.fragmentCount++;
+        this.emit("fragment", root);
 
         const isLocalDump = !this.config.url.startsWith("http");
 
@@ -276,6 +273,7 @@ export class Client {
                 this.logger.error(
                     "Did not find tree:view predicate, this is required to interpret the LDES",
                 );
+                throw "No view found";
             } else {
                 viewId = viewQuads[0].object;
             }
@@ -283,7 +281,8 @@ export class Client {
 
         const ldesUri = viewQuads[0]?.subject || root.data.getQuads(null, RDF.terms.type, LDES.terms.EventStream)[0].subject;
         if (!ldesUri) {
-            this.logger.error("Could not find the LDES URI in the RDF.");
+            this.logger.error("Could not find the LDES IRI in the RDF data.");
+            throw "No LDES IRI found";
         }
         // This is the ID of the stream of data we are replicating.
         // Normally it corresponds to the actual LDES IRI, unless externally specified.
@@ -296,21 +295,9 @@ export class Client {
             this.dereferencer,
             this.config,
         );
-
         this.emit("description", info);
 
-        // Build factory to keep track of the replication state
-        const state = this.stateFactory.build<Set<string>>(
-            "members",
-            (set) => {
-                const arr = [...set.values()];
-                return JSON.stringify(arr);
-            },
-            (inp) => new Set(JSON.parse(inp)),
-            () => new Set(),
-        );
-
-        // Build factory to keep track of member versions
+        // Build state entry to keep track of member versions
         const versionState = this.config.lastVersionOnly
             ? this.stateFactory.build<Map<string, Date>>(
                   "versions",
@@ -337,7 +324,6 @@ export class Client {
             isLocalDump
                 ? null // Local dump does not need to dereference a view
                 : ldesUri, // Point to the actual LDES IRI
-            state.item,
             info,
             this.config.loose,
         );
@@ -368,7 +354,10 @@ export class Client {
 
         const notifier: Notifier<StrategyEvents, unknown> = {
             error: (ex: unknown) => this.emit("error", ex),
-            fragment: (fragment: Fragment) => this.emit("fragment", fragment),
+            fragment: (fragment: FetchedPage) => {
+                this.emit("fragment", fragment);
+                this.fragmentCount++;
+            },
             member: (m) => {
                 if (this.config.condition.matchMember(m)) {
                     this.config.condition.memberEmitted(m);
@@ -396,13 +385,14 @@ export class Client {
                         }
                     }
                     // Check if versioned member is to be materialized
-                    emit(
+                    streamOut(
                         maybeVersionMaterialize(
                             m,
                             this.config.materialize === true,
                             info,
                         ),
                     );
+                    this.memberCount++;
                 }
             },
             pollCycle: () => {
@@ -427,7 +417,7 @@ export class Client {
                     this.memberManager,
                     this.fetcher,
                     notifier,
-                    factory,
+                    this.modulatorFactory,
                     this.ordered,
                     this.config.polling,
                     this.config.pollInterval,
@@ -436,7 +426,7 @@ export class Client {
                     this.memberManager,
                     this.fetcher,
                     notifier,
-                    factory,
+                    this.modulatorFactory,
                     this.config.polling,
                     this.config.pollInterval,
                 );
@@ -445,6 +435,8 @@ export class Client {
             `Found ${viewQuads.length} views, choosing ${viewId.value}`,
         );
 
+        // TODO: handle the case where root and view are the same.
+        // Currently the root page gets unnecessarily fetched for a second time when the strategy starts.
         this.strategy.start(viewId.value, isLocalDump ? root : undefined);
     }
 
@@ -472,7 +464,6 @@ export class Client {
                         resetPromise(emitted);
                     },
                     () => controller.close(),
-                    this.modulatorFactory,
                 );
             },
 
@@ -493,9 +484,9 @@ export class Client {
             cancel: async () => {
                 this.logger.info("Stream canceled");
                 this.stateFactory.write();
-                this.strategy.cancel();
-                this.memberManager.close();
-                this.fetcher.close();
+                if (this.strategy) this.strategy.cancel();
+                if (this.memberManager) this.memberManager.close();
+                if (this.fetcher) this.fetcher.close();
             },
         };
 
@@ -510,21 +501,4 @@ export class Client {
             fn(data);
         });
     }
-}
-
-async function fetchPage(
-    location: string,
-    dereferencer: RdfDereferencer,
-    fetch_f?: typeof fetch,
-): Promise<FetchedPage> {
-    const resp = await dereferencer.dereference(location, {
-        localFiles: true,
-        fetch: fetch_f,
-    });
-    const url = resp.url;
-    const data = RdfStore.createDefault();
-    await new Promise((resolve, reject) => {
-        data.import(resp.data).on("end", resolve).on("error", reject);
-    });
-    return <FetchedPage>{ url, data };
 }

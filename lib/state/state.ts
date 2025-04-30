@@ -1,10 +1,5 @@
 import { storage } from "./storage";
 
-export interface ClientState {
-    root: string; // Used to acquire shape
-    inFlight: string[]; // fragments that are currently being checked
-}
-
 export interface State {
     init(): Promise<void>;
 

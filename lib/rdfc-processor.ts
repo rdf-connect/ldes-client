@@ -1,13 +1,14 @@
-import { getLoggerFor } from "./utils/logUtil";
-import { replicateLDES } from "./client";
-import { enhanced_fetch, processConditionFile } from "./utils";
 import { DataFactory } from "rdf-data-factory";
 import { SDS } from "@treecg/types";
 import { Writer as NWriter } from "n3";
+import { replicateLDES } from "./client";
+import { enhanced_fetch } from "./fetcher"
+import { processConditionFile } from "./condition";
+import { getLoggerFor } from "./utils";
 
 import type { Writer } from "@rdfc/js-runner";
 import type { Quad_Object } from "@rdfjs/types";
-import type { Ordered } from "./client";
+import type { Ordered } from "./strategy";
 
 const df = new DataFactory();
 
@@ -42,6 +43,7 @@ export async function processor(
     streamId?: string,
 ) {
     const logger = getLoggerFor("processor");
+    const t0 = Date.now();
 
     if (fetch_config?.auth) {
         fetch_config.auth.host = new URL(url).host;
@@ -69,9 +71,11 @@ export async function processor(
         streamId ? df.namedNode(streamId) : undefined,
     );
 
-    client.on("fragment", (fragment) => logger.verbose(`Got fragment: ${fragment.id.value}`));
-
     const reader = client.stream({ highWaterMark: 10 }).getReader();
+
+    client.on("fragment", async (fragment) => {
+        logger.verbose(`Got fragment: ${fragment.url}`);
+    });
 
     writer.on("end", async () => {
         await reader.cancel();
@@ -79,15 +83,16 @@ export async function processor(
     });
 
     return async () => {
+        let memCount = 0;
         let el = await reader.read();
-        const seen = new Set();
+
         while (el) {
             if (el.value) {
-                seen.add(el.value.id);
+                memCount += 1;
 
-                if (seen.size % 100 == 1) {
+                if (memCount % 100 === 0) {
                     logger.verbose(
-                        `Got member ${seen.size} with ${el.value.quads.length} quads`,
+                        `Got member number ${memCount} with ID ${el.value.id.value} and ${el.value.quads.length} quads`,
                     );
                 }
 
@@ -118,9 +123,11 @@ export async function processor(
             el = await reader.read();
         }
 
-        logger.verbose(`Found ${seen.size} members`);
-        
+        logger.verbose(`Found ${client.memberCount} members in ${client.fragmentCount} fragments (took ${Date.now() - t0} ms)`);
+
         // We extracted all members, so we can close the writer
         await writer.end();
+
+        return client;
     };
 }
