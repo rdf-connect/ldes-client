@@ -1,7 +1,7 @@
 {
   "name": "ldes-client",
   "description": "This package provides common tooling to work with LDESes.",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "main": "dist/lib/client.js",
   "exports": {
     "import": "./dist/lib/client.js",
@@ -36,9 +36,9 @@
   "dependencies": {
     "@treecg/types": "^0.4.6",
     "@types/debug": "^4.1.12",
-    "commander": "^13.1.0",
+    "commander": "^14.0.0",
     "debug": "^4.4.1",
-    "extract-cbd-shape": "^0.1.12",
+    "extract-cbd-shape": "^0.1.14",
     "heap-js": "^2.6.0",
     "n3": "^1.25.2",
     "rdf-data-factory": "^2.0.2",
@@ -57,7 +57,7 @@
     "@typescript-eslint/parser": "^8.32.1",
     "@vitest/coverage-v8": "^3.1.4",
     "benchmark": "^2.1.4",
-    "eslint": "^9.21.0",
+    "eslint": "^9.27.0",
     "eslint-config-prettier": "^10.1.5",
     "fastify": "^5.3.3",
     "husky": "^9.1.7",
