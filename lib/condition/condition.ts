@@ -1,18 +1,30 @@
-import { Quad, Term } from "@rdfjs/types";
 import { NamedNode, Parser } from "n3";
-import { BasicLensM, Cont, extractShapes } from "rdf-lens";
+import { DataFactory } from "rdf-data-factory";
+import { BasicLensM, extractShapes, pred } from "rdf-lens";
 import { RdfStore } from "rdf-stores";
-import { Member } from "../page";
-import { TREE, XSD } from "@treecg/types";
+import { RDF, TREE, XSD } from "@treecg/types";
+import { getLoggerFor, getObjects } from "../utils";
 import { SHAPES } from "./shapes";
-import { cbdEquals, Path } from "./range";
-import { getLoggerFor } from "../utils/logUtil";
-import { parseInBetweenRelation } from "../utils/inBetween";
+import { Range } from "./range";
+
+import type { Quad, Term } from "@rdfjs/types";
+import type { Cont } from "rdf-lens";
+import type { PathRange } from "./range";
+import type { Member, RelationValue } from "../fetcher";
+
+const df = new DataFactory();
 
 type RdfThing = {
     entry: Term;
     quads: Quad[];
 };
+
+export type Path = {
+    store: RdfStore;
+    id: Term;
+};
+
+type CompareTypes = "string" | "date" | "integer" | "float";
 
 export interface Condition {
     matchRelation(range: Range | undefined, cbdId: Path): boolean;
@@ -58,198 +70,113 @@ export function parse_condition(source: string, baseIRI: string): Condition {
     });
 }
 
-type CompareTypes = "string" | "date" | "integer" | "float";
-export type Value = string | Date | number;
+export function cbdEquals(a: Path, b: Path): boolean {
+    const sort = (a: Quad, b: Quad) => {
+        const ap = a.predicate.value;
+        const bp = b.predicate.value;
+        if (ap == bp) return 0;
+        return ap < bp ? -1 : 1;
+    };
+    const alphaQuads = a.store.getQuads(a.id, null, null, null).sort(sort);
+    const betaQuads = b.store.getQuads(b.id, null, null, null).sort(sort);
 
-export class Range {
-    min?: Value;
-    eqMin: boolean = true;
+    if (alphaQuads.length != betaQuads.length) return false;
 
-    max?: Value;
-    eqMax: boolean = true;
+    for (let i = 0; i < alphaQuads.length; i++) {
+        if (!alphaQuads[i].predicate.equals(betaQuads[i].predicate)) {
+            return false;
+        }
 
-    private logger = getLoggerFor(this);
+        const av = alphaQuads[i].object;
+        const bv = betaQuads[i].object;
 
-    private defaultTimezone: string;
-
-    constructor(
-        value: Value,
-        type: string,
-        defaultTimezone: string,
-        dataType?: string,
-    ) {
-        value = this.parseValue(value, dataType);
-
-        const tzRegex = /^(AoE|Z|[+-]((0[0-9]|1[0-3]):([0-5][0-9])|14:00))$/;
-        if (!tzRegex.test(defaultTimezone)) {
-            this.logger.warn(
-                `Invalid timezone: '${defaultTimezone}'. Using default Anywhere on Earth (AoE) instead.`,
-            );
-            this.defaultTimezone = "AoE";
+        if (av.termType !== bv.termType) return false;
+        if (av.termType === "BlankNode") {
+            if (
+                !cbdEquals(
+                    { id: av, store: a.store },
+                    { id: bv, store: b.store },
+                )
+            ) {
+                return false;
+            }
         } else {
-            this.defaultTimezone = defaultTimezone;
-        }
-        switch (type) {
-            case TREE.EqualToRelation:
-                this.min = value;
-                this.max = value;
-                return;
-            case TREE.LessThanRelation:
-                this.max = value;
-                this.eqMax = false;
-                return;
-            case TREE.LessThanOrEqualToRelation:
-                this.max = value;
-                return;
-            case TREE.GreaterThanRelation:
-                this.min = value;
-                this.eqMin = false;
-                return;
-            case TREE.GreaterThanOrEqualToRelation:
-                this.min = value;
-                return;
-            case TREE.custom("InBetweenRelation"): {
-                if (typeof value !== "string") {
-                    throw (
-                        "InBetweenRelation can only handle string values, not" +
-                        typeof value
-                    );
-                }
-                const between = parseInBetweenRelation(
-                    value,
-                    dataType,
-                    this.defaultTimezone,
-                );
-                if (between) {
-                    this.min = between.min;
-                    this.eqMin = true;
-                    this.max = between.max;
-                    this.eqMax = false;
-                }
-                return;
+            if (av.value !== bv.value) {
+                return false;
             }
         }
     }
 
-    static empty(defaultTimezone: string): Range {
-        return new Range("", TREE.Relation, defaultTimezone);
+    return true;
+}
+
+export class RelationCondition {
+    store: RdfStore;
+
+    defaultTimezone: string;
+
+    ranges: PathRange[] = [];
+
+    constructor(store: RdfStore, defaultTimezone: string) {
+        this.store = store;
+        this.defaultTimezone = defaultTimezone;
     }
 
-    add(value: Value, type: string, dataType?: string) {
-        value = this.parseValue(value, dataType);
-
-        switch (type) {
-            case TREE.EqualToRelation:
-                this.min = value;
-                this.max = value;
-                return;
-            case TREE.LessThanRelation:
-                if (!this.max || value < this.max) {
-                    this.max = value;
-                    this.eqMax = false;
-                }
-                return;
-            case TREE.LessThanOrEqualToRelation:
-                if (!this.max || value < this.max) {
-                    this.max = value;
-                }
-                return;
-            case TREE.GreaterThanRelation:
-                if (!this.min || value > this.min) {
-                    this.min = value;
-                    this.eqMin = false;
-                }
-                return;
-            case TREE.GreaterThanOrEqualToRelation:
-                if (!this.min || value > this.min) {
-                    this.min = value;
-                }
-                return;
-            case TREE.custom("InBetweenRelation"): {
-                if (typeof value !== "string") {
-                    throw (
-                        "InBetweenRelation can only handle string values, not" +
-                        typeof value
-                    );
-                }
-                const between = parseInBetweenRelation(
-                    value,
-                    dataType,
-                    this.defaultTimezone,
-                );
-                if (between) {
-                    if (this.min === undefined || between.min < this.min) {
-                        this.min = between.min;
-                        this.eqMin = true;
-                    }
-                    if (this.max === undefined || between.max < this.max) {
-                        this.max = between.max;
-                        this.eqMax = false;
-                    }
-                }
-                return;
-            }
-        }
+    allowed(condition: Condition): boolean {
+        return this.ranges.every((x) => {
+            return condition.matchRelation(x.range, {
+                id: x.cbdEntry,
+                store: this.store,
+            });
+        });
     }
 
-    contains(value: Value | Date | number): boolean {
-        if (this.min) {
-            if (this.eqMin) {
-                if (this.min > value) return false;
-            } else {
-                if (this.min >= value) return false;
-            }
-        }
-        if (this.max) {
-            if (this.eqMax) {
-                if (this.max < value) return false;
-            } else {
-                if (this.max <= value) return false;
-            }
-        }
-        return true;
-    }
+    addRelation(relationId: Term) {
+        const ty =
+            getObjects(this.store, relationId, RDF.terms.type, null)[0] ||
+            TREE.Relation;
 
-    overlaps(other: Range): boolean {
-        if (this.min && other.max) {
-            if (this.eqMin && other.eqMax) {
-                if (this.min > other.max) return false;
-            } else {
-                if (this.min >= other.max) return false;
-            }
+        const path = getObjects(
+            this.store,
+            relationId,
+            TREE.terms.path,
+            null,
+        )[0];
+
+        const value = getObjects(
+            this.store,
+            relationId,
+            TREE.terms.value,
+            null,
+        )[0];
+
+        let range = this.ranges.find((range) =>
+            cbdEquals(
+                { id: path, store: this.store },
+                { id: range.cbdEntry, store: this.store },
+            ),
+        );
+
+        if (!range) {
+            const newRange: PathRange = {
+                cbdEntry: path,
+                range: Range.empty(this.defaultTimezone),
+            };
+            this.ranges.push(newRange);
+            range = newRange;
         }
 
-        if (this.max && other.min) {
-            if (this.eqMax && other.eqMin) {
-                if (other.min > this.max) return false;
-            } else {
-                if (other.min >= this.max) return false;
-            }
+        if (!value) {
+            range.range = undefined;
+            return;
         }
 
-        return true;
-    }
-
-    toString(valueToString?: (value: Value) => string): string {
-        const vts = valueToString || ((x: Value) => x.toString());
-        const start = this.min ? (this.eqMin ? "[" : "]") + vts(this.min) : "]∞";
-        const end = this.max ? vts(this.max) + (this.eqMax ? "]" : "[") : "∞[";
-        return start + "," + end;
-    }
-
-    parseValue(value: Value, dataType?: string): Value {
-        if (dataType === XSD.dateTime) {
-            return new Date(value);
-        } else if (dataType === XSD.integer) {
-            return parseInt(value.toString());
-        } else if (dataType === XSD.custom("float")) {
-            return parseFloat(value.toString());
-        } else if (dataType === XSD.custom("double")) {
-            return parseFloat(value.toString());
-        } else if (dataType === XSD.custom("decimal")) {
-            return parseFloat(value.toString());
+        let dataType;
+        if (value.termType === "Literal") {
+            dataType = value.datatype.value;
         }
-        return value;
+
+        range.range?.add(value.value, ty.value, dataType);
     }
 }
 
@@ -303,7 +230,7 @@ export class LeafCondition implements Condition {
     toString(): string {
         const vts =
             this.compareType === "date"
-                ? (x: Value) => (<Date>x).toISOString()
+                ? (x:RelationValue) => (<Date>x).toISOString()
                 : undefined;
         return `${this.pathQuads.id.value} ∈ ${this.range.toString(vts)}`;
     }
@@ -321,7 +248,7 @@ export class LeafCondition implements Condition {
 
         const vts =
             this.compareType === "date"
-                ? (x: Value) => new Date(x).toISOString()
+                ? (x:RelationValue) => new Date(x).toISOString()
                 : undefined;
         this.logger.verbose(
             `${this.range.toString(vts)} contains ${range.toString(vts)}. Overlaps: ${this.range.overlaps(
@@ -337,7 +264,7 @@ export class LeafCondition implements Condition {
         return this.range.contains(value);
     }
 
-    private parseValue(value: string): Value {
+    private parseValue(value: string):RelationValue {
         switch (this.compareType) {
             case "string":
                 return value;
@@ -468,5 +395,94 @@ export class MaxCountCondition implements Condition {
         if (this.reset_on_poll) {
             this.current = 0;
         }
+    }
+}
+
+export async function processConditionFile(
+    conditionFile?: string,
+): Promise<Condition> {
+    let condition: Condition = empty_condition();
+
+    /* eslint-disable  @typescript-eslint/no-require-imports */
+    const fs =
+        typeof require === "undefined"
+            ? await import("fs/promises")
+            : require("fs/promises");
+
+    if (conditionFile) {
+        try {
+            condition = parse_condition(
+                await fs.readFile(conditionFile, { encoding: "utf8" }),
+                conditionFile,
+            );
+        } catch (ex) {
+            console.error(`Failed to read condition file: ${conditionFile}`);
+            throw ex;
+        }
+    }
+
+    return condition;
+}
+
+/**
+ * Function that handles any given condition, together with the "before" and "after" options,
+ * and builds the corresponding unified Condition.
+ */
+export function handleConditions(
+    condition: Condition,
+    defaultTimezone: string,
+    before?: Date,
+    after?: Date,
+    timestampPath?: Term,
+): Condition {
+    if ((before || after) && !timestampPath) {
+        throw "Cannot apply 'before' or 'after' filters since the target LDES does not define a ldes:timestampPath predicate";
+    }
+
+    // Check if before and after conditions are defined and build corresponding Condition object
+    let handledCondition: Condition = empty_condition();
+    const toDateLiteral = (date: Date) => {
+        return df.literal(date.toISOString(), XSD.terms.dateTime);
+    };
+
+    const predLens = pred(timestampPath);
+
+    if (before) {
+        handledCondition = new LeafCondition({
+            relationType: TREE.terms.LessThanRelation,
+            value: toDateLiteral(before),
+            compareType: "date",
+            path: predLens,
+            pathQuads: { entry: timestampPath!, quads: [] },
+            defaultTimezone,
+        });
+    }
+
+    if (after) {
+        const afterCond = new LeafCondition({
+            relationType: TREE.terms.GreaterThanRelation,
+            value: toDateLiteral(after),
+            compareType: "date",
+            path: predLens,
+            pathQuads: { entry: timestampPath!, quads: [] },
+            defaultTimezone,
+        });
+        if (handledCondition instanceof EmptyCondition) {
+            handledCondition = afterCond;
+        } else {
+            // Got bi-condition with before & after filters
+            handledCondition = new AndCondition({
+                items: [handledCondition, afterCond],
+            });
+        }
+    }
+
+    // See if condition file was defined too
+    if (!(condition instanceof EmptyCondition)) {
+        return new AndCondition({
+            items: [condition, handledCondition],
+        });
+    } else {
+        return handledCondition;
     }
 }
