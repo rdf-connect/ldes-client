@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { Range } from "../lib/condition";
 import { TREE } from "@treecg/types";
+import { Range } from "../lib/condition";
 
 const lessers = [
     new Range(5, TREE.LessThanOrEqualToRelation, "AoE"),
