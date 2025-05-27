@@ -21,7 +21,7 @@
         "@fastify/static": "^8.2.0",
         "@rdfc/js-runner": "^1.0.0",
         "@rdfjs/types": "^2.0.1",
-        "@types/n3": "^1.24.2",
+        "@types/n3": "^1.24.3",
         "@types/node": "^22.15.21",
         "@typescript-eslint/eslint-plugin": "^8.32.1",
         "@typescript-eslint/parser": "^8.32.1",
@@ -317,7 +317,7 @@
 
     "@types/ms": ["@types/ms@2.1.0", "", {}, "sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA=="],
 
-    "@types/n3": ["@types/n3@1.24.2", "", { "dependencies": { "@rdfjs/types": "*", "@types/node": "*" } }, "sha512-clurEPFqgx68kQxCBCrAUppsvZyyj/uVEgbhquYaawTZuDptrRrnFsHIWd4PubwWCfFgyrHBgaB2Tt09TTYLWw=="],
+    "@types/n3": ["@types/n3@1.25.0", "", { "dependencies": { "@rdfjs/types": "*", "@types/node": "*" } }, "sha512-kVDefe5y0h4+DlllpR84bh5ZR/TfY/bJEwkdOh2qzDCocPLM1Slrt9jfzoLwCz87Szb2KqRQIpSjCxZ9qyfpAA=="],
 
     "@types/node": ["@types/node@22.15.21", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-EV/37Td6c+MgKAbkcLG6vqZ2zEYHD7bvSrzqqs2RIhbA6w3x+Dqz8MZM3sP6kGTeLrdoOgKZe+Xja7tUB2DNkQ=="],
 
@@ -1116,6 +1116,8 @@
     "rdf-dereference/rdf-data-factory": ["rdf-data-factory@1.1.3", "", { "dependencies": { "@rdfjs/types": "^1.0.0" } }, "sha512-ny6CI7m2bq4lfQQmDYvcb2l1F9KtGwz9chipX4oWu2aAtVoXjb7k3d8J1EsgAsEbMXnBipB/iuRen5H2fwRWWQ=="],
 
     "rdf-isomorphic/rdf-terms": ["rdf-terms@1.11.0", "", { "dependencies": { "@rdfjs/types": "*", "rdf-data-factory": "^1.1.0", "rdf-string": "^1.6.0" } }, "sha512-iKlVgnMopRKl9pHVNrQrax7PtZKRCT/uJIgYqvuw1VVQb88zDvurtDr1xp0rt7N9JtKtFwUXoIQoEsjyRo20qQ=="],
+
+    "rdf-lens/@types/n3": ["@types/n3@1.24.2", "", { "dependencies": { "@rdfjs/types": "*", "@types/node": "*" } }, "sha512-clurEPFqgx68kQxCBCrAUppsvZyyj/uVEgbhquYaawTZuDptrRrnFsHIWd4PubwWCfFgyrHBgaB2Tt09TTYLWw=="],
 
     "rdf-stores/rdf-string": ["rdf-string@2.0.1", "", { "dependencies": { "rdf-data-factory": "^2.0.0" } }, "sha512-SMW4ponnKNrsP9kYpOLyICeM4UJmEXIeS3zri7kPK9gzLFsHD88oiza8LnokNYxd76zW4JoYWD+v4x0g8rJBjw=="],
 
