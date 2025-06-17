@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750036509509,
+  "lastUpdate": 1750132391422,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -3625,6 +3625,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6.02,
             "range": "±2.39%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "29139614+renovate[bot]@users.noreply.github.com",
+            "name": "renovate[bot]",
+            "username": "renovate[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2cf38563e28a92f10ae3fe855c4505c81ef89382",
+          "message": "chore(deps): update dependency lint-staged to ^16.1.2",
+          "timestamp": "2025-06-16T22:07:31Z",
+          "tree_id": "3e9cc321802b95dfa9d560ab54c4e73f61cd2bed",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/2cf38563e28a92f10ae3fe855c4505c81ef89382"
+        },
+        "date": 1750132390877,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.04,
+            "range": "±2.32%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
