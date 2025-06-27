@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750910486064,
+  "lastUpdate": 1750987784287,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -3842,6 +3842,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6,
             "range": "±2.29%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "29139614+renovate[bot]@users.noreply.github.com",
+            "name": "renovate[bot]",
+            "username": "renovate[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3afaaa2df4a3d0fc6d8d1d78862b9c31850dbad9",
+          "message": "chore(deps): update dependency prettier to ^3.6.1",
+          "timestamp": "2025-06-26T23:01:10Z",
+          "tree_id": "32e7ebe18cb2b4aa3368d6c44e1f7ecef80bfb98",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/3afaaa2df4a3d0fc6d8d1d78862b9c31850dbad9"
+        },
+        "date": 1750987783252,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.03,
+            "range": "±2.37%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
