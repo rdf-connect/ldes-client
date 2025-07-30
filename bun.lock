@@ -40,7 +40,7 @@
       },
       "optionalDependencies": {
         "@esbuild/darwin-arm64": "^0.25.8",
-        "@rollup/rollup-linux-x64-gnu": "^4.46.0",
+        "@rollup/rollup-linux-x64-gnu": "^4.46.1",
       },
     },
   },
@@ -293,7 +293,7 @@
 
     "@rollup/rollup-linux-s390x-gnu": ["@rollup/rollup-linux-s390x-gnu@4.41.0", "", { "os": "linux", "cpu": "s390x" }, "sha512-/L3pW48SxrWAlVsKCN0dGLB2bi8Nv8pr5S5ocSM+S0XCn5RCVCXqi8GVtHFsOBBCSeR+u9brV2zno5+mg3S4Aw=="],
 
-    "@rollup/rollup-linux-x64-gnu": ["@rollup/rollup-linux-x64-gnu@4.46.0", "", { "os": "linux", "cpu": "x64" }, "sha512-Cv+moII5C8RM6gZbR3cb21o6rquVDZrN2o81maROg1LFzBz2dZUwIQSxFA8GtGZ/F2KtsqQ2z3eFPBb6akvQNg=="],
+    "@rollup/rollup-linux-x64-gnu": ["@rollup/rollup-linux-x64-gnu@4.46.2", "", { "os": "linux", "cpu": "x64" }, "sha512-Jj5a9RUoe5ra+MEyERkDKLwTXVu6s3aACP51nkfnK9wJTraCC8IMe3snOfALkrjTYd2G1ViE1hICj0fZ7ALBPA=="],
 
     "@rollup/rollup-linux-x64-musl": ["@rollup/rollup-linux-x64-musl@4.41.0", "", { "os": "linux", "cpu": "x64" }, "sha512-m/P7LycHZTvSQeXhFmgmdqEiTqSV80zn6xHaQ1JSqwCtD1YGtwEK515Qmy9DcB2HK4dOUVypQxvhVSy06cJPEg=="],
 
