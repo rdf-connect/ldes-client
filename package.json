@@ -61,7 +61,7 @@
     "eslint-config-prettier": "^10.1.8",
     "fastify": "^5.5.0",
     "husky": "^9.1.7",
-    "lint-staged": "^16.1.5",
+    "lint-staged": "^16.1.6",
     "prettier": "^3.6.2",
     "tsc-alias": "^1.8.16",
     "typescript": "^5.9.2",
