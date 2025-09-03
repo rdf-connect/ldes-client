@@ -85,7 +85,7 @@ program
         "--url-is-view",
         "the url is the view url, don't try to find the correct view",
     )
-    .option("-q --quiet", "be quiet and don't stream out the members")
+    .option("-q --quiet", "be quiet and don't print the members in the console")
     .option("--basic-auth <username>:<password>", "HTTP basic auth information")
     .option(
         "--concurrent <requests>",
