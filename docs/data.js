@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756964434351,
+  "lastUpdate": 1756991046472,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -4681,6 +4681,37 @@ window.BENCHMARK_DATA = {
             "range": "±2.39%",
             "unit": "ops/sec",
             "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "julian.rojas87@gmail.com",
+            "name": "Julian Rojas",
+            "username": "julianrojas87"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "66b3ce2ebbfcf97d58d2dafe26ed9e27767ea591",
+          "message": "Merge pull request #105 from rdf-connect/fix/perf-script\n\nUpdate import in perf script",
+          "timestamp": "2025-09-04T15:03:30+02:00",
+          "tree_id": "ee2d60426e2665bac385b5e9e3c4a75b87fedb21",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/66b3ce2ebbfcf97d58d2dafe26ed9e27767ea591"
+        },
+        "date": 1756991045728,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 5.88,
+            "range": "±2.74%",
+            "unit": "ops/sec",
+            "extra": "33 samples"
           }
         ]
       }
