@@ -144,7 +144,7 @@ export function retry_fetch(
 
     const retry: typeof fetch = async (input, init) => {
         let tryCount = 0;
-        let retryTime = config.maxRetries;
+        let retryTime = config.base;
         while (config.maxRetries == 0 || tryCount < config.maxRetries) {
             const resp = await fetch_f(input, init);
             if (!resp.ok) {
