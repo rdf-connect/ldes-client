@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 import * as process from "process";
-import { Ordered, replicateLDES } from "../lib/client";
-import { intoConfig } from "../lib/config";
 import { Command, Option } from "commander";
 import { Writer } from "n3";
-import { enhanced_fetch, FetchConfig, processConditionFile } from "../lib/utils";
-import { getLoggerFor } from "../lib/utils/logUtil";
+import { replicateLDES } from "../lib/client";
+import { intoConfig } from "../lib/config"
+import { enhanced_fetch } from "../lib/fetcher";
+import { processConditionFile } from "../lib/condition";
+import { getLoggerFor } from "../lib/utils";
+
+import type { Ordered } from "../lib/strategy";
+import type { FetchConfig } from "../lib/fetcher";
 
 const program = new Command();
 let paramURL: string = "";
@@ -81,7 +85,7 @@ program
         "--url-is-view",
         "the url is the view url, don't try to find the correct view",
     )
-    .option("-q --quiet", "be quiet")
+    .option("-q --quiet", "be quiet and don't print the members in the console (mainly for debugging purposes)")
     .option("--basic-auth <username>:<password>", "HTTP basic auth information")
     .option(
         "--concurrent <requests>",
@@ -151,13 +155,12 @@ async function main() {
     const t0 = Date.now();
     const writer = new Writer();
     const logger = getLoggerFor("cli");
-    let fragmentCount = 0;
 
     const client = replicateLDES(
         intoConfig({
             loose,
             noShape,
-            polling: polling,
+            polling,
             url: paramURL,
             stateFile: save,
             pollInterval: paramPollInterval,
@@ -187,8 +190,7 @@ async function main() {
     });
 
     client.on("fragment", (fragment) => {
-        fragmentCount += 1;
-        logger.verbose(`Got fragment: ${fragment.id.value}`);
+        logger.debug(`Got fragment: ${fragment.url} (immutable: ${fragment.immutable})`);
     });
 
     client.on("error", (error) => {
@@ -199,19 +201,20 @@ async function main() {
     const reader = client.stream({ highWaterMark: 10 }).getReader();
 
     let streamResult = await reader.read();
-    let count = 0;
+    let memCount = 0;
+
     while (streamResult) {
         if (streamResult.value) {
-            count += 1;
+            memCount += 1;
 
+            if (memCount % 100 == 1) {
+                logger.verbose(
+                    `Got member number ${memCount} with ID ${streamResult.value.id.value} and ${streamResult.value.quads.length} quads`,
+                );
+            }
+            
             if (!quiet) {
                 console.log(writer.quadsToString(streamResult.value.quads));
-
-                if (count % 100 == 1) {
-                    logger.verbose(
-                        `Got member ${count} with ${streamResult.value.quads.length} quads`,
-                    );
-                }
             }
         }
 
@@ -222,7 +225,7 @@ async function main() {
         streamResult = await reader.read();
     }
 
-    logger.verbose(`Found ${count} members in ${fragmentCount} fragments (took ${Date.now() - t0} ms)`);
+    logger.verbose(`Found ${client.memberCount} members in ${client.fragmentCount} fragments (took ${Date.now() - t0} ms)`);
 }
 
 main().catch((e) => {

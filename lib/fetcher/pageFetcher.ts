@@ -1,11 +1,14 @@
-import { IDereferenceOptions, RdfDereferencer } from "rdf-dereference";
-import { Notifier } from "./utils";
-import { extractRelations, Relation, Relations } from "./page";
-import { SimpleRelation } from "./relation";
+
+import { RdfDereferencer } from "rdf-dereference";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
-import { Condition } from "./condition";
-import { getLoggerFor } from "./utils/logUtil";
+import { getLoggerFor } from "../utils";
+import { extractRelations } from "./relation";
+
+import type { IDereferenceOptions } from "rdf-dereference";
+import type { Condition } from "../condition";
+import type { Notifier } from "./modulator";
+import type { Relations } from "./relation";
 
 const { namedNode } = new DataFactory();
 
@@ -22,6 +25,9 @@ export type Node = {
 export type FetchedPage = {
     url: string;
     data: RdfStore;
+    immutable: boolean;
+    created?: Date;
+    updated?: Date;
 };
 
 export type LongPromise = {
@@ -41,15 +47,21 @@ export function resetPromise(promise: LongPromise) {
     cb();
 }
 
-export interface Helper {
-    extractRelation(relation: Relation): { rel: SimpleRelation; node: string };
-
-    handleFetchedPage(
-        page: FetchedPage,
-        marker?: unknown,
-    ): void | Promise<void>;
-
-    close(): void | Promise<void>;
+export async function statelessPageFetch(
+    location: string,
+    dereferencer: RdfDereferencer,
+    fetch_f?: typeof fetch,
+): Promise<FetchedPage> {
+    const resp = await dereferencer.dereference(location, {
+        localFiles: true,
+        fetch: fetch_f,
+    });
+    const url = resp.url;
+    const data = RdfStore.createDefault();
+    await new Promise((resolve, reject) => {
+        data.import(resp.data).on("end", resolve).on("error", reject);
+    });
+    return <FetchedPage>{ url, data };
 }
 
 export type FetchEvent = {
@@ -174,7 +186,11 @@ export class Fetcher {
             }
 
             if (!this.closed) {
-                notifier.pageFetched({ data, url: resp.url }, state);
+                notifier.pageFetched({ 
+                    data, 
+                    url: resp.url,
+                    immutable: !!cache.immutable,
+                }, state);
             }
         } catch (ex) {
             this.logger.error(`[fetch] Fetch failed for ${node.target} ${JSON.stringify(ex)}`);

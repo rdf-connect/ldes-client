@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { read, Tree } from "./helper";
-
-import { MaxCountCondition, replicateLDES, retry_fetch } from "../lib/client";
 import { Parser } from "n3";
 import { TREE } from "@treecg/types";
 import { rmSync } from "fs";
+import { read, Tree } from "./helper";
+import { MaxCountCondition } from "../lib/condition";
+import { retry_fetch } from "../lib/fetcher";
+import { replicateLDES } from "../lib/client";
 
 const oldFetch = global.fetch;
 beforeEach(() => {

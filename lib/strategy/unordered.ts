@@ -1,24 +1,29 @@
-import { Manager, MemberEvents } from "../memberManager";
-import { FetchedPage, Fetcher, FetchEvent, Node } from "../pageFetcher";
-import { Modulator, ModulatorFactory, Notifier } from "../utils";
+import { Fetcher, ModulatorFactory, Manager } from "../fetcher";
+import { getLoggerFor } from "../utils";
 
-import { StrategyEvents } from ".";
-import { getLoggerFor } from "../utils/logUtil";
-import { Fragment } from "../page";
+import type {
+    FetchedPage,
+    FetchEvent,
+    Node,
+    Modulator,
+    Notifier,
+    MemberEvents
+} from "../fetcher";
+import type { StrategyEvents, SerializedMember } from ".";
 
 export class UnorderedStrategy {
     private manager: Manager;
     private fetcher: Fetcher;
     private notifier: Notifier<StrategyEvents, unknown>;
 
-    private inFlight: number = 0;
-
     private fetchNotifier: Notifier<FetchEvent, { index: number }>;
-    private memberNotifier: Notifier<MemberEvents, unknown>;
+    private memberNotifier: Notifier<
+        MemberEvents,
+        { index: number, emitted: ReadonlySet<string> }
+    >;
 
-    private modulator: Modulator<Node>;
+    private modulator: Modulator<Node, SerializedMember>;
 
-    private cacheList: Node[] = [];
     private polling: boolean;
     private pollInterval?: number;
     private pollingIsScheduled: boolean;
@@ -43,28 +48,28 @@ export class UnorderedStrategy {
         this.pollingIsScheduled = false;
 
         // Callbacks for the fetcher
-        // - seen: the strategy wanted to fetch an uri, but it was already seen
-        //         so one fetch request is terminated, inFlight -= 1
+        // - scheduleFetch: a mutable page was fetched, we keep track of it for future polling
         // - pageFetched: a complete page is fetched and the relations have been extracted
         //         start member extraction
         // - relationFound: a relation has been found, inFlight += 1 and put it in the queue
         this.fetchNotifier = {
             error: (error: unknown) => {
-                this.logger.error(`[fetch] Error: ${JSON.stringify(error)}`);
+                this.logger.error(`[fetchNotifier] Error: ${JSON.stringify(error)}`);
                 this.notifier.error(error, {});
             },
             scheduleFetch: (node: Node) => {
-                this.logger.debug(`Scheduling fetch for mutable page: ${node.target}`);
-                this.cacheList.push(node);
+                this.logger.debug(`[fetchNotifier - pageFetched] Scheduling fetch for mutable page: ${node.target}`);
+                // Register in the state that this page needs to be refetched in the future
+                this.modulator.recordMutable(node.target, node);
                 this.notifier.mutable({}, {});
             },
             pageFetched: (page, { index }) => {
-                this.logger.debug(`Paged fetched ${page.url}`);
+                this.logger.debug(`[fetchNotifier - pageFetched] Paged fetched ${page.url}`);
                 this.handleFetched(page, index);
             },
             relationFound: ({ from, target }) => {
+                this.logger.debug(`[fetchNotifier - relationFound] Found relation leading to ${target.node}`);
                 from.expected.push(target.node);
-                this.inFlight += 1;
                 this.modulator.push({
                     target: target.node,
                     expected: [from.target],
@@ -79,36 +84,55 @@ export class UnorderedStrategy {
             error: (error) => {
                 this.notifier.error(error, {});
             },
-            done: (fragment: Fragment) => {
-                this.logger.debug("[member] Members on page done");
-                this.inFlight -= 1;
-                this.checkEnd();
+            done: (fragment: FetchedPage, { index }) => {
+                this.logger.debug("[memberNotifier - done] Members on page done");
                 this.notifier.fragment(fragment, {});
+                this.modulator.finished(index)
+
+                if (fragment.immutable) {
+                    this.logger.debug(`[memberNotifier - done] Remembering immutable page to avoid future refetching: ${fragment.url}`);
+                    this.modulator.recordImmutable(fragment.url);
+                }
+                this.checkEnd();
             },
-            extracted: (mem) => this.notifier.member(mem, {}),
+            extracted: (mem) => {
+                // Member is emitted immediately after extraction, so no need to record it in the unemitted state
+                this.notifier.member(mem, {});
+                this.modulator.recordEmitted(mem.id.value);
+            },
         };
 
-        this.modulator = modulatorFactory.create<Node>("fetcher", [], {
-            ready: ({ item, index }) =>
-                this.fetcher.fetch(item, { index }, this.fetchNotifier),
+        this.modulator = modulatorFactory.create<Node, SerializedMember>("fetcher", [], {
+            ready: ({ item, index }) => {
+                // Only fetch this node if it hasn't been fetched in the past
+                if (!this.modulator.seen(item.target)) {
+                    this.logger.debug(`[modulator - ready] Ready to fetch page: ${item.target}`);
+                    this.fetcher.fetch(item, { index }, this.fetchNotifier);
+                } else {
+                    this.logger.debug(`[modulator - ready] Skipping fetch for previously fetched immutable page: ${item.target}`);
+                    this.modulator.finished(index);
+                    this.checkEnd();
+                }
+            },
         });
     }
 
     start(url: string, root?: FetchedPage) {
         if (root) {
             // This is a local dump. Proceed to extract members
-            this.manager.extractMembers(root, {}, this.memberNotifier);
+            this.manager.extractMembers(
+                root,
+                { index: 0, emitted: new Set<string>() },
+                this.memberNotifier
+            );
+        } else if (this.modulator.getInFlight().length < 1
+            && this.modulator.getTodo().length < 1) {
+            this.logger.debug("[start] Nothing in flight, adding start url");
+            this.modulator.push({ target: url, expected: [] });
         } else {
-            this.inFlight = this.modulator.length();
-            if (this.inFlight < 1) {
-                this.inFlight = 1;
-                this.modulator.push({ target: url, expected: [] });
-                this.logger.debug("[start] Nothing in flight, adding start url");
-            } else {
-                this.logger.debug(
-                    "[start] Things are already inflight, not adding start url",
-                );
-            }
+            this.logger.debug(
+                "[start] Things are already inflight, not adding start url",
+            );
         }
     }
 
@@ -117,31 +141,34 @@ export class UnorderedStrategy {
     }
 
     private handleFetched(page: FetchedPage, index: number) {
-        this.modulator.finished(index);
-        this.manager.extractMembers(page, {}, this.memberNotifier);
+        this.manager.extractMembers(
+            page,
+            { index, emitted: this.modulator.getEmitted() },
+            this.memberNotifier
+        );
     }
 
     private checkEnd() {
         if (this.canceled) return;
-        if (this.inFlight <= 0) {
+        if (this.modulator.getInFlight().length < 1
+            && this.modulator.getTodo().length < 1) {
             // Make sure we don't schedule multiple polling cycles
             if (this.polling && !this.pollingIsScheduled) {
-                this.logger.debug(`Polling is enabled, setting timeout of ${this.pollInterval || 1000} ms to poll`);
+                this.logger.debug(`[checkEnd] Polling is enabled, setting timeout of ${this.pollInterval || 1000} ms to poll`);
                 setTimeout(() => {
                     if (this.canceled) return;
 
                     this.pollingIsScheduled = false;
                     this.notifier.pollCycle({}, {});
-                    const cl = this.cacheList.slice();
-                    this.cacheList = [];
-                    for (const cache of cl) {
-                        this.inFlight += 1;
-                        this.modulator.push(cache);
+                    const toPoll = Array.from(this.modulator.getMutable().values());
+
+                    for (const mutable of toPoll) {
+                        this.modulator.push(mutable);
                     }
                 }, this.pollInterval || 1000);
                 this.pollingIsScheduled = true;
             } else {
-                this.logger.debug("Closing the notifier, polling is not set");
+                this.logger.debug("[checkEnd] Closing the notifier, polling is not set");
                 this.canceled = true;
                 this.notifier.close({}, {});
             }

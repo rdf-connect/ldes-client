@@ -1,5 +1,7 @@
-import { NamedNode, Quad } from "@rdfjs/types";
-import { Condition, empty_condition as emptyCondition } from "./condition";
+import { empty_condition as emptyCondition } from "./condition";
+
+import type { NamedNode, Quad } from "@rdfjs/types";
+import type { Condition } from "./condition";
 
 export interface ShapeConfig {
     quads: Quad[];
