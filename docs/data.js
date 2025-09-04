@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756991046472,
+  "lastUpdate": 1757024925174,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -4712,6 +4712,37 @@ window.BENCHMARK_DATA = {
             "range": "±2.74%",
             "unit": "ops/sec",
             "extra": "33 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "julian.rojas87@gmail.com",
+            "name": "Julian Rojas",
+            "username": "julianrojas87"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7fa651c6a731bf38e9206f37e4f7d606798b943e",
+          "message": "Merge pull request #106 from rdf-connect/fix/retry-config\n\nFix config issue for exponential back-off",
+          "timestamp": "2025-09-05T00:28:16+02:00",
+          "tree_id": "556a5272e90a7f29af43c523289dba1b1ebbefc3",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/7fa651c6a731bf38e9206f37e4f7d606798b943e"
+        },
+        "date": 1757024924529,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.01,
+            "range": "±2.41%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
           }
         ]
       }
