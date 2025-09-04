@@ -250,8 +250,8 @@ export class Client {
         streamOut: (member: Member) => void,
         close: () => void,
     ): Promise<void> {
-        // Fetch the url
-        const root = await statelessPageFetch(
+        // Fetch the given root URL
+        const root: FetchedPage = await statelessPageFetch(
             this.config.url,
             this.dereferencer,
             this.config.fetch,
@@ -259,20 +259,28 @@ export class Client {
         this.fragmentCount++;
         this.emit("fragment", root);
 
+        // Determine if the URL was a local dump
         const isLocalDump = !this.config.url.startsWith("http");
 
+        // Set the LDES ID accordingly
         const ldesId: Term = isLocalDump
             ? df.namedNode("file://" + this.config.url)
             : df.namedNode(this.config.url);
 
-        // TODO Choose a view
+        //*****************************************************************
+        // TODO: Handle the case where there are multiple views available 
+        // through a discovery process.
+        //*****************************************************************
         const viewQuads = root.data.getQuads(null, TREE.terms.view, null, null);
-        let viewId: Term = ldesId;
+        let viewId: Term;
 
-        if (!this.config.urlIsView) {
+        if (this.config.urlIsView) {
+            viewId = ldesId;
+        } else {
             if (viewQuads.length === 0) {
                 this.logger.error(
-                    "Did not find tree:view predicate, this is required to interpret the LDES",
+                    "Did not find a tree:view predicate, which is required to interpret the LDES. " +
+                    "If you are targeting a tree:view directly, use the '--url-is-view' option.",
                 );
                 throw "No view found";
             } else {
@@ -280,16 +288,20 @@ export class Client {
             }
         }
 
+        // This is the actual LDES IRI found in the RDF data. 
+        // Might be different from the configured ldesId due to HTTP redirects 
         const ldesUri = viewQuads[0]?.subject || root.data.getQuads(null, RDF.terms.type, LDES.terms.EventStream)[0].subject;
         if (!ldesUri) {
-            this.logger.error("Could not find the LDES IRI in the RDF data.");
+            this.logger.error("Could not find the LDES IRI in the fetched RDF data.");
             throw "No LDES IRI found";
         }
         // This is the ID of the stream of data we are replicating.
         // Normally it corresponds to the actual LDES IRI, unless externally specified.
+        // This is used mainly for metadata descriptions.
         this.streamId = this.streamId || ldesUri;
 
-        const info = await getInfo(
+        // Extract the main LDES information (e.g., timestampPath, versionOfPath, etc.)
+        const info: LDESInfo = await getInfo(
             ldesUri,
             viewId,
             root.data,
@@ -321,6 +333,7 @@ export class Client {
               )
             : undefined;
 
+        // Component that manages the extraction of all members from every fetched page
         this.memberManager = new Manager(
             isLocalDump
                 ? null // Local dump does not need to dereference a view
@@ -329,7 +342,7 @@ export class Client {
             this.config.loose,
         );
 
-        this.logger.debug(`timestampPath ${!!info.timestampPath}`);
+        this.logger.debug(`timestampPath: ${!!info.timestampPath}`);
 
         if (this.ordered !== "none" && !info.timestampPath) {
             throw "Can only emit members in order, if LDES is configured with timestampPath";
@@ -344,6 +357,7 @@ export class Client {
             info.timestampPath,
         );
 
+        // Component that manages the fetching of RDF data over HTTP
         this.fetcher = new Fetcher(
             this.dereferencer,
             this.config.loose,
@@ -353,6 +367,7 @@ export class Client {
             this.config.fetch,
         );
 
+        // Event handler object that listens for various runtime events (e.g., page fetching, member extraction, etc.)
         const notifier: Notifier<StrategyEvents, unknown> = {
             error: (ex: unknown) => this.emit("error", ex),
             fragment: (fragment: FetchedPage) => {
@@ -412,6 +427,8 @@ export class Client {
         // Opt for descending order strategy if last version only is true, to start reading at the newest end.
         if (this.config.lastVersionOnly) this.ordered = "descending";
 
+        // Fetching strategy definition, i.e., whether to use ordered or unordered fetching;
+        // keep on polling the LDES (mutable pages) for new data or finish when fully fetched.
         this.strategy =
             this.ordered !== "none"
                 ? new OrderedStrategy(
@@ -436,8 +453,6 @@ export class Client {
             `Found ${viewQuads.length} views, choosing ${viewId.value}`,
         );
 
-        // TODO: handle the case where root and view are the same.
-        // Currently the root page gets unnecessarily fetched for a second time when the strategy starts.
         this.strategy.start(viewId.value, isLocalDump ? root : undefined);
     }
 

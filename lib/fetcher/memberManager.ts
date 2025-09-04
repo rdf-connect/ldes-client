@@ -48,7 +48,7 @@ export class Manager {
 
     private closed = false;
     private resolve?: () => void;
-    private ldesId: Term | null;
+    private ldesUri: Term | null;
 
     private extractor: CBDShapeExtractor;
     private shapeId?: Term;
@@ -61,24 +61,24 @@ export class Manager {
 
     
     constructor(
-        ldesId: Term | null,
+        ldesUri: Term | null,
         info: LDESInfo,
         loose = false,
     ) {
-        this.ldesId = ldesId;
+        this.ldesUri = ldesUri;
         this.extractor = info.extractor;
         this.timestampPath = info.timestampPath;
         this.isVersionOfPath = info.versionOfPath;
         this.shapeId = info.shape;
         this.loose = loose;
 
-        if (!this.ldesId) {
+        if (!this.ldesUri) {
             this.logger.debug(
                 `new local dump member extractor`
             );
         } else {
             this.logger.debug(
-                `new member extractor for ${this.ldesId.value}:`);
+                `new member extractor for ${this.ldesUri.value}:`);
         }
         this.logger.debug(`${JSON.stringify({
             extractor: info.extractor.constructor.name,
@@ -96,7 +96,7 @@ export class Manager {
     ) {
         const members = this.loose
             ? getObjects(page.data, null, TREE.terms.member, null)
-            : getObjects(page.data, this.ldesId, TREE.terms.member, null);
+            : getObjects(page.data, this.ldesUri, TREE.terms.member, null);
 
         const pageCreatedIso = getObjects(
             page.data,
