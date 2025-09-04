@@ -4,8 +4,12 @@ const PROCESSOR_NAME = "ldes-client";
 
 const consoleTransport = new winston.transports.Console({
     stderrLevels: [
+        "crit",
         "error",
+        "emerg",
         "warn",
+        "warning",
+        "alert",
         "info",
         "http",
         "verbose",
