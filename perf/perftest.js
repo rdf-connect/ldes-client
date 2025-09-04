@@ -2,7 +2,8 @@ import Benchmark from "benchmark";
 import { Parser } from "n3";
 import { Tree } from "../dist/tests/helper.js";
 import { TREE } from "@treecg/types";
-import { intoConfig, replicateLDES } from "../dist/lib/client.js";
+import { replicateLDES } from "../dist/lib/client.js";
+import { intoConfig } from "../dist/lib/config.js";
 
 // Increase the max listeners to prevent warnings
 process.setMaxListeners(35);
