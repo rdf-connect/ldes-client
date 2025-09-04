@@ -500,9 +500,9 @@ export class Client {
             cancel: async () => {
                 this.logger.info("Stream canceled");
                 this.stateFactory.write();
-                if (this.strategy) this.strategy.cancel();
-                if (this.memberManager) this.memberManager.close();
-                if (this.fetcher) this.fetcher.close();
+                this.strategy?.cancel();
+                this.memberManager?.close();
+                this.fetcher?.close();
             },
         };
 
