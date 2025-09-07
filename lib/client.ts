@@ -57,17 +57,20 @@ async function getInfo(
         const shapeId = config.shapeFile.startsWith("http")
             ? config.shapeFile
             : "file://" + config.shapeFile;
-
-        // TODO: handle dereferencing errors
-        const resp = await rdfDereferencer.dereference(config.shapeFile, {
-            localFiles: true,
-            fetch: config.fetch,
-        });
-        const quads = await streamToArray(resp.data);
-        config.shape = {
-            quads: quads,
-            shapeId: df.namedNode(shapeId),
-        };
+        try {
+            const resp = await rdfDereferencer.dereference(config.shapeFile, {
+                localFiles: true,
+                fetch: config.fetch,
+            });
+            const quads = await streamToArray(resp.data);
+            config.shape = {
+                quads: quads,
+                shapeId: df.namedNode(shapeId),
+            };
+        } catch (ex) {
+            logger.error(`Failed to fetch shape from ${shapeId}`);
+            throw ex;
+        }
     }
 
     let shapeIds;
@@ -313,24 +316,24 @@ export class Client {
         // Build state entry to keep track of member versions
         const versionState = this.config.lastVersionOnly
             ? this.stateFactory.build<Map<string, Date>>(
-                  "versions",
-                  (map) => {
-                      const arr = [...map.entries()];
-                      return JSON.stringify(arr);
-                  },
-                  (inp) => {
-                      const obj = JSON.parse(inp);
-                      for (const key of Object.keys(obj)) {
-                          try {
-                              obj[key] = new Date(obj[key]);
-                          } catch (ex: unknown) {
-                              // pass
-                          }
-                      }
-                      return new Map(obj);
-                  },
-                  () => new Map(),
-              )
+                "versions",
+                (map) => {
+                    const arr = [...map.entries()];
+                    return JSON.stringify(arr);
+                },
+                (inp) => {
+                    const obj = JSON.parse(inp);
+                    for (const key of Object.keys(obj)) {
+                        try {
+                            obj[key] = new Date(obj[key]);
+                        } catch (ex: unknown) {
+                            // pass
+                        }
+                    }
+                    return new Map(obj);
+                },
+                () => new Map(),
+            )
             : undefined;
 
         // Component that manages the extraction of all members from every fetched page
