@@ -802,4 +802,22 @@ describe("Client tests", () => {
         // Check that state was saved
         expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
     })
+
+    test("Client throws error when configured SHACL shape cannot be dereferenced", async () => {
+        let threwError = false;
+        try {
+            // Setup client
+            const client = replicateLDES({
+                url: LDES,
+                shapeFile: "http://localhost:3001/invalid-shape.ttl",
+            });
+
+            const members = client.stream({ highWaterMark: 10 }).getReader();
+            await members.read();
+        } catch (e) {
+            threwError = true;
+        }
+
+        expect(threwError).toBeTruthy();
+    })
 });
