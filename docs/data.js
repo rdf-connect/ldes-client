@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757392220649,
+  "lastUpdate": 1757455238683,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -4834,6 +4834,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6.01,
             "range": "±2.47%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "julian.rojas87@gmail.com",
+            "name": "Julian Rojas",
+            "username": "julianrojas87"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "81da6450238412c31b70d0dea61be468480f3c00",
+          "message": "Merge pull request #109 from rdf-connect/feat/migrate-rdfc-v2\n\nFeat/migrate rdfc v2",
+          "timestamp": "2025-09-10T00:00:06+02:00",
+          "tree_id": "a6c28b89b8e43c12cc7d8c7f6cd4514227eae33e",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/81da6450238412c31b70d0dea61be468480f3c00"
+        },
+        "date": 1757455238267,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 5.95,
+            "range": "±2.43%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
