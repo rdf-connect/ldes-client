@@ -14,6 +14,7 @@ import type { FetchedPage, LDESInfo } from "../lib/fetcher";
 describe("Client tests", () => {
     const LDES = "http://localhost:3001/mock-ldes.ttl";
     const LINKED_LIST_LDES = "http://localhost:3001/mock-ldes-linked-list.ttl";
+    const INBETWEEN_LDES = "http://localhost:3001/mock-ldes-inbetween.ttl";
     const EX = createUriAndTermNamespace(
         "http://example.org/",
         "Clazz1",
@@ -37,7 +38,24 @@ describe("Client tests", () => {
                 "onSend",
                 async (request, reply, payload: RequestPayload) => {
                     const st = await streamToString(payload);
-
+                    
+                    if (st.startsWith("# delay ")) {
+                        const reg = /# delay (?<delay>[0-9]+)/;
+                        const found = st.match(reg);
+                        const delay = found?.groups && found?.groups["delay"];
+                        console.log("found delay", delay);
+                        if (delay) {
+                            try {
+                                const delayInt = parseInt(delay);
+                                await new Promise((res) =>
+                                    setTimeout(res, delayInt),
+                                );
+                                /* eslint no-empty: ["error", { "allowEmptyCatch": true }] */
+                            } catch (ex: unknown) {
+                                /* empty */
+                            }
+                        }
+                    }
                     if (st.startsWith("# immutable")) {
                         reply.header("Cache-Control", "immutable");
                     }
@@ -69,6 +87,48 @@ describe("Client tests", () => {
         if (fs.existsSync("./tests/data/client-state.json")) {
             fs.rmSync(path.resolve("./tests/data/client-state.json"));
         }
+    });
+
+    test("Fetching a tree:InBetweenRelation LDES first member is emitted asap ascending", async () => {
+        const client = replicateLDES(
+            {
+                url: INBETWEEN_LDES,
+            },
+            "ascending",
+        );
+        const stream = client.stream().getReader();
+        const start = new Date();
+        for (let i = 0; i < 3; i++) {
+            const m1 = await stream.read();
+            expect(m1.done).toBeFalsy();
+        }
+        const mid = new Date();
+        expect(mid.getTime() - start.getTime()).toBeLessThan(150);
+        const m2 = await stream.read();
+        expect(m2.done).toBeFalsy();
+        const end = new Date();
+        expect(end.getTime() - start.getTime()).toBeGreaterThan(200);
+    });
+
+    test("Fetching a tree:InBetweenRelation LDES first member is emitted asap descending", async () => {
+        const client = replicateLDES(
+            {
+                url: INBETWEEN_LDES,
+            },
+            "descending",
+        );
+        const stream = client.stream().getReader();
+        const start = new Date();
+        for (let i = 0; i < 3; i++) {
+            const m1 = await stream.read();
+            expect(m1.done).toBeFalsy();
+        }
+        const mid = new Date();
+        expect(mid.getTime() - start.getTime()).toBeLessThan(150);
+        const m2 = await stream.read();
+        expect(m2.done).toBeFalsy();
+        const end = new Date();
+        expect(end.getTime() - start.getTime()).toBeGreaterThan(200);
     });
 
     test("Client runs successfuly and all events are triggered", async () => {
