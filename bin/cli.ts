@@ -52,8 +52,8 @@ program
         "follow only relations including members before a certain point in time",
     )
     .option(
-        "--materialize-version",
-        "materialize versioned member based on the ldes:isVersionOfPath predicate"
+        "--materialize",
+        "materialize versioned members based on the ldes:versionOfPath predicate"
     )
     .option(
         "--last-version-only",
@@ -79,7 +79,7 @@ program
     )
     .option(
         "-l --loose",
-        "use loose implementation, might work on more ldes streams",
+        "ignores if the page URL does not correspond to the tree:Node IRI when following tree:relation",
     )
     .option(
         "--url-is-view",
@@ -113,7 +113,7 @@ program
         loose = program.loose;
         onlyDefaultGraph = program.onlyDefaultGraph;
         conditionFile = program.condition;
-        materialize = program.materializeVersion;
+        materialize = program.materialize;
         lastVersionOnly = program.lastVersionOnly;
         defaultTimezone = program.defaultTimezone;
         includeMetadata = program.metadata;

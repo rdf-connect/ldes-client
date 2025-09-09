@@ -1,31 +1,31 @@
+import { extendLogger, Processor, Writer } from "@rdfc/js-runner";
 import { DataFactory } from "rdf-data-factory";
 import { SDS } from "@treecg/types";
 import { Writer as NWriter } from "n3";
-import { replicateLDES } from "./client";
+import { Client, replicateLDES } from "./client";
 import { enhanced_fetch } from "./fetcher"
 import { processConditionFile } from "./condition";
-import { getLoggerFor } from "./utils";
+import { Logger } from "winston";
 
-import type { Writer } from "@rdfc/js-runner";
 import type { Quad_Object } from "@rdfjs/types";
 import type { Ordered } from "./strategy";
 
 const df = new DataFactory();
 
-export async function processor(
-    writer: Writer<string>,
-    url: string,
-    before?: Date,
-    after?: Date,
-    ordered?: string,
-    follow?: boolean,
-    pollInterval?: number,
-    shape?: string,
-    noShape?: boolean,
-    save?: string,
-    loose?: boolean,
-    urlIsView?: boolean,
-    fetch_config?: {
+type LDESClientArgs = {
+    url: string;
+    output: Writer;
+    before?: Date;
+    after?: Date;
+    ordered?: string;
+    follow?: boolean;
+    pollInterval?: number;
+    shapeFile?: string;
+    noShape?: boolean;
+    savePath?: string;
+    loose?: boolean;
+    urlIsView?: boolean;
+    fetchConfig?: {
         auth?: {
             type: "basic";
             auth: string;
@@ -36,98 +36,106 @@ export async function processor(
             codes: number[];
             maxRetries: number;
         };
-    },
-    condition?: string,
-    materialize?: boolean,
-    lastVersionOnly?: boolean,
-    streamId?: string,
-) {
-    const logger = getLoggerFor("processor");
-    const t0 = Date.now();
+        safe?: boolean;
+    };
+    conditionFile?: string;
+    materialize?: boolean;
+    lastVersionOnly?: boolean;
+    streamId?: string;
+    sdsify?: boolean;
+};
 
-    if (fetch_config?.auth) {
-        fetch_config.auth.host = new URL(url).host;
+export class LDESClientProcessor extends Processor<LDESClientArgs> {
+    protected ldesClientLogger!: Logger;
+    public client!: Client;
+
+    async init(this: LDESClientArgs & this): Promise<void> {
+        this.ldesClientLogger = extendLogger(this.logger, "LDESClientProcessor");
+        this.client = replicateLDES(
+            {
+                url: this.url,
+                after: this.after,
+                before: this.before,
+                polling: this.follow,
+                pollInterval: this.pollInterval,
+                shapeFile: this.shapeFile,
+                noShape: this.noShape,
+                stateFile: this.savePath,
+                loose: this.loose,
+                urlIsView: this.urlIsView,
+                fetch: this.fetchConfig ? enhanced_fetch(this.fetchConfig) : fetch,
+                condition: await processConditionFile(this.conditionFile),
+                materialize: this.materialize,
+                lastVersionOnly: this.lastVersionOnly,
+            },
+            <Ordered>this.ordered || "none",
+            undefined,
+            this.streamId ? df.namedNode(this.streamId) : undefined,
+        );
     }
 
-    const client = replicateLDES(
-        {
-            loose,
-            noShape,
-            shapeFile: shape,
-            polling: follow,
-            url: url,
-            stateFile: save,
-            pollInterval: pollInterval,
-            urlIsView,
-            after,
-            before,
-            fetch: fetch_config ? enhanced_fetch(fetch_config) : fetch,
-            materialize,
-            lastVersionOnly,
-            condition: await processConditionFile(condition),
-        },
-        <Ordered>ordered || "none",
-        undefined,
-        streamId ? df.namedNode(streamId) : undefined,
-    );
+    async transform(this: LDESClientArgs & this): Promise<void> {
+        // Nothing to do here, everything is done in the member stream processing
+    }
 
-    const reader = client.stream({ highWaterMark: 10 }).getReader();
+    async produce(this: LDESClientArgs & this): Promise<void> {
+        const t0 = Date.now();
 
-    client.on("fragment", async (fragment) => {
-        logger.verbose(`Got fragment: ${fragment.url}`);
-    });
+        if (this.fetchConfig?.auth) {
+            this.logger.debug(`Using authentication for host ${this.fetchConfig.auth.host}`);
+            this.fetchConfig.auth.host = new URL(this.url).host;
+        }
 
-    writer.on("end", async () => {
-        await reader.cancel();
-        logger.info("Writer closed, so closing reader as well.");
-    });
+        const reader = this.client.stream({ highWaterMark: 10 }).getReader();
 
-    return async () => {
-        let memCount = 0;
-        let el = await reader.read();
+        this.client.on("fragment", async (fragment) => {
+            this.logger.verbose(`Got fragment: ${fragment.url}`);
+        });
 
-        while (el) {
-            if (el.value) {
-                memCount += 1;
+        let member = await reader.read();
 
-                if (memCount % 100 === 0) {
-                    logger.verbose(
-                        `Got member number ${memCount} with ID ${el.value.id.value} and ${el.value.quads.length} quads`,
+        while (member) {
+            if (member.value) {
+
+                if (this.client.memberCount % 100 === 0) {
+                    this.logger.verbose(
+                        `Got member number ${this.client.memberCount} with ID ${member.value.id.value} and ${member.value.quads.length} quads`,
                     );
                 }
 
-                const blank = df.blankNode();
-                const quads = el.value.quads.slice();
-                quads.push(
-                    df.quad(
-                        blank,
-                        SDS.terms.stream,
-                        <Quad_Object>client.streamId!,
-                        SDS.terms.custom("DataDescription"),
-                    ),
-                    df.quad(
-                        blank,
-                        SDS.terms.payload,
-                        <Quad_Object>el.value.id!,
-                        SDS.terms.custom("DataDescription"),
-                    ),
-                );
+                const quads = member.value.quads.slice();
 
-                await writer.push(new NWriter().quadsToString(quads));
+                if (this.sdsify) {
+                    const blank = df.blankNode();
+                    quads.push(
+                        df.quad(
+                            blank,
+                            SDS.terms.stream,
+                            <Quad_Object>this.client.streamId!,
+                            SDS.terms.custom("DataDescription"),
+                        ),
+                        df.quad(
+                            blank,
+                            SDS.terms.payload,
+                            <Quad_Object>member.value.id!,
+                            SDS.terms.custom("DataDescription"),
+                        ),
+                    );
+                }
+
+                await this.output.string(new NWriter().quadsToString(quads));
             }
 
-            if (el.done) {
+            if (member.done) {
                 break;
             }
 
-            el = await reader.read();
+            member = await reader.read();
         }
 
-        logger.verbose(`Found ${client.memberCount} members in ${client.fragmentCount} fragments (took ${Date.now() - t0} ms)`);
+        this.logger.verbose(`Found ${this.client.memberCount} members in ${this.client.fragmentCount} fragments (took ${Date.now() - t0} ms)`);
 
         // We extracted all members, so we can close the writer
-        await writer.end();
-
-        return client;
-    };
+        await this.output.close();
+    }
 }

@@ -1,231 +1,160 @@
-@prefix js: <https://w3id.org/conn/js#>.
-@prefix fno: <https://w3id.org/function/ontology#>.
-@prefix fnom: <https://w3id.org/function/vocabulary/mapping#>.
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
-@prefix : <https://w3id.org/conn#>.
+@prefix rdfc: <https://w3id.org/rdf-connect#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
 @prefix sh: <http://www.w3.org/ns/shacl#>.
-@prefix owl: <http://www.w3.org/2002/07/owl#>.
-@prefix dc: <http://purl.org/dc/terms/>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
 
-js:LdesClient a js:JsProcess;
-  dc:title "ldes client";
-  dc:description "";
-  js:file <./dist/lib/rdfc-processor.js>;
-  js:function "processor";
-  js:location <./>;
-  js:mapping [
-    a fno:Mapping;
-    fno:parameterMapping [
-      a fnom:PositionParameterMapping;
-      fnom:functionParameter "Data output channel";
-      fnom:implementationParameterPosition "0"^^xsd:int;
-    ], [
-      a fnom:PositionParameterMapping;
-      fnom:functionParameter "LDES Url";
-      fnom:implementationParameterPosition "1"^^xsd:int;
-    ], [
-      a fnom:PositionParameterMapping;
-      fnom:functionParameter "Before parameter";
-      fnom:implementationParameterPosition "2"^^xsd:int;
-    ], [
-      a fnom:PositionParameterMapping;
-      fnom:functionParameter "After parameter";
-      fnom:implementationParameterPosition "3"^^xsd:int;
-    ], [
-      a fnom:PositionParameterMapping;
-      fnom:functionParameter "Ordered parameter";
-      fnom:implementationParameterPosition "4"^^xsd:int;
-    ], [
-      a fnom:PositionParameterMapping;
-      fnom:functionParameter "Follow";
-      fnom:implementationParameterPosition "5"^^xsd:int;
-    ], [
-      a fnom:PositionParameterMapping;
-      fnom:functionParameter "Poll interval";
-      fnom:implementationParameterPosition "6"^^xsd:int;
-    ], [
-      a fnom:PositionParameterMapping;
-      fnom:functionParameter "Shape";
-      fnom:implementationParameterPosition "7"^^xsd:int;
-    ], [
-      a fnom:PositionParameterMapping;
-      fnom:functionParameter "No Shape";
-      fnom:implementationParameterPosition "8"^^xsd:int;
-    ], [
-      a fnom:PositionParameterMapping;
-      fnom:functionParameter "Save Path";
-      fnom:implementationParameterPosition "9"^^xsd:int;
-    ], [
-      a fnom:PositionParameterMapping;
-      fnom:functionParameter "Loose";
-      fnom:implementationParameterPosition "10"^^xsd:int;
-    ], [
-      a fnom:PositionParameterMapping;
-      fnom:functionParameter "UrlIsView";
-      fnom:implementationParameterPosition "11"^^xsd:int;
-    ], [
-      a fnom:PositionParameterMapping;
-      fnom:functionParameter "fetchConfig";
-      fnom:implementationParameterPosition "12"^^xsd:int;
-    ], [
-      a fnom:PositionParameterMapping;
-      fnom:functionParameter "conditionFile";
-      fnom:implementationParameterPosition "13"^^xsd:int;
-    ], [
-      a fnom:PositionParameterMapping;
-      fnom:functionParameter "materialize";
-      fnom:implementationParameterPosition "14"^^xsd:int;
-    ], [
-      a fnom:PositionParameterMapping;
-      fnom:functionParameter "lastVersionOnly";
-      fnom:implementationParameterPosition "15"^^xsd:int;
-    ], [
-      a fnom:PositionParameterMapping;
-      fnom:functionParameter "streamId";
-      fnom:implementationParameterPosition "16"^^xsd:int;
-    ];
-  ].
+rdfc:LdesClient rdfc:jsImplementationOf rdfc:Processor;
+  rdfs:label "ldes client";
+  rdfs:comment "An LDES client that can read a stream of members from an LDES.";
+  rdfc:file <./dist/lib/rdfc-processor.js>;
+  rdfc:class "LDESClientProcessor";
+  rdfc:entrypoint <./>.
 
 [ ] a sh:NodeShape;
-  sh:targetClass js:FetchConfig;
+  sh:targetClass rdfc:FetchConfig;
   sh:property [
-    sh:class js:AuthConfig;
-    sh:path js:auth;
+    sh:class rdfc:AuthConfig;
+    sh:path rdfc:auth;
     sh:name "auth";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:integer;
-    sh:path js:concurrent;
+    sh:path rdfc:concurrent;
     sh:name "concurrent";
     sh:maxCount 1;
   ], [
-    sh:class js:FetchRetry;
-    sh:path js:retry;
+    sh:class rdfc:FetchRetry;
+    sh:path rdfc:retry;
     sh:name "retry";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
-    sh:path js:safe;
+    sh:path rdfc:safe;
     sh:name "safe";
     sh:maxCount 1;
   ].
 
 [ ] a sh:NodeShape;
-  sh:targetClass js:FetchRetry;
+  sh:targetClass rdfc:FetchRetry;
   sh:property [
     sh:datatype xsd:integer;
-    sh:path js:code;
+    sh:path rdfc:code;
     sh:name "codes";
   ], [
     sh:datatype xsd:integer;
-    sh:path js:maxRetry;
+    sh:path rdfc:maxRetry;
     sh:name "maxRetries";
     sh:maxCount 1;
   ].
 
 [ ] a sh:NodeShape;
-  sh:targetClass js:AuthConfig;
+  sh:targetClass rdfc:AuthConfig;
   sh:property [
     sh:datatype xsd:string;
-    sh:path js:type;
+    sh:path rdfc:type;
     sh:name "type";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:string;
-    sh:path js:auth;
+    sh:path rdfc:auth;
     sh:name "auth";
     sh:maxCount 1;
   ].
 
 [ ] a sh:NodeShape;
-  sh:targetClass js:LdesClient;
+  sh:targetClass rdfc:LdesClient;
   sh:property [
-    sh:class :WriterChannel;
-    sh:path js:output;
-    sh:name "Data output channel";
+    sh:datatype xsd:string;
+    sh:path rdfc:url;
+    sh:name "url";
     sh:maxCount 1;
     sh:minCount 1;
   ], [
-    sh:datatype xsd:string;
-    sh:path js:url;
-    sh:name "LDES Url";
+    sh:class rdfc:Writer;
+    sh:path rdfc:output;
+    sh:name "output";
     sh:maxCount 1;
     sh:minCount 1;
   ], [
     sh:datatype xsd:dateTime;
-    sh:path js:before;
-    sh:name "Before parameter";
+    sh:path rdfc:before;
+    sh:name "before";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:dateTime;
-    sh:path js:after;
-    sh:name "After parameter";
+    sh:path rdfc:after;
+    sh:name "after";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:string;
-    sh:path js:ordered;
-    sh:name "Ordered parameter";
+    sh:path rdfc:ordered;
+    sh:name "ordered";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
-    sh:path js:follow;
-    sh:name "Follow";
+    sh:path rdfc:follow;
+    sh:name "follow";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:integer;
-    sh:path js:interval;
-    sh:name "Poll interval";
+    sh:path rdfc:interval;
+    sh:name "pollInterval";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:string;
-    sh:path js:shapeFile;
-    sh:name "Shape";
+    sh:path rdfc:shapeFile;
+    sh:name "shapeFile";
     sh:minCount 0;
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
-    sh:path js:noShape;
-    sh:name "No Shape";
+    sh:path rdfc:noShape;
+    sh:name "noShape";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:string;
-    sh:path js:savePath;
-    sh:name "Save Path";
+    sh:path rdfc:savePath;
+    sh:name "savePath";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
-    sh:path js:loose;
-    sh:name "Loose";
+    sh:path rdfc:loose;
+    sh:name "loose";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
-    sh:path js:urlIsView;
-    sh:name "UrlIsView";
+    sh:path rdfc:urlIsView;
+    sh:name "urlIsView";
     sh:maxCount 1;
   ], [
-    sh:class js:FetchConfig;
-    sh:path js:fetch;
+    sh:class rdfc:FetchConfig;
+    sh:path rdfc:fetch;
     sh:name "fetchConfig";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:string;
-    sh:path js:conditionFile;
+    sh:path rdfc:conditionFile;
     sh:name "conditionFile";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
-    sh:path js:materialize;
+    sh:path rdfc:materialize;
     sh:name "materialize";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
-    sh:path js:lastVersionOnly;
+    sh:path rdfc:lastVersionOnly;
     sh:name "lastVersionOnly";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:string;
-    sh:path js:streamId;
+    sh:path rdfc:streamId;
     sh:name "streamId";
+    sh:maxCount 1;
+  ], [
+    sh:datatype xsd:boolean;
+    sh:path rdfc:sdsify;
+    sh:name "sdsify";
     sh:maxCount 1;
   ].
 
