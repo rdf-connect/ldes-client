@@ -49,7 +49,7 @@
   },
   "devDependencies": {
     "@fastify/static": "^8.2.0",
-    "@rdfc/js-runner": "^1.0.0",
+    "@rdfc/js-runner": "^2.0.0",
     "@rdfjs/types": "^2.0.1",
     "@types/n3": "^1.26.0",
     "@types/node": "^22.18.1",
