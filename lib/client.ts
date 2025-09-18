@@ -30,9 +30,24 @@ import type { StateFactory } from "./state";
 import type { Ordered, StrategyEvents } from "./strategy";
 import type { LDESInfo, Notifier, FetchedPage, Member } from "./fetcher";
 
+// RDF-JS data factory
 const df = new DataFactory();
 
+// Local types
 type Controller = ReadableStreamDefaultController<Member>;
+type EventMap = Record<string, unknown>;
+type EventKey<T extends EventMap> = string & keyof T;
+type EventReceiver<T> = (params: T) => void;
+
+export { enhanced_fetch } from "./fetcher";
+
+export type ClientEvents = {
+    fragment: FetchedPage;
+    description: LDESInfo;
+    mutable: void;
+    poll: void;
+    error: unknown;
+};
 
 export function replicateLDES(
     config: Partial<Config> & { url: string },
@@ -42,154 +57,6 @@ export function replicateLDES(
 ): Client {
     return new Client(intoConfig(config), ordered, dereferencer, streamId);
 }
-
-async function getInfo(
-    ldesId: Term,
-    viewId: Term,
-    store: RdfStore,
-    dereferencer: RdfDereferencer,
-    config: Config,
-): Promise<LDESInfo> {
-    const logger = getLoggerFor("getShape");
-
-    if (config.shapeFile) {
-        // Shape file is given externally, so we need to fetch it
-        const shapeId = config.shapeFile.startsWith("http")
-            ? config.shapeFile
-            : "file://" + config.shapeFile;
-        try {
-            const resp = await rdfDereferencer.dereference(config.shapeFile, {
-                localFiles: true,
-                fetch: config.fetch,
-            });
-            const quads = await streamToArray(resp.data);
-            config.shape = {
-                quads: quads,
-                shapeId: df.namedNode(shapeId),
-            };
-        } catch (ex) {
-            logger.error(`Failed to fetch shape from ${shapeId}`);
-            throw ex;
-        }
-    }
-
-    let shapeIds;
-    let timestampPaths;
-    let versionOfPaths;
-
-    const isLocalDump = ldesId.value.startsWith("file://");
-
-    if (isLocalDump) {
-        // We are dealing with a local dump LDES
-        shapeIds = config.noShape ? [] : getObjects(store, null, TREE.terms.shape);
-        timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
-        versionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
-    } else {
-        // This is a normal LDES on the Web
-        shapeIds = config.noShape ? [] : getObjects(store, ldesId, TREE.terms.shape);
-        timestampPaths = getObjects(store, ldesId, LDES.terms.timestampPath);
-        versionOfPaths = getObjects(store, ldesId, LDES.terms.versionOfPath);
-    }
-
-    logger.debug(
-        `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${versionOfPaths.length} versionOfPaths`,
-    );
-
-    // Only try to dereference the view if we are not dealing with a local dump
-    if (isLocalDump) {
-        logger.debug("Ignoring view since this is a local dump");
-    } else if (shapeIds.length === 0 || timestampPaths.length === 0 || versionOfPaths.length === 0) {
-        let tryAgainUrl = viewId.value;
-        if (config.urlIsView) {
-            tryAgainUrl = ldesId.value;
-        }
-        try {
-            logger.debug(`Maybe find more info at ${tryAgainUrl}`);
-            const resp = await dereferencer.dereference(tryAgainUrl, {
-                localFiles: true,
-                fetch: config.fetch,
-            });
-            store = RdfStore.createDefault();
-            await new Promise((resolve, reject) => {
-                store.import(resp.data).on("end", resolve).on("error", reject);
-            });
-
-            const shapeInView = getObjects(store, null, TREE.terms.shape);
-            if (shapeInView) {
-                shapeIds = config.noShape ? [] : shapeInView;
-            }
-
-            if (!timestampPaths.length) {
-                timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
-            }
-            if (!versionOfPaths.length) {
-                versionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
-            }
-            logger.debug(
-                `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${versionOfPaths.length} isVersionOfPaths`,
-            );
-        } catch (ex: unknown) {
-            logger.error(`Failed to fetch ${tryAgainUrl}`);
-            logger.error(ex);
-        }
-    }
-
-    if (shapeIds.length > 1) {
-        logger.error(`Expected at most one shape id, found ${shapeIds.length}`);
-    }
-
-    if (timestampPaths.length > 1) {
-        logger.error(`Expected at most one timestamp path, found ${timestampPaths.length}`);
-    }
-
-    if (versionOfPaths.length > 1) {
-        logger.error(`Expected at most one versionOf path, found ${versionOfPaths.length}`);
-    }
-
-    const shapeConfigStore = RdfStore.createDefault();
-    if (config.shape) {
-        for (const quad of config.shape.quads) {
-            shapeConfigStore.addQuad(quad);
-        }
-        // Make sure the shapeId is as defined in the given shape file
-        config.shape.shapeId = extractMainNodeShape(shapeConfigStore);
-    } else {
-        const shapeId = shapeIds[0];
-        if (shapeId && shapeId.termType === 'NamedNode' && store.getQuads(shapeId, null, null).length === 0) {
-            // Dereference out-of-band shape
-            const respShape = await rdfDereferencer.dereference(shapeId.value);
-            await new Promise((resolve, reject) => {
-                store.import(respShape.data).on("end", resolve).on("error", reject);
-            });
-        }
-    }
-
-    const shapeStore = config.shape ? shapeConfigStore : store;
-
-    return {
-        extractor: new CBDShapeExtractor(shapeStore, dereferencer, {
-            cbdDefaultGraph: config.onlyDefaultGraph,
-            fetch: config.fetch,
-        }),
-        shape: config.shape ? config.shape.shapeId : shapeIds[0],
-        timestampPath: timestampPaths[0],
-        versionOfPath: versionOfPaths[0],
-        shapeQuads: shapeStore.getQuads(),
-    };
-}
-
-type EventMap = Record<string, unknown>;
-
-type EventKey<T extends EventMap> = string & keyof T;
-type EventReceiver<T> = (params: T) => void;
-
-export type ClientEvents = {
-    fragment: FetchedPage;
-    description: LDESInfo;
-    mutable: void;
-    poll: void;
-    error: unknown;
-};
 
 export class Client {
     public memberCount: number;
@@ -520,4 +387,142 @@ export class Client {
             fn(data);
         });
     }
+}
+
+/**
+ * Fetches and determines the main LDES information, such as the shape, timestampPath, versionOfPath, etc.
+ */
+async function getInfo(
+    ldesId: Term,
+    viewId: Term,
+    store: RdfStore,
+    dereferencer: RdfDereferencer,
+    config: Config,
+): Promise<LDESInfo> {
+    const logger = getLoggerFor("getShape");
+
+    if (config.shapeFile) {
+        // Shape file is given externally, so we need to fetch it
+        const shapeId = config.shapeFile.startsWith("http")
+            ? config.shapeFile
+            : "file://" + config.shapeFile;
+        try {
+            const resp = await rdfDereferencer.dereference(config.shapeFile, {
+                localFiles: true,
+                fetch: config.fetch,
+            });
+            const quads = await streamToArray(resp.data);
+            config.shape = {
+                quads: quads,
+                shapeId: df.namedNode(shapeId),
+            };
+        } catch (ex) {
+            logger.error(`Failed to fetch shape from ${shapeId}`);
+            throw ex;
+        }
+    }
+
+    let shapeIds;
+    let timestampPaths;
+    let versionOfPaths;
+
+    const isLocalDump = ldesId.value.startsWith("file://");
+
+    if (isLocalDump) {
+        // We are dealing with a local dump LDES
+        shapeIds = config.noShape ? [] : getObjects(store, null, TREE.terms.shape);
+        timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
+        versionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
+    } else {
+        // This is a normal LDES on the Web
+        shapeIds = config.noShape ? [] : getObjects(store, ldesId, TREE.terms.shape);
+        timestampPaths = getObjects(store, ldesId, LDES.terms.timestampPath);
+        versionOfPaths = getObjects(store, ldesId, LDES.terms.versionOfPath);
+    }
+
+    logger.debug(
+        `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${versionOfPaths.length} versionOfPaths`,
+    );
+
+    // Only try to dereference the view if we are not dealing with a local dump
+    if (isLocalDump) {
+        logger.debug("Ignoring view since this is a local dump");
+    } else if (shapeIds.length === 0 || timestampPaths.length === 0 || versionOfPaths.length === 0) {
+        let tryAgainUrl = viewId.value;
+        if (config.urlIsView) {
+            tryAgainUrl = ldesId.value;
+        }
+        try {
+            logger.debug(`Maybe find more info at ${tryAgainUrl}`);
+            const resp = await dereferencer.dereference(tryAgainUrl, {
+                localFiles: true,
+                fetch: config.fetch,
+            });
+            store = RdfStore.createDefault();
+            await new Promise((resolve, reject) => {
+                store.import(resp.data).on("end", resolve).on("error", reject);
+            });
+
+            const shapeInView = getObjects(store, null, TREE.terms.shape);
+            if (shapeInView) {
+                shapeIds = config.noShape ? [] : shapeInView;
+            }
+
+            if (!timestampPaths.length) {
+                timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
+            }
+            if (!versionOfPaths.length) {
+                versionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
+            }
+            logger.debug(
+                `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${versionOfPaths.length} isVersionOfPaths`,
+            );
+        } catch (ex: unknown) {
+            logger.error(`Failed to fetch ${tryAgainUrl}`);
+            logger.error(ex);
+        }
+    }
+
+    if (shapeIds.length > 1) {
+        logger.error(`Expected at most one shape id, found ${shapeIds.length}`);
+    }
+
+    if (timestampPaths.length > 1) {
+        logger.error(`Expected at most one timestamp path, found ${timestampPaths.length}`);
+    }
+
+    if (versionOfPaths.length > 1) {
+        logger.error(`Expected at most one versionOf path, found ${versionOfPaths.length}`);
+    }
+
+    const shapeConfigStore = RdfStore.createDefault();
+    if (config.shape) {
+        for (const quad of config.shape.quads) {
+            shapeConfigStore.addQuad(quad);
+        }
+        // Make sure the shapeId is as defined in the given shape file
+        config.shape.shapeId = extractMainNodeShape(shapeConfigStore);
+    } else {
+        const shapeId = shapeIds[0];
+        if (shapeId && shapeId.termType === 'NamedNode' && store.getQuads(shapeId, null, null).length === 0) {
+            // Dereference out-of-band shape
+            const respShape = await rdfDereferencer.dereference(shapeId.value);
+            await new Promise((resolve, reject) => {
+                store.import(respShape.data).on("end", resolve).on("error", reject);
+            });
+        }
+    }
+
+    const shapeStore = config.shape ? shapeConfigStore : store;
+
+    return {
+        extractor: new CBDShapeExtractor(shapeStore, dereferencer, {
+            cbdDefaultGraph: config.onlyDefaultGraph,
+            fetch: config.fetch,
+        }),
+        shape: config.shape ? config.shape.shapeId : shapeIds[0],
+        timestampPath: timestampPaths[0],
+        versionOfPath: versionOfPaths[0],
+        shapeQuads: shapeStore.getQuads(),
+    };
 }
