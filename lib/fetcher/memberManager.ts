@@ -40,7 +40,7 @@ export type MemberEvents = {
 };
 
 interface ExtractionState {
-    emitted: ReadonlySet<string>;    
+    emitted: ReadonlySet<string>;
 }
 
 export class Manager {
@@ -59,7 +59,7 @@ export class Manager {
     private logger = getLoggerFor(this);
     private loose: boolean;
 
-    
+
     constructor(
         ldesUri: Term | null,
         info: LDESInfo,
@@ -123,7 +123,7 @@ export class Manager {
 
         for (const member of members) {
             if (!state.emitted.has(member.value)) {
-                const promise = this.extractMember(member, page.data)
+                const promise = this.extractMember(member, page.data, members)
                     .then((member) => {
                         if (member) {
                             if (!this.closed) {
@@ -166,22 +166,25 @@ export class Manager {
     private async extractMemberQuads(
         member: Term,
         data: RdfStore,
+        otherMembers: Term[] = [],
     ): Promise<Quad[]> {
         return await this.extractor.extract(data, member, this.shapeId, [
             namedNode(LDES.custom("IngestionMetadata")),
+            ...otherMembers,
         ]);
     }
 
     private async extractMember(
         member: Term,
         data: RdfStore,
+        otherMembers: Term[] = [],
     ): Promise<Member | undefined> {
         try {
-            const quads: Quad[] = await this.extractMemberQuads(member, data);
+            const quads: Quad[] = await this.extractMemberQuads(member, data, otherMembers);
             const created = getObjects(
-                data, 
-                member, 
-                DC.terms.custom("created"), 
+                data,
+                member,
+                DC.terms.custom("created"),
                 namedNode(LDES.custom("IngestionMetadata")),
             )[0]?.value;
 

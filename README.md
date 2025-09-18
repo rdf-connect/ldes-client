@@ -40,6 +40,7 @@ ldes-client <url> [--follow] [--ordered <order>] [--after <datetime>] [--before 
 - `-q` `--quiet`: the client does not print the extracted members in the console when run via the CLI.
 - `--concurrent`: maximum number of concurrent HTTP request that the client can make.
 - `--retry-count`: maximum number of HTTP request retries that the client would perform before failing.
+- `--safe`: enables safe mode of fetching, which will retry when a fetch fails.
 - `--http-codes`: list of HTTP response codes over which the client would retry a request.
 - `-m`, `--metadata`: include metadata in the emitted members. Notifies the ldes server that it is interested in metadata, via the HTTP header `Accept: application/metadata+trig`.
 
