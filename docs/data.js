@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758156448078,
+  "lastUpdate": 1758224500613,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -4958,6 +4958,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 5.99,
             "range": "±2.32%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "julian.rojas87@gmail.com",
+            "name": "Julian Rojas",
+            "username": "julianrojas87"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b2e9a4e3cfb5e083973a3f120583ebf327e52733",
+          "message": "Merge pull request #111 from rdf-connect/fixes\n\nAdd `--safe` CLI parameter and ignore graph names of other member while extracting",
+          "timestamp": "2025-09-18T21:41:05+02:00",
+          "tree_id": "7d91c7eabb8e39e8e62ebca8210c804f2e026d42",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/b2e9a4e3cfb5e083973a3f120583ebf327e52733"
+        },
+        "date": 1758224500212,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.03,
+            "range": "±2.33%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
