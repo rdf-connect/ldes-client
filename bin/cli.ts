@@ -97,6 +97,10 @@ program
         "Retry count per failing request (0 is infinite)",
         "3",
     )
+    .option(
+        "--safe",
+        "Safe mode of fetching",
+    )
     .option("--http-codes [codes...]", "What HTTP codes to retry")
     .option("-t --default-timezone <timezone>", "Default timezone for dates in tree:InBetweenRelation", "AoE")
     .option("-m, --metadata", "include metadata in the output members")
@@ -127,6 +131,7 @@ program
             };
         }
         fetch_config.retry!.maxRetries = parseInt(program.retryCount);
+        fetch_config.safe = program.safe;
         if (program.httpCodes) {
             fetch_config.retry!.codes = program.httpCodes.map(parseInt);
         }
@@ -212,7 +217,7 @@ async function main() {
                     `Got member number ${memCount} with ID ${streamResult.value.id.value} and ${streamResult.value.quads.length} quads`,
                 );
             }
-            
+
             if (!quiet) {
                 console.log(writer.quadsToString(streamResult.value.quads));
             }
