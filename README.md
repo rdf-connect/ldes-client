@@ -86,7 +86,7 @@ The `ldes-client` is also implemented as an RDF-Connect processor (see the seman
 
 ### Import the processor definitions
 <> owl:imports <./node_modules/@rdfc/js-runner/index.ttl>.
-<> owl:imports <./node_modules/ldes-client/processors.ttl>.
+<> owl:imports <./node_modules/ldes-client/processor.ttl>.
 
 ### Define the channels your processor needs
 <members> a rdfc:Reader, rdfc:Writer.
