@@ -51,7 +51,7 @@
     "@fastify/static": "^8.2.0",
     "@grpc/grpc-js": "^1.14.0",
     "@rdfc/js-runner": "^2.0.0",
-    "@rdfc/proto": "^0.1.2-alpha-6",
+    "@rdfc/proto": "^0.1.2",
     "@rdfjs/types": "^2.0.1",
     "@types/n3": "^1.26.0",
     "@types/node": "^22.18.8",
