@@ -1,4 +1,4 @@
-import { Quad, Term } from "@rdfjs/types";
+import type { Quad, Term } from "@rdfjs/types";
 import { CBDShapeExtractor } from "extract-cbd-shape";
 import { Parser, Writer } from "n3";
 import { parentPort } from "node:worker_threads";

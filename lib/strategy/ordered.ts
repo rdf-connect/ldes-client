@@ -503,7 +503,6 @@ export class OrderedStrategy {
                     .getTodo()
                     .find((x) => x.chain.ordering(head!) == 0);
 
-            console.log(marker, typeof marker.value, inTransit);
             if (inTransit) {
                 break;
             }
@@ -512,7 +511,6 @@ export class OrderedStrategy {
             if (marker.important) {
                 let member = this.members.pop();
                 while (member) {
-                    console.log(member.timestamp, typeof member.timestamp);
                     // Euhm yeah, what to do if there is no timestamp?
                     if (!member.timestamp) {
                         this.notifier.member(member, {});

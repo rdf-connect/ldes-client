@@ -26,10 +26,16 @@ export class Pool {
     private readonly workers: State[];
     private readonly queue: Input[] = [];
     constructor(info: LDESInfo, workerCount = 1) {
+        const isTs = import.meta.url.endsWith(".ts");
+        const workerPath = new URL(
+            `./extractionWorker.${isTs ? "ts" : "js"}`,
+            import.meta.url,
+        );
+
         this.workers = [];
         for (let i = 0; i < workerCount; i++) {
             this.workers.push({
-                worker: new Worker("./dist/lib/fetcher/extractionWorker.js"),
+                worker: new Worker(workerPath),
                 state: "idle",
                 handleMember: () => {},
                 done: () => {},
