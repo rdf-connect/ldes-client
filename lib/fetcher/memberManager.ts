@@ -63,14 +63,19 @@ export class Manager {
 
     private pool: Pool;
 
-    constructor(ldesUri: Term | null, info: LDESInfo, loose = false) {
+    constructor(
+        ldesUri: Term | null,
+        info: LDESInfo,
+        threads: number,
+        loose = false,
+    ) {
         this.ldesUri = ldesUri;
         this.extractor = info.extractor;
         this.timestampPath = info.timestampPath;
         this.isVersionOfPath = info.versionOfPath;
         this.shapeId = info.shape;
         this.loose = loose;
-        this.pool = new Pool(info);
+        this.pool = new Pool(info, threads);
 
         if (!this.ldesUri) {
             this.logger.debug("new local dump member extractor");

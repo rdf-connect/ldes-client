@@ -20,6 +20,7 @@ let conditionFile: string | undefined;
 let paramPollInterval: number;
 let urlIsView = false;
 let noShape = false;
+let threads = 4;
 let shapeFile: string | undefined;
 let ordered: Ordered = "none";
 let quiet: boolean = false;
@@ -48,6 +49,10 @@ program
     .option(
         "--before <before>",
         "follow only relations including members before a certain point in time",
+    )
+    .option(
+        "-w --workers <number>",
+        "configure the amount of workers used when extracting members (default: 4)",
     )
     .option(
         "--materialize",
@@ -123,6 +128,8 @@ program
         lastVersionOnly = program.lastVersionOnly;
         defaultTimezone = program.defaultTimezone;
         includeMetadata = program.metadata;
+        threads = program.workers;
+        console.log(JSON.stringify(program, undefined, 2));
 
         fetch_config.concurrent = parseInt(program.concurrent);
         if (program.basicAuth) {
@@ -181,6 +188,7 @@ async function main() {
             materialize,
             lastVersionOnly,
             includeMetadata,
+            threads: Number(threads),
             fetch: enhanced_fetch(fetch_config),
         }),
         ordered,

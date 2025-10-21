@@ -215,6 +215,7 @@ export class Client {
                 ? null // Local dump does not need to dereference a view
                 : ldesUri, // Point to the actual LDES IRI
             info,
+            this.config.threads,
             this.config.loose,
         );
 

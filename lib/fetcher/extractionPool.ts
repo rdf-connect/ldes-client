@@ -26,6 +26,7 @@ export class Pool {
     private readonly workers: State[];
     private readonly queue: Input[] = [];
     constructor(info: LDESInfo, workerCount = 1) {
+        console.log({ workerCount });
         const isTs = import.meta.url.endsWith(".ts");
         const workerPath = new URL(
             `./extractionWorker.${isTs ? "ts" : "js"}`,
