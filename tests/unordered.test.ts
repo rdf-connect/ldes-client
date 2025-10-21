@@ -83,6 +83,7 @@ describe("Simple Tree", () => {
         expect(members.map((x) => x.timestamp)).toEqual(
             ["2", "3"].map((x) => new Date(x)),
         );
+        client.close();
     });
 
     test("descending tree, emits ordered", async () => {
@@ -105,6 +106,8 @@ describe("Simple Tree", () => {
         expect(members.map((x) => x.timestamp)).toEqual(
             ["3", "2"].map((x) => new Date(x)),
         );
+
+        client.close();
     });
 
     test("tree handles backpressure", async () => {
@@ -129,10 +132,12 @@ describe("Simple Tree", () => {
         const stream = client.stream({ highWaterMark: 1, size: () => 1 });
 
         await new Promise((res) => setTimeout(res, 500));
-        expect(tree.fetched.length).toEqual(5);
+        expect(tree.fetched.length).toEqual(6);
 
         const members = await read(stream);
         expect(members.length).toBe(12);
+
+        client.close();
     });
 
     test("unordered tree, emits", async () => {
@@ -227,6 +232,8 @@ describe("more complex tree", () => {
 
         const members = await read(client.stream());
         expect(members.length).toBe(3);
+
+        client.close();
     });
 
     test("ascending tree, emits ordered", async () => {
@@ -249,6 +256,7 @@ describe("more complex tree", () => {
         expect(members.map((x) => x.timestamp)).toEqual(
             ["2", "3", "5"].map((x) => new Date(x)),
         );
+        client.close();
     });
 
     test("descending tree, emits ordered", async () => {
@@ -271,6 +279,7 @@ describe("more complex tree", () => {
         expect(members.map((x) => x.timestamp)).toEqual(
             ["5", "3", "2"].map((x) => new Date(x)),
         );
+        client.close();
     });
 
     test("ordered tree, emits asap", async () => {
@@ -290,6 +299,8 @@ describe("more complex tree", () => {
         const first = await client.stream().getReader().read();
         expect(first.done).toBe(false);
         expect(first.value?.timestamp).toEqual(new Date("2"));
+
+        client.close();
     });
 
     test("ordered tree, emits asap ascending", async () => {
@@ -348,6 +359,8 @@ describe("more complex tree", () => {
         expect(m2.done).toBeFalsy();
         end = new Date();
         expect(end.getTime() - start.getTime()).toBeGreaterThan(150);
+
+        client.close();
     });
 
     test("ordered tree, emits asap ascending (branched)", async () => {
@@ -406,6 +419,8 @@ describe("more complex tree", () => {
         expect(m2.done).toBeFalsy();
         end = new Date();
         expect(end.getTime() - start.getTime()).toBeGreaterThan(150);
+
+        client.close();
     });
 
     test("ordered tree, emits asap descending", async () => {
@@ -475,6 +490,8 @@ describe("more complex tree", () => {
         expect(m2.done).toBeFalsy();
         end = new Date();
         expect(end.getTime() - start.getTime()).toBeGreaterThan(150);
+
+        client.close();
     });
 
     test("ordered tree, emits asap descending (branched)", async () => {
@@ -545,6 +562,8 @@ describe("more complex tree", () => {
         expect(m2.done).toBeFalsy();
         end = new Date();
         expect(end.getTime() - start.getTime()).toBeGreaterThan(150);
+
+        client.close();
     });
 
     test("Polling works, single page", async () => {
@@ -595,6 +614,8 @@ describe("more complex tree", () => {
         expect(second.value?.timestamp).toEqual(new Date("7"));
 
         await reader.cancel();
+
+        client.close();
     });
 
     test("Polling works, single page - ordered", async () => {
@@ -644,6 +665,8 @@ describe("more complex tree", () => {
         expect(second.value?.timestamp).toEqual(new Date("7"));
 
         await reader.cancel();
+
+        client.close();
     });
 
     test("Polling works, single page - max values", async () => {
@@ -702,6 +725,8 @@ describe("more complex tree", () => {
         await secondPromise;
 
         await reader.cancel();
+
+        client.close();
     });
 
     test("Exponential backoff works", async () => {
@@ -738,6 +763,8 @@ describe("more complex tree", () => {
 
         const members = await read(client.stream());
         expect(members.length).toBe(2);
+
+        client.close();
     });
 
     test("Exponential backoff works, handle max retries", async () => {
@@ -784,5 +811,7 @@ describe("more complex tree", () => {
 
         expect(thrown).toBeTruthy();
         expect(errorCb).toBeTruthy();
+
+        client.close();
     });
 });

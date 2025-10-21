@@ -1,12 +1,12 @@
 import { Worker } from "node:worker_threads";
 import { LDESInfo } from "./memberManager";
 import type { IncomingMessage, OutgoingMessage } from "./extractionWorker";
-import { Parser, Writer } from "n3";
+import { Parser, Quad_Object, Writer } from "n3";
 import { Quad, Term } from "@rdfjs/types";
-import { DataFactory } from "rdf-data-factory";
+import { DataFactory, DefaultGraph } from "rdf-data-factory";
 import { RdfStore } from "rdf-stores";
 
-const { namedNode } = new DataFactory();
+const { namedNode, quad } = new DataFactory();
 
 type Input = {
     members: Term[];
@@ -25,9 +25,7 @@ type State = {
 export class Pool {
     private readonly workers: State[];
     private readonly queue: Input[] = [];
-    constructor(info: LDESInfo, workerCount = 4) {
-        console.log({ workerCount });
-
+    constructor(info: LDESInfo, workerCount = 1) {
         this.workers = [];
         for (let i = 0; i < workerCount; i++) {
             this.workers.push({
@@ -38,17 +36,32 @@ export class Pool {
             });
         }
 
-        console.log(this.workers);
+        const qs = info.shapeQuads.slice();
+        if (info.shape) {
+            const identifyingTriple = quad(
+                namedNode("http://identifyingShape"),
+                namedNode("http://identifyingShape"),
+                <Quad_Object>info.shape,
+                DefaultGraph.INSTANCE,
+            );
+            qs.push(identifyingTriple);
+        }
+        const quads = new Writer().quadsToString(qs);
 
         for (const w of this.workers) {
             w.worker.postMessage(<IncomingMessage>{
                 type: "initalize",
-                id: info.shape?.value,
-                quads: new Writer().quadsToString(info.shapeQuads),
+                quads,
+                onlyDefaultGraphs: info.onlyDefaultGraph || false,
             });
             w.worker.on("message", (m: OutgoingMessage) =>
                 this.handleMessage(w, m),
             );
+        }
+    }
+    close() {
+        for (const w of this.workers) {
+            w.worker.terminate();
         }
     }
 
@@ -70,7 +83,6 @@ export class Pool {
     }
 
     private checkWork() {
-        console.log("Work todo", this.queue.length);
         let work = this.queue.shift();
         while (work !== undefined) {
             const worker = this.workers.find((w) => w.state === "idle");
@@ -94,7 +106,6 @@ export class Pool {
 
     private handleMessage(state: State, msg: OutgoingMessage) {
         if (msg.type === "member") {
-            console.log("Got member msg");
             const quads = new Parser().parse(msg.quads);
             const id = namedNode(msg.id);
             state.handleMember(quads, id);

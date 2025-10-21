@@ -1,6 +1,6 @@
 import { Quad, Term } from "@rdfjs/types";
 import { CBDShapeExtractor } from "extract-cbd-shape";
-import { NamedNode, Parser, Writer } from "n3";
+import { Parser, Writer } from "n3";
 import { parentPort } from "node:worker_threads";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
@@ -10,7 +10,7 @@ const { namedNode } = new DataFactory();
 type Init = {
     type: "initalize";
     quads: string;
-    id?: string;
+    onlyDefaultGraphs: boolean;
 };
 type Extract = {
     type: "extract";
@@ -42,10 +42,11 @@ function initalize(init: Init) {
     quads.forEach((q) => store.addQuad(q));
 
     extractor = new CBDShapeExtractor(store, undefined, {
-        cbdDefaultGraph: true,
+        cbdDefaultGraph: init.onlyDefaultGraphs,
     });
 
-    shape = init.id ? new NamedNode(init.id) : undefined;
+    shape = store.getQuads(null, namedNode("http://identifyingShape"), null)[0]
+        ?.object;
 }
 
 async function extractMemberQuads(
@@ -65,10 +66,8 @@ function extract(quads: string, membersIris: string[]) {
     new Parser().parse(quads).forEach((q) => store.addQuad(q));
 
     const extractOne = async (id: Term) => {
-        console.log("Extracting", id.value, id);
         const qs = await extractMemberQuads(id, store, members);
         const qsStr = new Writer().quadsToString(qs);
-        console.log("Extracted", id.value, qs.length);
         returned({ type: "member", id: id.value, quads: qsStr });
     };
     Promise.all(members.map(extractOne)).then(() => returned({ type: "done" }));

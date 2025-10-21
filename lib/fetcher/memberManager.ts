@@ -26,6 +26,7 @@ export type LDESInfo = {
     extractor: CBDShapeExtractor;
     timestampPath?: Term;
     versionOfPath?: Term;
+    onlyDefaultGraph?: boolean;
 };
 
 export type ExtractError = {
@@ -117,8 +118,6 @@ export class Manager {
             ? new Date(pageUpdatedIso.value)
             : undefined;
 
-        console.log("Extracting", members.length, page.url);
-
         this.logger.debug(
             `Extracting ${members.length} members for ${page.url}`,
         );
@@ -137,7 +136,6 @@ export class Manager {
                 },
             )
             .then(() => {
-                console.log("Extracted", members.length, page.url);
                 if (!this.closed) {
                     this.logger.debug(`All members extracted for ${page.url}`);
                     page.created = pageCreated;
@@ -148,6 +146,7 @@ export class Manager {
     }
 
     close() {
+        this.pool.close();
         this.logger.debug("Closing stream");
         if (this.resolve) {
             this.resolve();
