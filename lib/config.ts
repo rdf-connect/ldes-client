@@ -27,6 +27,7 @@ export interface Config {
     lastVersionOnly?: boolean;
     includeMetadata?: boolean;
     fetch?: typeof fetch;
+    threads: number;
 }
 
 export interface WithTarget {
@@ -45,6 +46,7 @@ const defaultConfig: Config = {
     materialize: false,
     lastVersionOnly: false,
     includeMetadata: false,
+    threads: 1,
 };
 
 const defaultTarget: WithTarget = {
