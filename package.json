@@ -36,7 +36,7 @@
   "dependencies": {
     "@treecg/types": "^0.4.6",
     "@types/debug": "^4.1.12",
-    "commander": "^14.0.1",
+    "commander": "^14.0.2",
     "debug": "^4.4.3",
     "extract-cbd-shape": "^0.1.14",
     "heap-js": "^2.7.1",
@@ -53,7 +53,7 @@
     "@rdfc/js-runner": "^2.0.0",
     "@rdfc/proto": "^0.1.2",
     "@rdfjs/types": "^2.0.1",
-    "@types/n3": "^1.26.0",
+    "@types/n3": "^1.26.1",
     "@types/node": "^22.18.12",
     "@typescript-eslint/eslint-plugin": "^8.46.2",
     "@typescript-eslint/parser": "^8.46.2",
