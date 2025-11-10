@@ -1,4 +1,5 @@
 import * as process from "process";
+import * as os from "os";
 import { Command, Option } from "commander";
 import { Writer } from "n3";
 import { replicateLDES, enhanced_fetch } from "../lib/client";
@@ -9,6 +10,7 @@ import { getLoggerFor } from "../lib/utils";
 import type { Ordered } from "../lib/strategy";
 import type { FetchConfig } from "../lib/fetcher";
 
+const logger = getLoggerFor("cli");
 const program = new Command();
 let paramURL: string = "";
 let polling: boolean = false;
@@ -20,7 +22,7 @@ let conditionFile: string | undefined;
 let paramPollInterval: number;
 let urlIsView = false;
 let noShape = false;
-let threads = 4;
+let threads = os.cpus().length > 1 ? os.cpus().length - 1 : 1;
 let shapeFile: string | undefined;
 let ordered: Ordered = "none";
 let quiet: boolean = false;
@@ -51,8 +53,8 @@ program
         "follow only relations including members before a certain point in time",
     )
     .option(
-        "-w --workers <number>",
-        "configure the amount of workers used when extracting members (default: 4)",
+        "-w --workers <workers>",
+        "configure the amount of workers used when extracting members (default: number of CPU cores available - 1)",
     )
     .option(
         "--materialize",
@@ -128,8 +130,11 @@ program
         lastVersionOnly = program.lastVersionOnly;
         defaultTimezone = program.defaultTimezone;
         includeMetadata = program.metadata;
-        threads = program.workers;
-        console.log(JSON.stringify(program, undefined, 2));
+
+        if (program.workers) {
+            threads = parseInt(program.workers);
+        }
+        logger.debug(`Using ${threads} worker threads for member extraction`);
 
         fetch_config.concurrent = parseInt(program.concurrent);
         if (program.basicAuth) {
@@ -168,7 +173,6 @@ program.parse(process.argv);
 async function main() {
     const t0 = Date.now();
     const writer = new Writer();
-    const logger = getLoggerFor("cli");
 
     const client = replicateLDES(
         intoConfig({
@@ -188,7 +192,7 @@ async function main() {
             materialize,
             lastVersionOnly,
             includeMetadata,
-            threads: Number(threads),
+            threads: threads,
             fetch: enhanced_fetch(fetch_config),
         }),
         ordered,
