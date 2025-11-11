@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1762800078979,
+  "lastUpdate": 1762850605398,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -5609,6 +5609,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6.03,
             "range": "±2.39%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "29139614+renovate[bot]@users.noreply.github.com",
+            "name": "renovate[bot]",
+            "username": "renovate[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7cd008125eca8e90fda26724d8519d349489c65f",
+          "message": "chore(deps): update dependency @esbuild/darwin-arm64 to ^0.27.0",
+          "timestamp": "2025-11-11T02:59:11Z",
+          "tree_id": "a1ab89a283adfd293f2283237e1308902ef8a513",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/7cd008125eca8e90fda26724d8519d349489c65f"
+        },
+        "date": 1762850604871,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 5.97,
+            "range": "±2.43%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
