@@ -98,6 +98,8 @@ export class Client {
             : new NoStateFactory();
         this.modulatorFactory = new ModulatorFactory(this.stateFactory);
 
+        this.logger.debug(`Using ${this.config.workers} worker threads for member extraction`);
+
         if (typeof process !== "undefined") {
             // Handle exit gracefully
             handleExit(() => {
@@ -215,7 +217,7 @@ export class Client {
                 ? null // Local dump does not need to dereference a view
                 : ldesUri, // Point to the actual LDES IRI
             info,
-            this.config.threads,
+            this.config.workers,
             this.config.loose,
         );
 
@@ -355,7 +357,10 @@ export class Client {
                         controller.enqueue(member);
                         resetPromise(emitted);
                     },
-                    () => controller.close(),
+                    () => {
+                        controller.close();
+                        this.close();
+                    },
                 );
             },
 

@@ -1,16 +1,13 @@
 import * as process from "process";
-import * as os from "os";
 import { Command, Option } from "commander";
 import { Writer } from "n3";
 import { replicateLDES, enhanced_fetch } from "../lib/client";
-import { intoConfig } from "../lib/config";
 import { processConditionFile } from "../lib/condition";
 import { getLoggerFor } from "../lib/utils";
 
 import type { Ordered } from "../lib/strategy";
 import type { FetchConfig } from "../lib/fetcher";
 
-const logger = getLoggerFor("cli");
 const program = new Command();
 let paramURL: string = "";
 let polling: boolean = false;
@@ -19,10 +16,10 @@ let before: Date | undefined;
 let materialize: boolean = false;
 let lastVersionOnly: boolean = false;
 let conditionFile: string | undefined;
-let paramPollInterval: number;
+let paramPollInterval: number | undefined;
 let urlIsView = false;
 let noShape = false;
-let threads = os.cpus().length > 1 ? os.cpus().length - 1 : 1;
+let workers: number | undefined;
 let shapeFile: string | undefined;
 let ordered: Ordered = "none";
 let quiet: boolean = false;
@@ -132,9 +129,8 @@ program
         includeMetadata = program.metadata;
 
         if (program.workers) {
-            threads = parseInt(program.workers);
+            workers = parseInt(program.workers);
         }
-        logger.debug(`Using ${threads} worker threads for member extraction`);
 
         fetch_config.concurrent = parseInt(program.concurrent);
         if (program.basicAuth) {
@@ -172,10 +168,11 @@ program.parse(process.argv);
 
 async function main() {
     const t0 = Date.now();
+    const logger = getLoggerFor("cli");
     const writer = new Writer();
 
     const client = replicateLDES(
-        intoConfig({
+        {
             loose,
             noShape,
             polling,
@@ -192,9 +189,9 @@ async function main() {
             materialize,
             lastVersionOnly,
             includeMetadata,
-            threads: threads,
+            workers,
             fetch: enhanced_fetch(fetch_config),
-        }),
+        },
         ordered,
     );
 

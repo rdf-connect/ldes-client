@@ -1,3 +1,4 @@
+import * as os from "os";
 import { empty_condition as emptyCondition } from "./condition";
 
 import type { NamedNode, Quad } from "@rdfjs/types";
@@ -15,7 +16,7 @@ export interface Config {
     urlIsView: boolean;
     noShape: boolean;
     stateFile?: string;
-    pollInterval: number;
+    pollInterval?: number;
     condition: Condition;
     defaultTimezone: string;
     after?: Date;
@@ -27,7 +28,7 @@ export interface Config {
     lastVersionOnly?: boolean;
     includeMetadata?: boolean;
     fetch?: typeof fetch;
-    threads: number;
+    workers: number;
 }
 
 export interface WithTarget {
@@ -41,13 +42,13 @@ const defaultConfig: Config = {
     loose: false,
     polling: false,
     url: "",
-    pollInterval: 200,
     defaultTimezone: "AoE",
     materialize: false,
     lastVersionOnly: false,
     includeMetadata: false,
-    threads: 1,
+    workers: os.cpus().length > 1 ? os.cpus().length - 1 : 1,
 };
+
 
 const defaultTarget: WithTarget = {
     target: {},
@@ -58,5 +59,8 @@ export async function getConfig(): Promise<Config & WithTarget> {
 }
 
 export function intoConfig(config: Partial<Config>): Config {
-    return Object.assign({}, defaultConfig, defaultTarget, config);
+    const cleanConfig = Object.fromEntries(
+        Object.entries(config).filter(([_Readable, value]) => value !== undefined)
+    );
+    return Object.assign({}, defaultConfig, defaultTarget, cleanConfig);
 }

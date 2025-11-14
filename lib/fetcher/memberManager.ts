@@ -66,7 +66,7 @@ export class Manager {
     constructor(
         ldesUri: Term | null,
         info: LDESInfo,
-        threads: number,
+        workers: number,
         loose = false,
     ) {
         this.ldesUri = ldesUri;
@@ -75,7 +75,7 @@ export class Manager {
         this.isVersionOfPath = info.versionOfPath;
         this.shapeId = info.shape;
         this.loose = loose;
-        this.pool = new Pool(info, threads);
+        this.pool = new Pool(info, workers);
 
         if (!this.ldesUri) {
             this.logger.debug("new local dump member extractor");

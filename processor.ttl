@@ -152,6 +152,12 @@ rdfc:LdesClient rdfc:jsImplementationOf rdfc:Processor;
     sh:name "streamId";
     sh:maxCount 1;
   ], [
+    sh:datatype xsd:integer;
+    sh:path rdfc:workers;
+    sh:name "workers";
+    sh:minCount 0;
+    sh:maxCount 1;
+  ], [
     sh:datatype xsd:boolean;
     sh:path rdfc:sdsify;
     sh:name "sdsify";
