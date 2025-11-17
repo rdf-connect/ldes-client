@@ -210,19 +210,19 @@ export class OrderedStrategy {
                         chain: RelationChain;
                         expected: string[];
                     }
-                >inp;
+                    >inp;
                 const cmp =
                     this.ordered === "ascending"
                         ? (a: RelationValue, b: RelationValue) => {
-                              if (a > b) return 1;
-                              if (a < b) return -1;
-                              return 0;
-                          }
+                            if (a > b) return 1;
+                            if (a < b) return -1;
+                            return 0;
+                        }
                         : (a: RelationValue, b: RelationValue) => {
-                              if (a > b) return -1;
-                              if (a < b) return 1;
-                              return 0;
-                          };
+                            if (a > b) return -1;
+                            if (a < b) return 1;
+                            return 0;
+                        };
 
                 return {
                     chain: new RelationChain(
@@ -483,6 +483,17 @@ export class OrderedStrategy {
      */
     private checkEmit() {
         if (this.canceled) return;
+
+        // Check if there are any relations in transit
+        const inTransit =
+            this.modulator
+                .getInFlight().length > 0 ||
+            this.modulator
+                .getTodo().length > 0;
+
+        if (inTransit) {
+            return;
+        }
 
         let head = this.launchedRelations.pop();
         while (head) {

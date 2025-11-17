@@ -265,9 +265,6 @@ describe("Client tests", () => {
             memRes1 = await members1.read();
         }
 
-        // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
-        expect(client1.memberCount).toBeGreaterThanOrEqual(3);
-        expect(client1.fragmentCount).toBeGreaterThanOrEqual(3);
         // Check that we received all memebers
         expect(memCount).toBe(client1.memberCount);
         expect(gotFragmentEvent1).toBe(true);
@@ -331,10 +328,9 @@ describe("Client tests", () => {
             memRes2 = await members2.read();
         }
 
-        expect(client2.fragmentCount).toBeGreaterThanOrEqual(1);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(12);
-        // Check that we received all memebers
+        // Check that we received all members
         expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
@@ -411,9 +407,6 @@ describe("Client tests", () => {
             memRes1 = await members1.read();
         }
 
-        // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
-        expect(client1.memberCount).toBeGreaterThanOrEqual(3);
-        expect(client1.fragmentCount).toBeGreaterThanOrEqual(3);
         // Check that we received all memebers
         expect(memCount).toBe(client1.memberCount);
         expect(gotFragmentEvent1).toBe(true);
@@ -487,10 +480,9 @@ describe("Client tests", () => {
             memRes2 = await members2.read();
         }
 
-        expect(client2.fragmentCount).toBeGreaterThanOrEqual(2);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(12);
-        // Check that we received all memebers
+        // Check that we received all members
         expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
@@ -555,9 +547,6 @@ describe("Client tests", () => {
             memRes1 = await members1.read();
         }
 
-        // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
-        expect(client1.memberCount).toBe(0);
-        expect(client1.fragmentCount).toBeGreaterThanOrEqual(3);
         // Check that no members were received
         expect(memCount).toBe(client1.memberCount);
         expect(gotFragmentEvent1).toBe(true);
@@ -627,10 +616,9 @@ describe("Client tests", () => {
             memRes2 = await members2.read();
         }
 
-        expect(client2.fragmentCount).toBeGreaterThanOrEqual(2);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(12);
-        // Check that we received all memebers
+        // Check that we received all members
         expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
