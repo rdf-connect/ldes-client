@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1763530114445,
+  "lastUpdate": 1763705179503,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -5733,6 +5733,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 5.98,
             "range": "±2.56%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "29139614+renovate[bot]@users.noreply.github.com",
+            "name": "renovate[bot]",
+            "username": "renovate[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9aa5a3ec28babdd35655fe3810331c93a19fa007",
+          "message": "chore(deps): update all non-major dependencies",
+          "timestamp": "2025-11-21T01:52:04Z",
+          "tree_id": "af40c7313be8cb42e858661993e1255451db071f",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/9aa5a3ec28babdd35655fe3810331c93a19fa007"
+        },
+        "date": 1763705178537,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 5.99,
+            "range": "±2.71%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
