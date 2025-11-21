@@ -7,6 +7,7 @@ import { getObjects, memberFromQuads, getLoggerFor } from "../utils";
 import type { Quad, Term } from "@rdfjs/types";
 import type { Notifier } from "./modulator";
 import type { FetchedPage } from "./pageFetcher";
+import { Pool } from "./extractionPool";
 
 const { namedNode } = new DataFactory();
 
@@ -25,6 +26,7 @@ export type LDESInfo = {
     extractor: CBDShapeExtractor;
     timestampPath?: Term;
     versionOfPath?: Term;
+    onlyDefaultGraph?: boolean;
 };
 
 export type ExtractError = {
@@ -59,10 +61,12 @@ export class Manager {
     private logger = getLoggerFor(this);
     private loose: boolean;
 
+    private pool: Pool;
 
     constructor(
         ldesUri: Term | null,
         info: LDESInfo,
+        workers: number,
         loose = false,
     ) {
         this.ldesUri = ldesUri;
@@ -71,21 +75,23 @@ export class Manager {
         this.isVersionOfPath = info.versionOfPath;
         this.shapeId = info.shape;
         this.loose = loose;
+        this.pool = new Pool(info, workers);
 
         if (!this.ldesUri) {
-            this.logger.debug(
-                `new local dump member extractor`
-            );
+            this.logger.debug("new local dump member extractor");
         } else {
             this.logger.debug(
-                `new member extractor for ${this.ldesUri.value}:`);
+                `new member extractor for ${this.ldesUri.value}:`,
+            );
         }
-        this.logger.debug(`${JSON.stringify({
-            extractor: info.extractor.constructor.name,
-            shape: info.shape,
-            timestampPath: info.timestampPath,
-            isVersionOfPath: info.versionOfPath,
-        })}`);
+        this.logger.debug(
+            `${JSON.stringify({
+                extractor: info.extractor.constructor.name,
+                shape: info.shape,
+                timestampPath: info.timestampPath,
+                isVersionOfPath: info.versionOfPath,
+            })}`,
+        );
     }
 
     // Extract members found in this page, this does not yet emit the members
@@ -117,44 +123,35 @@ export class Manager {
             ? new Date(pageUpdatedIso.value)
             : undefined;
 
-        this.logger.debug(`Extracting ${members.length} members for ${page.url}`);
+        this.logger.debug(
+            `Extracting ${members.length} members for ${page.url}`,
+        );
 
-        const promises: Promise<Member | undefined | void>[] = [];
-
-        for (const member of members) {
-            if (!state.emitted.has(member.value)) {
-                const promise = this.extractMember(member, page.data, members)
-                    .then((member) => {
-                        if (member) {
-                            if (!this.closed) {
-                                notifier.extracted(member, state);
-                            }
+        this.pool
+            .extract(
+                page.data,
+                members.filter((m) => !state.emitted.has(m.value)),
+                (q, id) => {
+                    const member = this.toMember(id, q);
+                    if (member) {
+                        if (!this.closed) {
+                            notifier.extracted(member, state);
                         }
-                        return member;
-                    })
-                    .catch((ex) => {
-                        this.logger.error(ex);
-                        notifier.error(
-                            { error: ex, type: "extract", memberId: member },
-                            state,
-                        );
-                    });
-
-                promises.push(promise);
-            }
-        }
-
-        Promise.all(promises).then(() => {
-            if (!this.closed) {
-                this.logger.debug(`All members extracted for ${page.url}`);
-                page.created = pageCreated;
-                page.updated = pageUpdated;
-                notifier.done(page, state);
-            }
-        });
+                    }
+                },
+            )
+            .then(() => {
+                if (!this.closed) {
+                    this.logger.debug(`All members extracted for ${page.url}`);
+                    page.created = pageCreated;
+                    page.updated = pageUpdated;
+                    notifier.done(page, state);
+                }
+            });
     }
 
     close() {
+        this.pool.close();
         this.logger.debug("Closing stream");
         if (this.resolve) {
             this.resolve();
@@ -174,13 +171,38 @@ export class Manager {
         ]);
     }
 
+    private toMember(member: Term, quads: Quad[]): Member | undefined {
+        const data = RdfStore.createDefault();
+        quads.forEach((q) => data.addQuad(q));
+        const created = getObjects(
+            data,
+            member,
+            DC.terms.custom("created"),
+            namedNode(LDES.custom("IngestionMetadata")),
+        )[0]?.value;
+
+        if (quads.length > 0) {
+            return memberFromQuads(
+                member,
+                quads,
+                this.timestampPath,
+                this.isVersionOfPath,
+                created ? new Date(created) : undefined,
+            );
+        }
+    }
+
     private async extractMember(
         member: Term,
         data: RdfStore,
         otherMembers: Term[] = [],
     ): Promise<Member | undefined> {
         try {
-            const quads: Quad[] = await this.extractMemberQuads(member, data, otherMembers);
+            const quads: Quad[] = await this.extractMemberQuads(
+                member,
+                data,
+                otherMembers,
+            );
             const created = getObjects(
                 data,
                 member,

@@ -42,6 +42,7 @@ ldes-client <url> [--follow] [--ordered <order>] [--after <datetime>] [--before 
 - `--retry-count`: maximum number of HTTP request retries that the client would perform before failing.
 - `--safe`: enables safe mode of fetching, which will retry when a fetch fails.
 - `--http-codes`: list of HTTP response codes over which the client would retry a request.
+- `-w`, `--workers`: Number of CPU threads that will be used by the client to perform member extraction. Default: Available CPU cores - 1.
 - `-m`, `--metadata`: include metadata in the emitted members. Notifies the ldes server that it is interested in metadata, via the HTTP header `Accept: application/metadata+trig`.
 
 ### Use it as a library
@@ -232,6 +233,7 @@ config.fetch = enhanced_fetch({ retry: { codes: [408, 425, 429, 500, 502, 503, 5
 
 The member manager _just_ extracts members and emits them when they are ready.
 Extracting members is asynchonous, because it is possible that some members require out of band requests.
+The extraction process can be performed in parallel, spawning a set of `worker_threads` (or `WebWorkers` in the browser) to increase efficiency.
 
 The streaming API comes with a requirement to always emit at least one member, per poll.
 To achieve this, the `memberManager` has a function called `reset()` which returns a promise when a member is emitted.

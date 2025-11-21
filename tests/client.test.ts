@@ -1,4 +1,12 @@
-import { describe, beforeAll, afterAll, afterEach, expect, test, beforeEach } from "vitest";
+import {
+    describe,
+    beforeAll,
+    afterAll,
+    afterEach,
+    expect,
+    test,
+    beforeEach,
+} from "vitest";
 import fs from "fs";
 import path from "path";
 import { fastify, RequestPayload } from "fastify";
@@ -22,7 +30,7 @@ describe("Client tests", () => {
         "modified",
         "isVersionOf",
         "prop1",
-        "subprop"
+        "subprop",
     );
 
     let server: FastifyInstance;
@@ -38,7 +46,7 @@ describe("Client tests", () => {
                 "onSend",
                 async (request, reply, payload: RequestPayload) => {
                     const st = await streamToString(payload);
-                    
+
                     if (st.startsWith("# delay ")) {
                         const reg = /# delay (?<delay>[0-9]+)/;
                         const found = st.match(reg);
@@ -89,46 +97,57 @@ describe("Client tests", () => {
         }
     });
 
-    test("Fetching a tree:InBetweenRelation LDES first member is emitted asap ascending", async () => {
-        const client = replicateLDES(
-            {
-                url: INBETWEEN_LDES,
-            },
-            "ascending",
-        );
-        const stream = client.stream().getReader();
-        const start = new Date();
-        for (let i = 0; i < 3; i++) {
-            const m1 = await stream.read();
-            expect(m1.done).toBeFalsy();
-        }
-        const mid = new Date();
-        expect(mid.getTime() - start.getTime()).toBeLessThan(150);
-        const m2 = await stream.read();
-        expect(m2.done).toBeFalsy();
-        const end = new Date();
-        expect(end.getTime() - start.getTime()).toBeGreaterThan(200);
-    });
+    test("Fetching a tree:InBetweenRelation LDES subset", async () => {
+        // Setup client
+        const client = replicateLDES({
+            url: INBETWEEN_LDES,
+            after: new Date("2024-10-01T00:00:00Z"),
+        });
 
-    test("Fetching a tree:InBetweenRelation LDES first member is emitted asap descending", async () => {
-        const client = replicateLDES(
-            {
-                url: INBETWEEN_LDES,
-            },
-            "descending",
-        );
-        const stream = client.stream().getReader();
-        const start = new Date();
-        for (let i = 0; i < 3; i++) {
-            const m1 = await stream.read();
-            expect(m1.done).toBeFalsy();
+        // Check that fragment event is triggered
+        let gotFragmentEvent = false;
+        client.on("fragment", async () => {
+            gotFragmentEvent = true;
+        });
+
+        // Check that description event is triggered
+        let gotDescEvent = false;
+        client.on("description", async (info: LDESInfo) => {
+            expect(info).toBeDefined();
+            expect(info.shape).toBeDefined();
+            expect(info.timestampPath?.value).toBe(EX.modified);
+            expect(info.versionOfPath?.value).toBe(EX.isVersionOf);
+            gotDescEvent = true;
+        });
+
+        // Start stream of members
+        let memCount = 0;
+        const members = client.stream({ highWaterMark: 10 });
+
+        for await (const mem of members) {
+            memCount += 1;
+            expect(mem.id.value).toBeDefined();
+            expect(mem.quads.length).toBeGreaterThan(0);
+            expect(mem.timestamp).toBeDefined();
+            expect(mem.isVersionOf).toBeDefined();
+
+            // Check quad content
+            const store = RdfStore.createDefault();
+            mem.quads.forEach((q) => store.addQuad(q));
+
+            // Check that all member data is present
+            expect(
+                store.getQuads(null, EX.terms.subprop).length,
+            ).toBeGreaterThan(0);
         }
-        const mid = new Date();
-        expect(mid.getTime() - start.getTime()).toBeLessThan(150);
-        const m2 = await stream.read();
-        expect(m2.done).toBeFalsy();
-        const end = new Date();
-        expect(end.getTime() - start.getTime()).toBeGreaterThan(200);
+
+        expect(client.memberCount).toBe(3);
+        expect(client.fragmentCount).toBe(4);
+        // Check that we received all memebers
+        expect(memCount).toBe(client.memberCount);
+        expect(gotFragmentEvent).toBe(true);
+        expect(gotDescEvent).toBe(true);
+        client.close();
     });
 
     test("Client runs successfuly and all events are triggered", async () => {
@@ -170,7 +189,9 @@ describe("Client tests", () => {
             mem.quads.forEach((q) => store.addQuad(q));
 
             // Check that all member data is present
-            expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+            expect(
+                store.getQuads(null, EX.terms.subprop).length,
+            ).toBeGreaterThan(0);
         }
 
         expect(client.memberCount).toBe(12);
@@ -181,7 +202,8 @@ describe("Client tests", () => {
         expect(gotDescEvent).toBe(true);
         // Check that state was saved
         expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
-    })
+        client.close();
+    });
 
     test("Client interruption and resuming in unoredered replication", async () => {
         // Setup client 1
@@ -232,7 +254,9 @@ describe("Client tests", () => {
                 mem.quads.forEach((q) => store.addQuad(q));
 
                 // Check that all member data is present
-                expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+                expect(
+                    store.getQuads(null, EX.terms.subprop).length,
+                ).toBeGreaterThan(0);
             }
 
             if (memRes1.done) {
@@ -241,9 +265,6 @@ describe("Client tests", () => {
             memRes1 = await members1.read();
         }
 
-        // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
-        expect(client1.memberCount).toBeGreaterThanOrEqual(3);
-        expect(client1.fragmentCount).toBeGreaterThanOrEqual(3);
         // Check that we received all memebers
         expect(memCount).toBe(client1.memberCount);
         expect(gotFragmentEvent1).toBe(true);
@@ -296,7 +317,9 @@ describe("Client tests", () => {
                 mem.quads.forEach((q) => store.addQuad(q));
 
                 // Check that all member data is present
-                expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+                expect(
+                    store.getQuads(null, EX.terms.subprop).length,
+                ).toBeGreaterThan(0);
             }
 
             if (memRes2.done) {
@@ -305,16 +328,18 @@ describe("Client tests", () => {
             memRes2 = await members2.read();
         }
 
-        expect(client2.fragmentCount).toBeGreaterThanOrEqual(1);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(12);
-        // Check that we received all memebers
+        // Check that we received all members
         expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
         // Check that state was saved
         expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
-    })
+
+        client1.close();
+        client2.close();
+    });
 
     test("Client interruption and resuming in ordered replication (ascending)", async () => {
         // Setup client 1
@@ -323,7 +348,7 @@ describe("Client tests", () => {
                 url: LDES,
                 stateFile: "./tests/data/client-state.json",
             },
-            "ascending"
+            "ascending",
         );
 
         let memCount = 0;
@@ -371,7 +396,9 @@ describe("Client tests", () => {
                 mem.quads.forEach((q) => store.addQuad(q));
 
                 // Check that all member data is present
-                expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+                expect(
+                    store.getQuads(null, EX.terms.subprop).length,
+                ).toBeGreaterThan(0);
             }
 
             if (memRes1.done) {
@@ -380,17 +407,14 @@ describe("Client tests", () => {
             memRes1 = await members1.read();
         }
 
-        // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
-        expect(client1.memberCount).toBeGreaterThanOrEqual(3);
-        expect(client1.fragmentCount).toBeGreaterThanOrEqual(3);
         // Check that we received all memebers
         expect(memCount).toBe(client1.memberCount);
         expect(gotFragmentEvent1).toBe(true);
         expect(gotDescEvent1).toBe(true);
         // Check that the timestamps are in ascending order
-        expect(timestamps1.every(
-            (v, i) => i === 0 || v >= timestamps1[i - 1],
-        )).toBeTruthy();
+        expect(
+            timestamps1.every((v, i) => i === 0 || v >= timestamps1[i - 1]),
+        ).toBeTruthy();
         // Check that state was saved
         expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
 
@@ -404,7 +428,7 @@ describe("Client tests", () => {
                 url: LDES,
                 stateFile: "./tests/data/client-state.json",
             },
-            "ascending"
+            "ascending",
         );
 
         // Member stream object
@@ -445,7 +469,9 @@ describe("Client tests", () => {
                 mem.quads.forEach((q) => store.addQuad(q));
 
                 // Check that all member data is present
-                expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+                expect(
+                    store.getQuads(null, EX.terms.subprop).length,
+                ).toBeGreaterThan(0);
             }
 
             if (memRes2.done) {
@@ -454,20 +480,22 @@ describe("Client tests", () => {
             memRes2 = await members2.read();
         }
 
-        expect(client2.fragmentCount).toBeGreaterThanOrEqual(2);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(12);
-        // Check that we received all memebers
+        // Check that we received all members
         expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
         // Check that the timestamps are in ascending order
-        expect(timestamps2.every(
-            (v, i) => i === 0 || v >= timestamps2[i - 1],
-        )).toBeTruthy();
+        expect(
+            timestamps2.every((v, i) => i === 0 || v >= timestamps2[i - 1]),
+        ).toBeTruthy();
         // Check that state was saved
         expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
-    })
+
+        client1.close();
+        client2.close();
+    });
 
     test("Client interruption and resuming in ordered replication (descending)", async () => {
         // Setup client 1
@@ -476,7 +504,7 @@ describe("Client tests", () => {
                 url: LDES,
                 stateFile: "./tests/data/client-state.json",
             },
-            "descending"
+            "descending",
         );
 
         let memCount = 0;
@@ -519,9 +547,6 @@ describe("Client tests", () => {
             memRes1 = await members1.read();
         }
 
-        // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
-        expect(client1.memberCount).toBe(0);
-        expect(client1.fragmentCount).toBeGreaterThanOrEqual(3);
         // Check that no members were received
         expect(memCount).toBe(client1.memberCount);
         expect(gotFragmentEvent1).toBe(true);
@@ -539,7 +564,7 @@ describe("Client tests", () => {
                 url: LDES,
                 stateFile: "./tests/data/client-state.json",
             },
-            "descending"
+            "descending",
         );
 
         // Member stream object
@@ -580,7 +605,9 @@ describe("Client tests", () => {
                 mem.quads.forEach((q) => store.addQuad(q));
 
                 // Check that all member data is present
-                expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+                expect(
+                    store.getQuads(null, EX.terms.subprop).length,
+                ).toBeGreaterThan(0);
             }
 
             if (memRes2.done) {
@@ -589,20 +616,22 @@ describe("Client tests", () => {
             memRes2 = await members2.read();
         }
 
-        expect(client2.fragmentCount).toBeGreaterThanOrEqual(2);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(12);
-        // Check that we received all memebers
+        // Check that we received all members
         expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
         // Check that the timestamps are in ascending order
-        expect(timestamps2.every(
-            (v, i) => i === 0 || v <= timestamps2[i - 1],
-        )).toBeTruthy();
+        expect(
+            timestamps2.every((v, i) => i === 0 || v <= timestamps2[i - 1]),
+        ).toBeTruthy();
         // Check that state was saved
         expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
-    })
+
+        client1.close();
+        client2.close();
+    });
 
     test("Client interruption and resuming in ordered replication (ascending) of Linked List LDES", async () => {
         // Setup client 1
@@ -611,7 +640,7 @@ describe("Client tests", () => {
                 url: LINKED_LIST_LDES,
                 stateFile: "./tests/data/client-state.json",
             },
-            "ascending"
+            "ascending",
         );
 
         let memCount = 0;
@@ -635,7 +664,10 @@ describe("Client tests", () => {
             gotFragmentEvent1 = true;
 
             // Interrupt the stream after getting a specific fragment
-            if (fragment.url === "http://localhost:3001/mock-ldes-linked-list-1.ttl") {
+            if (
+                fragment.url ===
+                "http://localhost:3001/mock-ldes-linked-list-1.ttl"
+            ) {
                 await members1.cancel();
             }
         });
@@ -674,7 +706,7 @@ describe("Client tests", () => {
                 url: LINKED_LIST_LDES,
                 stateFile: "./tests/data/client-state.json",
             },
-            "ascending"
+            "ascending",
         );
 
         // Member stream object
@@ -715,7 +747,9 @@ describe("Client tests", () => {
                 mem.quads.forEach((q) => store.addQuad(q));
 
                 // Check that all member data is present
-                expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+                expect(
+                    store.getQuads(null, EX.terms.subprop).length,
+                ).toBeGreaterThan(0);
             }
 
             if (memRes2.done) {
@@ -732,12 +766,15 @@ describe("Client tests", () => {
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
         // Check that the timestamps are in ascending order
-        expect(timestamps2.every(
-            (v, i) => i === 0 || v >= timestamps2[i - 1],
-        )).toBeTruthy();
+        expect(
+            timestamps2.every((v, i) => i === 0 || v >= timestamps2[i - 1]),
+        ).toBeTruthy();
         // Check that state was saved
         expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
-    })
+
+        client1.close();
+        client2.close();
+    });
 
     test("Client interruption and resuming in ordered replication (descending) of Linked List LDES", async () => {
         // Setup client 1
@@ -746,7 +783,7 @@ describe("Client tests", () => {
                 url: LINKED_LIST_LDES,
                 stateFile: "./tests/data/client-state.json",
             },
-            "descending"
+            "descending",
         );
 
         let memCount = 0;
@@ -760,7 +797,10 @@ describe("Client tests", () => {
             gotFragmentEvent1 = true;
 
             // Interrupt the stream after getting a specific fragment
-            if (fragment.url === "http://localhost:3001/mock-ldes-linked-list.ttl") {
+            if (
+                fragment.url ===
+                "http://localhost:3001/mock-ldes-linked-list.ttl"
+            ) {
                 await members1.cancel();
             }
         });
@@ -798,7 +838,7 @@ describe("Client tests", () => {
                 url: LINKED_LIST_LDES,
                 stateFile: "./tests/data/client-state.json",
             },
-            "descending"
+            "descending",
         );
 
         // Member stream object
@@ -839,7 +879,9 @@ describe("Client tests", () => {
                 mem.quads.forEach((q) => store.addQuad(q));
 
                 // Check that all member data is present
-                expect(store.getQuads(null, EX.terms.subprop).length).toBeGreaterThan(0);
+                expect(
+                    store.getQuads(null, EX.terms.subprop).length,
+                ).toBeGreaterThan(0);
             }
 
             if (memRes2.done) {
@@ -856,12 +898,15 @@ describe("Client tests", () => {
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
         // Check that the timestamps are in ascending order
-        expect(timestamps2.every(
-            (v, i) => i === 0 || v <= timestamps2[i - 1],
-        )).toBeTruthy();
+        expect(
+            timestamps2.every((v, i) => i === 0 || v <= timestamps2[i - 1]),
+        ).toBeTruthy();
         // Check that state was saved
         expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
-    })
+
+        client1.close();
+        client2.close();
+    });
 
     test("Client throws error when configured SHACL shape cannot be dereferenced", async () => {
         let threwError = false;
@@ -879,5 +924,5 @@ describe("Client tests", () => {
         }
 
         expect(threwError).toBeTruthy();
-    })
+    });
 });

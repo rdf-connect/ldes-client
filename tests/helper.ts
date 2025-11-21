@@ -110,7 +110,7 @@ export class Tree<T> {
     private memberToQuads: (id: string, member: T) => Quad[];
     private timestampPath?: string;
 
-    fetched: string[] = [];
+    fetched: Set<string> = new Set();
 
     constructor(
         memberToQuads: (id: string, member: T) => Quad[],
@@ -147,7 +147,7 @@ export class Tree<T> {
                 return new Response("", { status: 404 });
             }
 
-            this.fetched.push(req.toString().slice(BASE.length));
+            this.fetched.add(req.toString().slice(BASE.length));
 
             const quads: Quad[] = [];
 

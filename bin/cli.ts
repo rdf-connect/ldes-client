@@ -1,9 +1,7 @@
-#!/usr/bin/env node
 import * as process from "process";
 import { Command, Option } from "commander";
 import { Writer } from "n3";
 import { replicateLDES, enhanced_fetch } from "../lib/client";
-import { intoConfig } from "../lib/config"
 import { processConditionFile } from "../lib/condition";
 import { getLoggerFor } from "../lib/utils";
 
@@ -18,9 +16,10 @@ let before: Date | undefined;
 let materialize: boolean = false;
 let lastVersionOnly: boolean = false;
 let conditionFile: string | undefined;
-let paramPollInterval: number;
+let paramPollInterval: number | undefined;
 let urlIsView = false;
 let noShape = false;
+let workers: number | undefined;
 let shapeFile: string | undefined;
 let ordered: Ordered = "none";
 let quiet: boolean = false;
@@ -51,12 +50,16 @@ program
         "follow only relations including members before a certain point in time",
     )
     .option(
+        "-w --workers <workers>",
+        "configure the amount of workers used when extracting members (default: number of CPU cores available - 1)",
+    )
+    .option(
         "--materialize",
-        "materialize versioned members based on the ldes:versionOfPath predicate"
+        "materialize versioned members based on the ldes:versionOfPath predicate",
     )
     .option(
         "--last-version-only",
-        "emit only the latest available version of every member"
+        "emit only the latest available version of every member",
     )
     .option(
         "--condition <condition_file>",
@@ -84,7 +87,10 @@ program
         "--url-is-view",
         "the url is the view url, don't try to find the correct view",
     )
-    .option("-q --quiet", "be quiet and don't print the members in the console (mainly for debugging purposes)")
+    .option(
+        "-q --quiet",
+        "be quiet and don't print the members in the console (mainly for debugging purposes)",
+    )
     .option("--basic-auth <username>:<password>", "HTTP basic auth information")
     .option(
         "--concurrent <requests>",
@@ -96,12 +102,13 @@ program
         "Retry count per failing request (0 is infinite)",
         "3",
     )
-    .option(
-        "--safe",
-        "Safe mode of fetching",
-    )
+    .option("--safe", "Safe mode of fetching")
     .option("--http-codes [codes...]", "What HTTP codes to retry")
-    .option("-t --default-timezone <timezone>", "Default timezone for dates in tree:InBetweenRelation", "AoE")
+    .option(
+        "-t --default-timezone <timezone>",
+        "Default timezone for dates in tree:InBetweenRelation",
+        "AoE",
+    )
     .option("-m, --metadata", "include metadata in the output members")
     .action((url: string, program) => {
         urlIsView = program.urlIsView;
@@ -120,6 +127,10 @@ program
         lastVersionOnly = program.lastVersionOnly;
         defaultTimezone = program.defaultTimezone;
         includeMetadata = program.metadata;
+
+        if (program.workers) {
+            workers = parseInt(program.workers);
+        }
 
         fetch_config.concurrent = parseInt(program.concurrent);
         if (program.basicAuth) {
@@ -157,11 +168,11 @@ program.parse(process.argv);
 
 async function main() {
     const t0 = Date.now();
-    const writer = new Writer();
     const logger = getLoggerFor("cli");
+    const writer = new Writer();
 
     const client = replicateLDES(
-        intoConfig({
+        {
             loose,
             noShape,
             polling,
@@ -178,29 +189,37 @@ async function main() {
             materialize,
             lastVersionOnly,
             includeMetadata,
+            workers,
             fetch: enhanced_fetch(fetch_config),
-        }),
+        },
         ordered,
     );
 
     client.on("description", (info) => {
-        logger.verbose(`LDES description found: ${JSON.stringify({
-            url: paramURL,
-            shape: info.shape,
-            timestampPath: info.timestampPath,
-            isVersionOfPath: info.versionOfPath,
-            shapeQuads: writer.quadsToString(info.shapeQuads),
-        }, null, 2)}`);
+        logger.verbose(
+            `LDES description found: ${JSON.stringify(
+                {
+                    url: paramURL,
+                    shape: info.shape,
+                    timestampPath: info.timestampPath,
+                    isVersionOfPath: info.versionOfPath,
+                    shapeQuads: writer.quadsToString(info.shapeQuads),
+                },
+                null,
+                2,
+            )}`,
+        );
     });
 
     client.on("fragment", (fragment) => {
-        logger.debug(`Got fragment: ${fragment.url} (immutable: ${fragment.immutable})`);
+        logger.debug(
+            `Got fragment: ${fragment.url} (immutable: ${fragment.immutable})`,
+        );
     });
 
     client.on("error", (error) => {
         console.error("Error", error);
     });
-
 
     const reader = client.stream({ highWaterMark: 10 }).getReader();
 
@@ -229,7 +248,9 @@ async function main() {
         streamResult = await reader.read();
     }
 
-    logger.verbose(`Found ${client.memberCount} members in ${client.fragmentCount} fragments (took ${Date.now() - t0} ms)`);
+    logger.verbose(
+        `Found ${client.memberCount} members in ${client.fragmentCount} fragments (took ${Date.now() - t0} ms)`,
+    );
 }
 
 main().catch((e) => {
