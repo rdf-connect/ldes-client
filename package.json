@@ -45,7 +45,7 @@
     "rdf-dereference": "^4.0.0",
     "rdf-lens": "^1.3.6",
     "rdf-stores": "^2.1.1",
-    "winston": "^3.18.3"
+    "winston": "^3.19.0"
   },
   "devDependencies": {
     "@fastify/static": "^8.3.0",
