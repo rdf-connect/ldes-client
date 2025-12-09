@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1764918093329,
+  "lastUpdate": 1765251805613,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -5888,6 +5888,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 5.99,
             "range": "±3.31%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "29139614+renovate[bot]@users.noreply.github.com",
+            "name": "renovate[bot]",
+            "username": "renovate[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2cfe1b35a3798f8fa7fdeee2d75ec89d82be00f9",
+          "message": "fix(deps): update dependency winston to ^3.19.0",
+          "timestamp": "2025-12-08T23:41:35Z",
+          "tree_id": "e1ea94334956ef26569ccfb03c6dd2800dccc701",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/2cfe1b35a3798f8fa7fdeee2d75ec89d82be00f9"
+        },
+        "date": 1765251804614,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 5.92,
+            "range": "±4.88%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
