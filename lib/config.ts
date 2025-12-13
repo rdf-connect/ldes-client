@@ -46,7 +46,10 @@ const defaultConfig: Config = {
     materialize: false,
     lastVersionOnly: false,
     includeMetadata: false,
-    workers: os.cpus().length > 1 ? os.cpus().length - 1 : 1,
+    workers: (typeof os !== 'undefined' && os.cpus) ?
+        (os.cpus().length > 1 ? os.cpus().length - 1 : 1) :
+        (typeof navigator !== 'undefined' && navigator.hardwareConcurrency ?
+            navigator.hardwareConcurrency : 1),
 };
 
 

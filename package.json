@@ -14,6 +14,7 @@
   "scripts": {
     "build": "tsc && tsc-alias",
     "test": "vitest run --coverage --coverage.include lib",
+    "test:browser": "vitest run -c vitest.browser.config.ts",
     "prepublishOnly": "npm run build"
   },
   "files": [
@@ -49,6 +50,7 @@
     "winston": "^3.19.0"
   },
   "devDependencies": {
+    "@fastify/cors": "^11.2.0",
     "@fastify/static": "^8.3.0",
     "@rdfc/js-runner": "^3.0.1",
     "@rdfjs/types": "^2.0.1",
@@ -56,6 +58,8 @@
     "@types/node": "^25.0.1",
     "@typescript-eslint/eslint-plugin": "^8.49.0",
     "@typescript-eslint/parser": "^8.49.0",
+    "@vitest/browser": "^4.0.15",
+    "@vitest/browser-playwright": "^4.0.15",
     "@vitest/coverage-v8": "^4.0.15",
     "benchmark": "^2.1.4",
     "eslint": "^9.39.2",
@@ -63,6 +67,7 @@
     "fastify": "^5.6.2",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
+    "playwright": "^1.57.0",
     "prettier": "^3.7.4",
     "tsc-alias": "^1.8.16",
     "typescript": "^5.9.3",

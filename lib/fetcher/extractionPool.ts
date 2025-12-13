@@ -1,10 +1,16 @@
-import { Worker } from "node:worker_threads";
 import { LDESInfo } from "./memberManager";
-import type { IncomingMessage, OutgoingMessage } from "./extractionWorker";
-import { Parser, Quad_Object, Writer } from "n3";
+import { quadToStringQuad, stringQuadToQuad } from "rdf-string";
 import { Quad, Term } from "@rdfjs/types";
 import { DataFactory, DefaultGraph } from "rdf-data-factory";
 import { RdfStore } from "rdf-stores";
+import { createWorker } from "./workerAdapter";
+
+import type { Quad_Object } from "n3";
+import type {
+    IWorkerAdapter,
+    IncomingMessage,
+    OutgoingMessage,
+} from "./workerAdapter";
 
 const { namedNode, quad } = new DataFactory();
 
@@ -16,7 +22,7 @@ type Input = {
 };
 
 type State = {
-    worker: Worker;
+    worker: IWorkerAdapter;
     state: "busy" | "idle";
     handleMember: (quads: Quad[], id: Term) => void;
     done: () => void;
@@ -25,22 +31,9 @@ type State = {
 export class Pool {
     private readonly workers: State[];
     private readonly queue: Input[] = [];
-    constructor(info: LDESInfo, workerCount = 1) {
-        const isTs = import.meta.url.endsWith(".ts");
-        const workerPath = new URL(
-            `./extractionWorker.${isTs ? "ts" : "js"}`,
-            import.meta.url,
-        );
 
-        this.workers = [];
-        for (let i = 0; i < workerCount; i++) {
-            this.workers.push({
-                worker: new Worker(workerPath),
-                state: "idle",
-                handleMember: () => {},
-                done: () => {},
-            });
-        }
+    private constructor(workers: State[], info: LDESInfo) {
+        this.workers = workers;
 
         const qs = info.shapeQuads.slice();
         if (info.shape) {
@@ -52,7 +45,7 @@ export class Pool {
             );
             qs.push(identifyingTriple);
         }
-        const quads = new Writer().quadsToString(qs);
+        const quads = qs.map((q) => quadToStringQuad(q));
 
         for (const w of this.workers) {
             w.worker.postMessage(<IncomingMessage>{
@@ -60,10 +53,34 @@ export class Pool {
                 quads,
                 onlyDefaultGraphs: info.onlyDefaultGraph || false,
             });
-            w.worker.on("message", (m: OutgoingMessage) =>
+            w.worker.onMessage((m: OutgoingMessage) =>
                 this.handleMessage(w, m),
             );
         }
+    }
+
+    static async create(info: LDESInfo, workerCount = 1): Promise<Pool> {
+        const isTs = import.meta.url.endsWith(".ts");
+        const isBrowser = typeof window !== "undefined";
+
+        const workerFileName = isBrowser
+            ? `extractionWebWorker.${isTs ? "ts" : "js"}`
+            : `extractionNodeWorker.${isTs ? "ts" : "js"}`;
+
+        const workerPath = new URL(workerFileName, import.meta.url);
+
+        const workers: State[] = [];
+        for (let i = 0; i < workerCount; i++) {
+            const worker = await createWorker(workerPath);
+            workers.push({
+                worker,
+                state: "idle",
+                handleMember: () => { },
+                done: () => { },
+            });
+        }
+
+        return new Pool(workers, info);
     }
     close() {
         for (const w of this.workers) {
@@ -99,7 +116,7 @@ export class Pool {
                 worker.worker.postMessage(<IncomingMessage>{
                     type: "extract",
                     members: work.members.map((x) => x.value),
-                    quads: new Writer().quadsToString(work.quads.getQuads()),
+                    quads: work.quads.getQuads().map((q) => quadToStringQuad(q)),
                 });
             } else {
                 this.queue.unshift(work);
@@ -112,7 +129,7 @@ export class Pool {
 
     private handleMessage(state: State, msg: OutgoingMessage) {
         if (msg.type === "member") {
-            const quads = new Parser().parse(msg.quads);
+            const quads = msg.quads.map((q) => stringQuadToQuad(q));
             const id = namedNode(msg.id);
             state.handleMember(quads, id);
         }

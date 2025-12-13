@@ -153,7 +153,7 @@ export class Client {
             if (viewQuads.length === 0) {
                 this.logger.error(
                     "Did not find a tree:view predicate, which is required to interpret the LDES. " +
-                        "If you are targeting a tree:view directly, use the '--url-is-view' option.",
+                    "If you are targeting a tree:view directly, use the '--url-is-view' option.",
                 );
                 throw "No view found";
             } else {
@@ -191,35 +191,33 @@ export class Client {
         // Build state entry to keep track of member versions
         const versionState = this.config.lastVersionOnly
             ? this.stateFactory.build<Map<string, Date>>(
-                  "versions",
-                  (map) => {
-                      const arr = [...map.entries()];
-                      return JSON.stringify(arr);
-                  },
-                  (inp) => {
-                      const obj = JSON.parse(inp);
-                      for (const key of Object.keys(obj)) {
-                          try {
-                              obj[key] = new Date(obj[key]);
-                          } catch (ex: unknown) {
-                              // pass
-                          }
-                      }
-                      return new Map(obj);
-                  },
-                  () => new Map(),
-              )
+                "versions",
+                (map) => {
+                    const arr = [...map.entries()];
+                    return JSON.stringify(arr);
+                },
+                (inp) => {
+                    const obj = JSON.parse(inp);
+                    for (const key of Object.keys(obj)) {
+                        try {
+                            obj[key] = new Date(obj[key]);
+                        } catch (ex: unknown) {
+                            // pass
+                        }
+                    }
+                    return new Map(obj);
+                },
+                () => new Map(),
+            )
             : undefined;
 
         // Component that manages the extraction of all members from every fetched page
-        this.memberManager = new Manager(
-            isLocalDump
-                ? null // Local dump does not need to dereference a view
-                : ldesUri, // Point to the actual LDES IRI
+        this.memberManager = await Manager.createInstance({
+            ldesURI: isLocalDump ? undefined : ldesUri,
             info,
-            this.config.workers,
-            this.config.loose,
-        );
+            poolSize: this.config.workers,
+            loose: this.config.loose,
+        });
 
         this.logger.debug(`timestampPath: ${!!info.timestampPath}`);
 
@@ -311,22 +309,22 @@ export class Client {
         this.strategy =
             this.ordered !== "none"
                 ? new OrderedStrategy(
-                      this.memberManager,
-                      this.fetcher,
-                      notifier,
-                      this.modulatorFactory,
-                      this.ordered,
-                      this.config.polling,
-                      this.config.pollInterval,
-                  )
+                    this.memberManager,
+                    this.fetcher,
+                    notifier,
+                    this.modulatorFactory,
+                    this.ordered,
+                    this.config.polling,
+                    this.config.pollInterval,
+                )
                 : new UnorderedStrategy(
-                      this.memberManager,
-                      this.fetcher,
-                      notifier,
-                      this.modulatorFactory,
-                      this.config.polling,
-                      this.config.pollInterval,
-                  );
+                    this.memberManager,
+                    this.fetcher,
+                    notifier,
+                    this.modulatorFactory,
+                    this.config.polling,
+                    this.config.pollInterval,
+                );
 
         if (!isLocalDump)
             this.logger.debug(

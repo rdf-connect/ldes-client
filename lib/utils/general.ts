@@ -33,9 +33,9 @@ export function getSubjects(
 
 export function getObjects(
     store: RdfStore,
-    subject: Term | null,
-    predicate: Term | null,
-    graph?: Term | null,
+    subject: Term | null | undefined,
+    predicate: Term | null | undefined,
+    graph?: Term | null | undefined,
 ): Quad_Object[] {
     return store.getQuads(subject, predicate, null, graph).map((quad) => {
         return quad.object;
@@ -197,8 +197,8 @@ export function serializeMember(member: Member): SerializedMember {
     return {
         id: member.id.value,
         quads: new Writer().quadsToString(member.quads),
-        timestamp: member.timestamp instanceof Date 
-            ? member.timestamp.toISOString() 
+        timestamp: member.timestamp instanceof Date
+            ? member.timestamp.toISOString()
             : member.timestamp?.toString(),
         isVersionOf: member.isVersionOf,
         type: member.type?.value,

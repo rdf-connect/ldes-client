@@ -3,11 +3,11 @@ import { DC, LDES, TREE } from "@treecg/types";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
 import { getObjects, memberFromQuads, getLoggerFor } from "../utils";
+import { Pool } from "./extractionPool";
 
 import type { Quad, Term } from "@rdfjs/types";
 import type { Notifier } from "./modulator";
 import type { FetchedPage } from "./pageFetcher";
-import { Pool } from "./extractionPool";
 
 const { namedNode } = new DataFactory();
 
@@ -41,6 +41,13 @@ export type MemberEvents = {
     error: Error;
 };
 
+export type ManagerOptions = {
+    ldesURI?: Term;
+    info: LDESInfo;
+    poolSize: number;
+    loose?: boolean;
+}
+
 interface ExtractionState {
     emitted: ReadonlySet<string>;
 }
@@ -50,7 +57,7 @@ export class Manager {
 
     private closed = false;
     private resolve?: () => void;
-    private ldesUri: Term | null;
+    private ldesUri?: Term;
 
     private extractor: CBDShapeExtractor;
     private shapeId?: Term;
@@ -63,10 +70,10 @@ export class Manager {
 
     private pool: Pool;
 
-    constructor(
-        ldesUri: Term | null,
+    private constructor(
         info: LDESInfo,
-        workers: number,
+        pool: Pool,
+        ldesUri?: Term,
         loose = false,
     ) {
         this.ldesUri = ldesUri;
@@ -75,7 +82,7 @@ export class Manager {
         this.isVersionOfPath = info.versionOfPath;
         this.shapeId = info.shape;
         this.loose = loose;
-        this.pool = new Pool(info, workers);
+        this.pool = pool;
 
         if (!this.ldesUri) {
             this.logger.debug("new local dump member extractor");
@@ -92,6 +99,11 @@ export class Manager {
                 isVersionOfPath: info.versionOfPath,
             })}`,
         );
+    }
+
+    static async createInstance(opts: ManagerOptions): Promise<Manager> {
+        const pool = await Pool.create(opts.info, opts.poolSize);
+        return new Manager(opts.info, pool, opts.ldesURI, opts.loose);
     }
 
     // Extract members found in this page, this does not yet emit the members
