@@ -1,4 +1,3 @@
-
 import { TREE, XSD } from "@treecg/types";
 import { getLoggerFor, parseInBetweenRelation } from "../utils";
 
@@ -11,10 +10,10 @@ export type PathRange = {
 };
 
 export class Range {
-    min?:RelationValue;
+    min?: RelationValue;
     eqMin: boolean = true;
 
-    max?:RelationValue;
+    max?: RelationValue;
     eqMax: boolean = true;
 
     private logger = getLoggerFor(this);
@@ -22,7 +21,7 @@ export class Range {
     private defaultTimezone: string;
 
     constructor(
-        value:RelationValue,
+        value: RelationValue,
         type: string,
         defaultTimezone: string,
         dataType?: string,
@@ -84,7 +83,7 @@ export class Range {
         return new Range("", TREE.Relation, defaultTimezone);
     }
 
-    add(value:RelationValue, type: string, dataType?: string) {
+    add(value: RelationValue, type: string, dataType?: string) {
         value = this.parseValue(value, dataType);
 
         switch (type) {
@@ -141,7 +140,7 @@ export class Range {
         }
     }
 
-    contains(value:RelationValue | Date | number): boolean {
+    contains(value: RelationValue | Date | number): boolean {
         if (this.min) {
             if (this.eqMin) {
                 if (this.min > value) return false;
@@ -179,14 +178,16 @@ export class Range {
         return true;
     }
 
-    toString(valueToString?: (value:RelationValue) => string): string {
-        const vts = valueToString || ((x:RelationValue) => x.toString());
-        const start = this.min ? (this.eqMin ? "[" : "]") + vts(this.min) : "]∞";
+    toString(valueToString?: (value: RelationValue) => string): string {
+        const vts = valueToString || ((x: RelationValue) => x.toString());
+        const start = this.min
+            ? (this.eqMin ? "[" : "]") + vts(this.min)
+            : "]∞";
         const end = this.max ? vts(this.max) + (this.eqMax ? "]" : "[") : "∞[";
         return start + "," + end;
     }
 
-    parseValue(value:RelationValue, dataType?: string):RelationValue {
+    parseValue(value: RelationValue, dataType?: string): RelationValue {
         if (dataType === XSD.dateTime) {
             return new Date(value);
         } else if (dataType === XSD.integer) {

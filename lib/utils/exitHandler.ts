@@ -19,9 +19,8 @@ export function handleExit(callback: () => void | Promise<void>) {
             );
             if (message) {
                 logger.error(
-                    `[handleExit] Uncaught Exception: ${message.name} - ${message.message}`,
+                    `[handleExit] Uncaught Exception: ${message.name} - ${message.message}\n${message.stack}`,
                 );
-                logger.debug(message.stack);
             }
             await callback();
         } else {
@@ -34,7 +33,6 @@ export function handleExit(callback: () => void | Promise<void>) {
             // Only call exit if there are no other listeners registered for this event.
             process.exit(code);
         }
-
     };
 
     // do app specific cleaning before exitin
@@ -49,6 +47,6 @@ export function handleExit(callback: () => void | Promise<void>) {
     );
     process.once(
         "unhandledRejection",
-        async (error: Error) => await fn("unhandledRejection", 99, error)
+        async (error: Error) => await fn("unhandledRejection", 99, error),
     );
 }
