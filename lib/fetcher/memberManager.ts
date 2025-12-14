@@ -203,37 +203,4 @@ export class Manager {
             );
         }
     }
-
-    private async extractMember(
-        member: Term,
-        data: RdfStore,
-        otherMembers: Term[] = [],
-    ): Promise<Member | undefined> {
-        try {
-            const quads: Quad[] = await this.extractMemberQuads(
-                member,
-                data,
-                otherMembers,
-            );
-            const created = getObjects(
-                data,
-                member,
-                DC.terms.custom("created"),
-                namedNode(LDES.custom("IngestionMetadata")),
-            )[0]?.value;
-
-            if (quads.length > 0) {
-                return memberFromQuads(
-                    member,
-                    quads,
-                    this.timestampPath,
-                    this.isVersionOfPath,
-                    created ? new Date(created) : undefined,
-                );
-            }
-        } catch (ex) {
-            this.logger.error(ex);
-            return;
-        }
-    }
 }

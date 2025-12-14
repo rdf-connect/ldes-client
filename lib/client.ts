@@ -510,7 +510,7 @@ async function getInfo(
             );
         } catch (ex: unknown) {
             logger.error(`Failed to fetch ${tryAgainUrl}`);
-            logger.error(ex);
+            logger.error((ex as Error).message);
         }
     }
 

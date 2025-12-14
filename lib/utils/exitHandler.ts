@@ -2,7 +2,7 @@ import { getLoggerFor } from "./logUtil";
 
 const logger = getLoggerFor("ExitHandler");
 
-function noOp() {}
+function noOp() { }
 
 export function handleExit(callback: () => void | Promise<void>) {
     // attach user callback to the process event emitter
@@ -21,7 +21,7 @@ export function handleExit(callback: () => void | Promise<void>) {
                 logger.error(
                     `[handleExit] Uncaught Exception: ${message.name} - ${message.message}\n${message.stack}`,
                 );
-                logger.debug(message.stack);
+                logger.debug(message.stack!);
             }
             await callback();
         } else {
