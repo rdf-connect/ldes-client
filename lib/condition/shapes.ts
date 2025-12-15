@@ -11,7 +11,7 @@ export const SHAPES = `
   sh:targetClass _:rdfThing;
   sh:property [
     sh:path ( );
-    sh:datatype xsd:iri;
+    sh:datatype xsd:any;
     sh:maxCount 1;
     sh:minCount 1;
     sh:name "entry";

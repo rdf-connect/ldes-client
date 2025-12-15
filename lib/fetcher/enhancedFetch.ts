@@ -21,11 +21,26 @@ export type FetchConfig = {
     safe?: boolean;
 };
 
+export function unauthorizedIsEmpty(fetch_f: typeof fetch): typeof fetch {
+    const f: typeof fetch = async (a, b) => {
+        console.log("Fetching", a);
+        const resp = await fetch_f(a, b);
+        if (resp.status === 401 || resp.status === 403) {
+            return new Response("", {
+                headers: { "content-type": "text/turtle", cache: "no-cache" },
+            });
+        }
+        return resp;
+    };
+
+    return f;
+}
+
 export function enhanced_fetch(
     config: FetchConfig,
     start?: typeof fetch,
 ): typeof fetch {
-    const start_f = start || fetch;
+    const start_f = unauthorizedIsEmpty(start || fetch);
     const safe_f = config.safe
         ? ((async (a, b) => {
               while (true) {
