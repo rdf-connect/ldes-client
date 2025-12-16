@@ -153,7 +153,7 @@ export class ModulatorFactory {
     }
 
     /**
-     * Note: `T` and `M` should be plain javascript objects (because that how state is saved)
+     * Note: `T` and `M` should be plain javascript objects (because that is how state is saved)
      */
     create<T, M>(
         name: string,
