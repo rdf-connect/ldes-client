@@ -22,6 +22,7 @@ import {
     streamToArray,
     getLoggerFor,
     handleExit,
+    cleanUpHandlers,
 } from "./utils";
 
 import type { Term } from "@rdfjs/types";
@@ -399,11 +400,11 @@ export class Client {
     public close() {
         if (this.closed) return;
         this.closed = true;
-
         this.stateFactory.write();
         this.strategy?.cancel();
         this.memberManager?.close();
         this.fetcher?.close();
+        cleanUpHandlers();
     }
 }
 

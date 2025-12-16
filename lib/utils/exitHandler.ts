@@ -4,6 +4,22 @@ const logger = getLoggerFor("ExitHandler");
 
 function noOp() { }
 
+const listeners: {
+    event: string;
+    listener: (...args: any[]) => void
+}[] = [];
+
+/**
+ * Clean up all registered exit handlers.
+ * This is useful when running multiple client instances in the same process.
+ * For example, when running unit tests.
+ */
+export function cleanUpHandlers() {
+    listeners.forEach(({ event, listener }) => {
+        process.removeListener(event, listener);
+    });
+}
+
 export function handleExit(callback: () => void | Promise<void>) {
     // attach user callback to the process event emitter
     // if no callback, it will still exit gracefully on Ctrl-C
@@ -22,6 +38,7 @@ export function handleExit(callback: () => void | Promise<void>) {
                     `[handleExit] Uncaught Exception: ${message.name} - ${message.message}\n${message.stack}`,
                 );
             }
+            cleanUpHandlers();
             await callback();
         } else {
             logger.debug(
@@ -35,18 +52,23 @@ export function handleExit(callback: () => void | Promise<void>) {
         }
     };
 
-    // do app specific cleaning before exitin
+    // do app specific cleaning before exiting
+    const sigInt = async () => await fn("SIGINT", 2);
+    const sigTerm = async () => await fn("SIGTERM", 143);
+    const sigBreak = async () => await fn("SIGBREAK", 149);
+    const uncaughtException = async (error: Error) => await fn("uncaughtException", 99, error);
+    const unhandledRejection = async (error: Error) => await fn("unhandledRejection", 99, error);
 
     // catch ctrl+c event and exit normally
-    process.once("SIGINT", async () => await fn("SIGINT", 2));
-    process.once("SIGTERM", async () => await fn("SIGTERM", 143));
-    process.once("SIGBREAK", async () => await fn("SIGBREAK", 149));
-    process.once(
-        "uncaughtException",
-        async (error: Error) => await fn("uncaughtException", 99, error),
-    );
-    process.once(
-        "unhandledRejection",
-        async (error: Error) => await fn("unhandledRejection", 99, error),
-    );
+    process.once("SIGINT", sigInt);
+    process.once("SIGTERM", sigTerm);
+    process.once("SIGBREAK", sigBreak);
+    process.once("uncaughtException", uncaughtException);
+    process.once("unhandledRejection", unhandledRejection);
+
+    listeners.push({ event: "SIGINT", listener: sigInt });
+    listeners.push({ event: "SIGTERM", listener: sigTerm });
+    listeners.push({ event: "SIGBREAK", listener: sigBreak });
+    listeners.push({ event: "uncaughtException", listener: uncaughtException });
+    listeners.push({ event: "unhandledRejection", listener: unhandledRejection });
 }

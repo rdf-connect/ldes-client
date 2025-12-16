@@ -18,15 +18,13 @@ import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
 import { LDESClientProcessor } from "../../lib/rdfc-processor";
 import { streamToString } from "../../lib/utils";
-import winston from "winston";
+import { createLogger, transports } from "winston";
 
-import type { FullProc, Reader, Writable } from "@rdfc/js-runner";
+import type { Logger } from "winston";
+import type { FullProc, Reader } from "@rdfc/js-runner";
 
+let logger: Logger;
 const df = new DataFactory();
-
-const logger = winston.createLogger({
-    transports: [new winston.transports.Console()],
-});
 
 async function testStreamOutput(reader: Reader, test: (msg: string) => void) {
     for await (const msg of reader.strings()) {
@@ -54,6 +52,10 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
     let server: FastifyInstance;
 
     beforeAll(async () => {
+        // Init logger instance
+        logger = createLogger({
+            transports: [new transports.Console()],
+        });
         // Setup mock http server
         try {
             server = fastify();
@@ -103,6 +105,10 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         if (fs.existsSync("./tests/data/save.json")) {
             fs.rmSync(path.resolve("./tests/data/save.json"));
         }
+        logger.close();
+        logger = createLogger({
+            transports: [new transports.Console()],
+        });
     });
 
     test("Fetching an LDES unordered and no filters to get all members", async () => {
