@@ -3,12 +3,13 @@ import { DataFactory } from "rdf-data-factory";
 import { SDS } from "@treecg/types";
 import { Writer as NWriter } from "n3";
 import { Client, replicateLDES } from "./client";
-import { enhanced_fetch } from "./fetcher"
-import { processConditionFile } from "./condition";
+import { enhanced_fetch } from "./fetcher";
+import { Condition, empty_condition, parse_condition } from "./condition";
 import { Logger } from "winston";
 
 import type { Quad_Object } from "@rdfjs/types";
 import type { Ordered } from "./strategy";
+import { readFile } from "fs/promises";
 
 const df = new DataFactory();
 
@@ -45,12 +46,35 @@ type LDESClientArgs = {
     sdsify?: boolean;
 };
 
+async function processConditionFile(
+    conditionFile?: string,
+): Promise<Condition> {
+    let condition: Condition = empty_condition();
+
+    if (conditionFile) {
+        try {
+            condition = parse_condition(
+                await readFile(conditionFile, { encoding: "utf8" }),
+                conditionFile,
+            );
+        } catch (ex) {
+            console.error(`Failed to read condition file: ${conditionFile}`);
+            throw ex;
+        }
+    }
+
+    return condition;
+}
+
 export class LDESClientProcessor extends Processor<LDESClientArgs> {
     protected ldesClientLogger!: Logger;
     public client!: Client;
 
     async init(this: LDESClientArgs & this): Promise<void> {
-        this.ldesClientLogger = extendLogger(this.logger, "LDESClientProcessor");
+        this.ldesClientLogger = extendLogger(
+            this.logger,
+            "LDESClientProcessor",
+        );
         this.client = replicateLDES(
             {
                 url: this.url,
@@ -63,7 +87,9 @@ export class LDESClientProcessor extends Processor<LDESClientArgs> {
                 stateFile: this.savePath,
                 loose: this.loose,
                 urlIsView: this.urlIsView,
-                fetch: this.fetchConfig ? enhanced_fetch(this.fetchConfig) : fetch,
+                fetch: this.fetchConfig
+                    ? enhanced_fetch(this.fetchConfig)
+                    : fetch,
                 condition: await processConditionFile(this.conditionFile),
                 materialize: this.materialize,
                 lastVersionOnly: this.lastVersionOnly,
@@ -82,7 +108,9 @@ export class LDESClientProcessor extends Processor<LDESClientArgs> {
         const t0 = Date.now();
 
         if (this.fetchConfig?.auth) {
-            this.logger.debug(`Using authentication for host ${this.fetchConfig.auth.host}`);
+            this.logger.debug(
+                `Using authentication for host ${this.fetchConfig.auth.host}`,
+            );
             this.fetchConfig.auth.host = new URL(this.url).host;
         }
 
@@ -96,7 +124,6 @@ export class LDESClientProcessor extends Processor<LDESClientArgs> {
 
         while (member) {
             if (member.value) {
-
                 if (this.client.memberCount % 100 === 0) {
                     this.logger.verbose(
                         `Got member number ${this.client.memberCount} with ID ${member.value.id.value} and ${member.value.quads.length} quads`,
@@ -133,7 +160,9 @@ export class LDESClientProcessor extends Processor<LDESClientArgs> {
             member = await reader.read();
         }
 
-        this.logger.verbose(`Found ${this.client.memberCount} members in ${this.client.fragmentCount} fragments (took ${Date.now() - t0} ms)`);
+        this.logger.verbose(
+            `Found ${this.client.memberCount} members in ${this.client.fragmentCount} fragments (took ${Date.now() - t0} ms)`,
+        );
 
         // We extracted all members, so we can close the writer
         await this.output.close();

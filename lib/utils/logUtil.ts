@@ -1,89 +1,40 @@
-import winston, { format, Logger } from "winston";
-
-const PROCESSOR_NAME = "ldes-client";
-
-const consoleTransport = new winston.transports.Console({
-    stderrLevels: [
-        "crit",
-        "error",
-        "emerg",
-        "warn",
-        "warning",
-        "alert",
-        "info",
-        "http",
-        "verbose",
-        "debug",
-        "silly"
-    ]
-});
-
-if (typeof process !== "undefined") {
-    consoleTransport.level =
-        process.env.LOG_LEVEL ||
-        (process.env.DEBUG?.includes(PROCESSOR_NAME) ||
-            process.env.DEBUG === "*"
-            ? "debug"
-            : "info");
+// logger.ts
+export interface Logger {
+    debug(...message: unknown[]): void;
+    info(...message: unknown[]): void;
+    warn(...message: unknown[]): void;
+    error(...message: unknown[]): void;
+    verbose(...message: unknown[]): void;
 }
 
-const classLoggers = new WeakMap<Constructor, Logger>();
-const stringLoggers = new Map<string, Logger>();
-
-export function getLoggerFor(loggable: string | Instance): Logger {
-    let logger: Logger;
-    if (typeof loggable === "string") {
-        if (stringLoggers.has(loggable)) {
-            logger = stringLoggers.get(loggable)!;
-        } else {
-            logger = createLogger(loggable);
-            stringLoggers.set(loggable, logger);
-        }
-    } else {
-        const { constructor } = loggable;
-        if (classLoggers.has(constructor)) {
-            logger = classLoggers.get(constructor)!;
-        } else {
-            logger = createLogger(constructor.name);
-            classLoggers.set(constructor, logger);
-        }
-    }
-    return logger;
+export function scopedLogger(base: Logger, scope: string): Logger {
+    return {
+        debug: (msg, meta) => base.debug(`[${scope}] ${msg}`, meta),
+        info: (msg, meta) => base.info(`[${scope}] ${msg}`, meta),
+        warn: (msg, meta) => base.warn(`[${scope}] ${msg}`, meta),
+        error: (msg, meta) => base.error(`[${scope}] ${msg}`, meta),
+        verbose: (msg, meta) => base.verbose(`[${scope}] ${msg}`, meta),
+    };
 }
 
-function createLogger(label: string): Logger {
-    return winston.createLogger({
-        format: format.combine(
-            format.label({ label }),
-            format.colorize(),
-            format.timestamp(),
-            format.metadata({
-                fillExcept: ["level", "timestamp", "label", "message"],
-            }),
-            format.printf(
-                ({
-                    level: levelInner,
-                    message,
-                    label: labelInner,
-                    timestamp,
-                }): string =>
-                    `${timestamp} {${PROCESSOR_NAME}} [${labelInner}] ${levelInner}: ${message}`,
-            ),
-        ),
-        transports: [consoleTransport],
-    });
+const empty: Logger = {
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+    verbose: () => {},
+};
+
+let baseLogger: Logger = empty;
+setLogger(console);
+export function setLogger(l: Partial<Logger>) {
+    baseLogger = Object.assign({}, empty, l);
+}
+export function getBaseLogger(): Logger {
+    return baseLogger;
 }
 
-/**
- * Any class constructor.
- */
-interface Constructor {
-    name: string;
-}
-
-/**
- * Any class instance.
- */
-interface Instance {
-    constructor: Constructor;
+export function getLoggerFor(obj: string | object): Logger {
+    const name = typeof obj === "string" ? obj : obj.constructor.name;
+    return scopedLogger(baseLogger, name);
 }

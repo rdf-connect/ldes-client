@@ -2,9 +2,11 @@ import { getLoggerFor } from "./logUtil";
 
 const logger = getLoggerFor("ExitHandler");
 
-function noOp() { }
+function noOp() {}
 
 export function handleExit(callback: () => void | Promise<void>) {
+    if (typeof process === "undefined" || typeof process.once === "undefined")
+        return;
     // attach user callback to the process event emitter
     // if no callback, it will still exit gracefully on Ctrl-C
     callback = callback || noOp;
@@ -34,7 +36,6 @@ export function handleExit(callback: () => void | Promise<void>) {
             // Only call exit if there are no other listeners registered for this event.
             process.exit(code);
         }
-
     };
 
     // do app specific cleaning before exitin
@@ -49,6 +50,6 @@ export function handleExit(callback: () => void | Promise<void>) {
     );
     process.once(
         "unhandledRejection",
-        async (error: Error) => await fn("unhandledRejection", 99, error)
+        async (error: Error) => await fn("unhandledRejection", 99, error),
     );
 }
