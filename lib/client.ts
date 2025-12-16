@@ -39,7 +39,10 @@ type EventMap = Record<string, unknown>;
 type EventKey<T extends EventMap> = string & keyof T;
 type EventReceiver<T> = (params: T) => void;
 
+// Re-export util functions
 export { enhanced_fetch } from "./fetcher";
+export { intoConfig } from "./config";
+export { processConditionFile } from "./condition";
 
 export type ClientEvents = {
     fragment: FetchedPage;

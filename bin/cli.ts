@@ -1,9 +1,8 @@
 import * as process from "process";
 import { Command, Option } from "commander";
 import { Writer } from "n3";
-import { replicateLDES, enhanced_fetch } from "../lib/client";
-import { processConditionFile } from "../lib/condition";
 import { getLoggerFor } from "../lib/utils";
+import { replicateLDES, enhanced_fetch, intoConfig, processConditionFile } from "../lib/client";
 
 import type { Ordered } from "../lib/strategy";
 import type { FetchConfig } from "../lib/fetcher";
@@ -171,7 +170,7 @@ async function main() {
     const logger = getLoggerFor("cli");
     const writer = new Writer();
 
-    const client = replicateLDES(
+    const client = replicateLDES(intoConfig(
         {
             loose,
             noShape,
@@ -191,7 +190,7 @@ async function main() {
             includeMetadata,
             workers,
             fetch: enhanced_fetch(fetch_config),
-        },
+        }),
         ordered,
     );
 

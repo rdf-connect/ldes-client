@@ -16,7 +16,7 @@ npm install -g ldes-client
 The LDES client has two main modes: `replicate` and `sync`. Both are accessible through the command line interface (CLI) with various alternative options.
 
 ```bash
-ldes-client <url> [--follow] [--ordered <order>] [--after <datetime>] [--before <datetime>] [--save <path>] [--poll-interval <number>] [--basic-auth <username>:<password>] [--shape-file <shapeFile>] [--only-default-graph] [--no-shape] [--materialize] [--last-version-only] [--default-timezone <timezone>] [--condition <conditionFile>] [--concurrent <number>] [--retry-count <number>] [--http-codes codes...] [--url-is-view] [--loose] [--quiet] [--metadata]
+ldes-client <url> [--follow] [--ordered <order>] [--after <datetime>] [--before <datetime>] [--save <path>] [--poll-interval <number>] [--basic-auth <username>:<password>] [--shape-file <shapeFile>] [--only-default-graph] [--no-shape] [--materialize] [--last-version-only] [--default-timezone <timezone>] [--condition <conditionFile>] [--concurrent <number>] [--retry-count <number>] [--http-codes codes...] [--safe][--url-is-view] [--loose] [--quiet] [--metadata]
 ```
 
 ### CLI options
@@ -56,7 +56,7 @@ async function main() {
   const ldesClient = replicateLDES(intoConfig({
     url: "http://my.ldes.org",
     materialize: true,
-    ...
+    // ... (see above for more options)
   }));
 
   const memberReader = ldesClient.stream({ highWaterMark: 10 }).getReader();
@@ -79,7 +79,7 @@ main().catch((err) => {console.error(err)});
 
 ### `ldes-client` in an RDF-Connect pipeline
 
-The `ldes-client` is also implemented as an RDF-Connect processor (see the semantic definition at [processor.ttl](https://github.com/rdf-connect/ldes-client/blob/main/processor.ttl) and the implementation at [`lib/rdf-connect.ts`](https://github.com/rdf-connect/ldes-client/blob/main/lib/rdfc-processor.ts)) and may be used in a pipeline as follows:
+The `ldes-client` is also exposed as an [RDF-Connect](https://rdf-connect.github.io/) processor (see the semantic definition at [processor.ttl](https://github.com/rdf-connect/ldes-client/blob/main/processor.ttl) and the wrapper implementation at [`lib/rdf-connect.ts`](https://github.com/rdf-connect/ldes-client/blob/main/lib/rdfc-processor.ts)) and may be used in a pipeline as follows:
 
 ```turtle
 @prefix rdfc: <https://w3id.org/rdf-connect#>.
