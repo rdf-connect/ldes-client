@@ -2,10 +2,8 @@
 import * as process from "process";
 import { Command, Option } from "commander";
 import { Writer } from "n3";
-import { replicateLDES, enhanced_fetch } from "../lib/client";
-import { intoConfig } from "../lib/config"
-import { processConditionFile } from "../lib/condition";
 import { getLoggerFor } from "../lib/utils";
+import { replicateLDES, enhanced_fetch, intoConfig, processConditionFile } from "../lib/client";
 
 import type { Ordered } from "../lib/strategy";
 import type { FetchConfig } from "../lib/fetcher";
