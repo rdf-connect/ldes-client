@@ -2,9 +2,8 @@ import { extendLogger, Processor, Writer } from "@rdfc/js-runner";
 import { DataFactory } from "rdf-data-factory";
 import { SDS } from "@treecg/types";
 import { Writer as NWriter } from "n3";
-import { Client, replicateLDES } from "./client";
+import { Client, replicateLDES, intoConfig, processConditionFile } from "./client";
 import { enhanced_fetch } from "./fetcher"
-import { processConditionFile } from "./condition";
 import { Logger } from "winston";
 
 import type { Quad_Object } from "@rdfjs/types";
@@ -52,7 +51,7 @@ export class LDESClientProcessor extends Processor<LDESClientArgs> {
     async init(this: LDESClientArgs & this): Promise<void> {
         this.ldesClientLogger = extendLogger(this.logger, "LDESClientProcessor");
         this.client = replicateLDES(
-            {
+            intoConfig({
                 url: this.url,
                 after: this.after,
                 before: this.before,
@@ -67,7 +66,7 @@ export class LDESClientProcessor extends Processor<LDESClientArgs> {
                 condition: await processConditionFile(this.conditionFile),
                 materialize: this.materialize,
                 lastVersionOnly: this.lastVersionOnly,
-            },
+            }),
             <Ordered>this.ordered || "none",
             undefined,
             this.streamId ? df.namedNode(this.streamId) : undefined,
