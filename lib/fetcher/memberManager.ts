@@ -149,6 +149,7 @@ export class Manager {
                 this.logger.debug(`All members extracted for ${page.url}`);
                 page.created = pageCreated;
                 page.updated = pageUpdated;
+                page.memberCount = members.length;
                 notifier.done(page, state);
             }
         });

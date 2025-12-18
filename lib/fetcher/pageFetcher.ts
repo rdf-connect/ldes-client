@@ -26,6 +26,7 @@ export type FetchedPage = {
     url: string;
     data: RdfStore;
     immutable: boolean;
+    memberCount: number;
     created?: Date;
     updated?: Date;
 };
@@ -186,10 +187,11 @@ export class Fetcher {
             }
 
             if (!this.closed) {
-                notifier.pageFetched({ 
-                    data, 
+                notifier.pageFetched({
+                    data,
                     url: resp.url,
                     immutable: !!cache.immutable,
+                    memberCount: 0,
                 }, state);
             }
         } catch (ex) {

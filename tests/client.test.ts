@@ -15,6 +15,7 @@ describe("Client tests", () => {
     const LDES = "http://localhost:3001/mock-ldes.ttl";
     const LINKED_LIST_LDES = "http://localhost:3001/mock-ldes-linked-list.ttl";
     const INBETWEEN_LDES = "http://localhost:3001/mock-ldes-inbetween.ttl";
+    const CALENDAR_LDES = "http://localhost:3001/mock-calendar-ldes.ttl";
     const EX = createUriAndTermNamespace(
         "http://example.org/",
         "Clazz1",
@@ -38,7 +39,7 @@ describe("Client tests", () => {
                 "onSend",
                 async (request, reply, payload: RequestPayload) => {
                     const st = await streamToString(payload);
-                    
+
                     if (st.startsWith("# delay ")) {
                         const reg = /# delay (?<delay>[0-9]+)/;
                         const found = st.match(reg);
@@ -859,6 +860,109 @@ describe("Client tests", () => {
         expect(timestamps2.every(
             (v, i) => i === 0 || v <= timestamps2[i - 1],
         )).toBeTruthy();
+        // Check that state was saved
+        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+    })
+
+    test("Client runs twice and only receives new members from a calendar-fragmented LDES", async () => {
+        // Setup client 1
+        const client1 = replicateLDES(
+            {
+                url: CALENDAR_LDES,
+                urlIsView: true,
+                after: new Date("2025-01-02T00:00:00.000Z"),
+                stateFile: "./tests/data/client-state.json",
+            },
+        );
+
+        let memCount = 0;
+
+        // Member stream object
+        const members1 = client1.stream({ highWaterMark: 10 }).getReader();
+
+        let memRes1 = await members1.read();
+        while (memRes1) {
+            const mem = memRes1.value;
+
+            if (mem) {
+                expect(mem.id.value).toBeDefined();
+                expect(mem.quads.length).toBeGreaterThan(0);
+                expect(mem.timestamp).toBeDefined();
+                expect(mem.isVersionOf).toBeDefined();
+                expect((mem.timestamp as Date).getTime()).toBeGreaterThanOrEqual(new Date("2025-01-02T00:00:00.000Z").getTime());
+                memCount += 1;
+            }
+
+            if (memRes1.done) {
+                break;
+            }
+            memRes1 = await members1.read();
+        }
+
+        expect(client1.memberCount).toBe(3);
+        expect(client1.fragmentCount).toBe(5);
+        // Check that state was saved
+        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+
+        /**
+         * End of client 1
+         */
+
+        // Setup client 2
+        const client2 = replicateLDES(
+            {
+                url: CALENDAR_LDES,
+                urlIsView: true,
+                before: new Date("2025-01-02T00:00:00.000Z"),
+                stateFile: "./tests/data/client-state.json",
+            },
+        );
+
+        // Member stream object
+        const members2 = client2.stream({ highWaterMark: 10 }).getReader();
+
+        // Check that description event is triggered
+        let gotDescEvent2 = false;
+        client2.on("description", async (info: LDESInfo) => {
+            expect(info).toBeDefined();
+            expect(info.shape).toBeDefined();
+            expect(info.timestampPath?.value).toBe(EX.modified);
+            expect(info.versionOfPath?.value).toBe(EX.isVersionOf);
+            gotDescEvent2 = true;
+        });
+
+        // Check that fragment event is triggered
+        let gotFragmentEvent2 = false;
+        client2.on("fragment", () => {
+            gotFragmentEvent2 = true;
+        });
+
+        let memRes2 = await members2.read();
+        while (memRes2) {
+            const mem = memRes2.value;
+
+            if (mem) {
+                memCount += 1;
+                expect(mem.id.value).toBeDefined();
+                expect(mem.quads.length).toBeGreaterThan(0);
+                expect(mem.timestamp).toBeDefined();
+                expect(mem.isVersionOf).toBeDefined();
+                expect((mem.timestamp as Date).getTime()).toBeLessThan(new Date("2025-01-02T00:00:00.000Z").getTime());
+            }
+
+            if (memRes2.done) {
+                break;
+            }
+            memRes2 = await members2.read();
+        }
+
+        expect(client2.fragmentCount).toBe(5);
+        // Check the total count of members
+        expect(client1.memberCount + client2.memberCount).toBe(6);
+        // Check that we received all memebers
+        expect(memCount).toBe(client1.memberCount + client2.memberCount);
+        expect(gotFragmentEvent2).toBe(true);
+        expect(gotDescEvent2).toBe(true);
         // Check that state was saved
         expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
     })

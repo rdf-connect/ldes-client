@@ -51,7 +51,7 @@ export class UnorderedStrategy {
         // - scheduleFetch: a mutable page was fetched, we keep track of it for future polling
         // - pageFetched: a complete page is fetched and the relations have been extracted
         //         start member extraction
-        // - relationFound: a relation has been found, inFlight += 1 and put it in the queue
+        // - relationFound: a relation has been found, put it in the queue
         this.fetchNotifier = {
             error: (error: unknown) => {
                 this.logger.error(`[fetchNotifier] Error: ${JSON.stringify(error)}`);
@@ -78,7 +78,7 @@ export class UnorderedStrategy {
         };
 
         // Callbacks for the member extractor
-        // - done: all members have been extracted, we are finally done with a page inFlight -= 1
+        // - done: all members have been extracted
         // - extracted: a member has been found, yeet it
         this.memberNotifier = {
             error: (error) => {
@@ -89,7 +89,10 @@ export class UnorderedStrategy {
                 this.notifier.fragment(fragment, {});
                 this.modulator.finished(index)
 
-                if (fragment.immutable) {
+                // Mark page as immutable if cache headers indicate so and page contains members.
+                // This is to prevent that intermediary pages cannot be re-fetched in case of an interruption
+                // or out-of-order page fetching. 
+                if (fragment.immutable && fragment.memberCount > 0) {
                     this.logger.debug(`[memberNotifier - done] Remembering immutable page to avoid future refetching: ${fragment.url}`);
                     this.modulator.recordImmutable(fragment.url);
                 }

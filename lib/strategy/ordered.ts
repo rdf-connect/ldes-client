@@ -135,7 +135,10 @@ export class OrderedStrategy {
                 this.modulator.finished(index);
                 this.notifier.fragment(fragment, {});
 
-                if (fragment.immutable) {
+                // Mark page as immutable if cache headers indicate so and page contains members.
+                // This is to prevent that intermediary pages cannot be re-fetched in case of an interruption
+                // or out-of-order page fetching.
+                if (fragment.immutable && fragment.memberCount > 0) {
                     this.logger.debug(`[memberNotifier - done] Remembering immutable page to avoid future refetching: ${fragment.url}`);
                     this.modulator.recordImmutable(fragment.url);
                 }
