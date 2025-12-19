@@ -137,7 +137,7 @@ describe("Client tests", () => {
 
         expect(client.memberCount).toBe(3);
         expect(client.fragmentCount).toBe(4);
-        // Check that we received all memebers
+        // Check that we received all members
         expect(memCount).toBe(client.memberCount);
         expect(gotFragmentEvent).toBe(true);
         expect(gotDescEvent).toBe(true);
@@ -189,7 +189,7 @@ describe("Client tests", () => {
 
         expect(client.memberCount).toBe(12);
         expect(client.fragmentCount).toBe(4);
-        // Check that we received all memebers
+        // Check that we received all members
         expect(memCount).toBe(client.memberCount);
         expect(gotFragmentEvent).toBe(true);
         expect(gotDescEvent).toBe(true);
@@ -260,7 +260,7 @@ describe("Client tests", () => {
         // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
         expect(client1.memberCount).toBeGreaterThanOrEqual(3);
         expect(client1.fragmentCount).toBeGreaterThanOrEqual(3);
-        // Check that we received all memebers
+        // Check that we received all members
         expect(memCount).toBe(client1.memberCount);
         expect(gotFragmentEvent1).toBe(true);
         expect(gotDescEvent1).toBe(true);
@@ -326,7 +326,7 @@ describe("Client tests", () => {
         expect(client2.fragmentCount).toBeGreaterThanOrEqual(1);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(12);
-        // Check that we received all memebers
+        // Check that we received all members
         expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
@@ -403,7 +403,7 @@ describe("Client tests", () => {
         // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
         expect(client1.memberCount).toBeGreaterThanOrEqual(3);
         expect(client1.fragmentCount).toBeGreaterThanOrEqual(3);
-        // Check that we received all memebers
+        // Check that we received all members
         expect(memCount).toBe(client1.memberCount);
         expect(gotFragmentEvent1).toBe(true);
         expect(gotDescEvent1).toBe(true);
@@ -479,7 +479,7 @@ describe("Client tests", () => {
         expect(client2.fragmentCount).toBeGreaterThanOrEqual(2);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(12);
-        // Check that we received all memebers
+        // Check that we received all members
         expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
@@ -616,7 +616,7 @@ describe("Client tests", () => {
         expect(client2.fragmentCount).toBeGreaterThanOrEqual(2);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(12);
-        // Check that we received all memebers
+        // Check that we received all members
         expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
@@ -756,7 +756,7 @@ describe("Client tests", () => {
         expect(client2.fragmentCount).toBeGreaterThanOrEqual(2);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(9);
-        // Check that we received all memebers
+        // Check that we received all members
         expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
@@ -885,7 +885,7 @@ describe("Client tests", () => {
         expect(client2.fragmentCount).toBe(4);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(9);
-        // Check that we received all memebers
+        // Check that we received all members
         expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
@@ -992,7 +992,7 @@ describe("Client tests", () => {
         expect(client2.fragmentCount).toBe(5);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(6);
-        // Check that we received all memebers
+        // Check that we received all members
         expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
@@ -1090,7 +1090,7 @@ describe("Client tests", () => {
         expect(client2.fragmentCount).toBe(2);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(6);
-        // Check that we received all memebers
+        // Check that we received all members
         expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
@@ -1192,7 +1192,7 @@ describe("Client tests", () => {
         expect(client2.fragmentCount).toBe(4);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(6);
-        // Check that we received all memebers
+        // Check that we received all members
         expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
