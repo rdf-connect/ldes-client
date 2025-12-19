@@ -3,6 +3,7 @@ import { DC, LDES, TREE } from "@treecg/types";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
 import { getObjects, memberFromQuads, getLoggerFor } from "../utils";
+import { Condition } from "../condition";
 
 import type { Quad, Term } from "@rdfjs/types";
 import type { Notifier } from "./modulator";
@@ -41,6 +42,7 @@ export type MemberEvents = {
 
 interface ExtractionState {
     emitted: ReadonlySet<string>;
+    latestVersions?: Map<string, number>;
 }
 
 export class Manager {
@@ -59,11 +61,13 @@ export class Manager {
     private logger = getLoggerFor(this);
     private loose: boolean;
 
+    private condition: Condition;
 
     constructor(
         ldesUri: Term | null,
         info: LDESInfo,
         loose = false,
+        condition: Condition,
     ) {
         this.ldesUri = ldesUri;
         this.extractor = info.extractor;
@@ -71,6 +75,7 @@ export class Manager {
         this.isVersionOfPath = info.versionOfPath;
         this.shapeId = info.shape;
         this.loose = loose;
+        this.condition = condition;
 
         if (!this.ldesUri) {
             this.logger.debug(
@@ -127,10 +132,22 @@ export class Manager {
                     .then((member) => {
                         if (member) {
                             if (!this.closed) {
+                                // Check if member matches condition
+                                if (!this.condition.matchMember(member)) {
+                                    this.logger.debug(`Member <${member.id.value}> does not match condition`);
+                                    return;
+                                }
+                                // Check if member version is to be emitted 
+                                if (this.memberIsOld(member, state.latestVersions)) {
+                                    this.logger.debug(`Member <${member.id.value}> is older than latest version`);
+                                    return;
+                                }
+                                // Emit this member
+                                this.condition.memberEmitted(member);
+                                this.logger.debug(`Member <${member.id.value}> will be emitted`);
                                 notifier.extracted(member, state);
                             }
                         }
-                        return member;
                     })
                     .catch((ex) => {
                         this.logger.error(ex);
@@ -202,5 +219,32 @@ export class Manager {
             this.logger.error(ex);
             return;
         }
+    }
+
+    private memberIsOld(member: Member, versionState?: Map<string, number>) {
+        if (!versionState || !member.isVersionOf) {
+            return false;
+        }
+        this.logger.debug(`Checking if member <${member.id.value}> is old`);
+        // We are emitting latest versions only
+        const newVersion = (<Date>(member.timestamp)).getTime();
+        if (versionState.has(member.isVersionOf)) {
+            // Check if this is an older version
+            const latestVersion = versionState.get(member.isVersionOf);
+            if (latestVersion && newVersion > latestVersion) {
+                this.logger.debug(`Found a newer version of <${member.isVersionOf}>`);
+                // We found a newer version, update the state
+                versionState.set(member.isVersionOf, newVersion);
+            } else {
+                this.logger.debug(`Found an older version of <${member.isVersionOf}>, skipping it`);
+                // This is an older version, return true to skip it
+                return true;
+            }
+        } else {
+            // First time seeing this member
+            this.logger.debug(`First time seeing a version of <${member.isVersionOf}>`);
+            versionState.set(member.isVersionOf, newVersion);
+        }
+        return false;
     }
 }

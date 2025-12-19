@@ -21,7 +21,8 @@ import {
     maybeVersionMaterialize,
     streamToArray,
     getLoggerFor,
-    handleExit
+    handleExit,
+    cleanUpHandlers,
 } from "./utils";
 
 import type { Term } from "@rdfjs/types";
@@ -71,6 +72,7 @@ export class Client {
     private memberManager!: Manager;
     private strategy!: OrderedStrategy | UnorderedStrategy;
     private ordered: Ordered;
+    private closed = false;
 
     private modulatorFactory: ModulatorFactory;
 
@@ -98,7 +100,11 @@ export class Client {
         this.stateFactory = config.stateFile
             ? new FileStateFactory(config.stateFile)
             : new NoStateFactory();
-        this.modulatorFactory = new ModulatorFactory(this.stateFactory);
+        this.modulatorFactory = new ModulatorFactory(
+            this.stateFactory,
+            this.config.concurrentFetches,
+            this.config.lastVersionOnly
+        );
 
         if (typeof process !== "undefined") {
             // Handle exit gracefully
@@ -184,28 +190,14 @@ export class Client {
         );
         this.emit("description", info);
 
-        // Build state entry to keep track of member versions
-        const versionState = this.config.lastVersionOnly
-            ? this.stateFactory.build<Map<string, Date>>(
-                "versions",
-                (map) => {
-                    const arr = [...map.entries()];
-                    return JSON.stringify(arr);
-                },
-                (inp) => {
-                    const obj = JSON.parse(inp);
-                    for (const key of Object.keys(obj)) {
-                        try {
-                            obj[key] = new Date(obj[key]);
-                        } catch (ex: unknown) {
-                            // pass
-                        }
-                    }
-                    return new Map(obj);
-                },
-                () => new Map(),
-            )
-            : undefined;
+        // Handle and assemble condition object that dictates member emission
+        const condition = handleConditions(
+            this.config.condition,
+            this.config.defaultTimezone,
+            this.config.before,
+            this.config.after,
+            info.timestampPath,
+        );
 
         // Component that manages the extraction of all members from every fetched page
         this.memberManager = new Manager(
@@ -214,6 +206,7 @@ export class Client {
                 : ldesUri, // Point to the actual LDES IRI
             info,
             this.config.loose,
+            condition,
         );
 
         this.logger.debug(`timestampPath: ${!!info.timestampPath}`);
@@ -222,20 +215,11 @@ export class Client {
             throw "Can only emit members in order, if LDES is configured with timestampPath";
         }
 
-        // Handle and assemble condition object if needed
-        this.config.condition = handleConditions(
-            this.config.condition,
-            this.config.defaultTimezone,
-            this.config.before,
-            this.config.after,
-            info.timestampPath,
-        );
-
         // Component that manages the fetching of RDF data over HTTP
         this.fetcher = new Fetcher(
             this.dereferencer,
             this.config.loose,
-            this.config.condition,
+            condition,
             this.config.defaultTimezone,
             this.config.includeMetadata || false,
             this.config.fetch,
@@ -249,44 +233,18 @@ export class Client {
                 this.fragmentCount++;
             },
             member: (m) => {
-                if (this.config.condition.matchMember(m)) {
-                    this.config.condition.memberEmitted(m);
-                    // Check if this is a newer version of this member (if we are extracting the last version only)
-                    if (m.isVersionOf && m.timestamp && versionState) {
-                        const versions = versionState.item;
-
-                        if (versions.has(m.isVersionOf)) {
-                            const registeredDate = <Date>(
-                                versions.get(m.isVersionOf)
-                            );
-                            if (<Date>m.timestamp > registeredDate) {
-                                // We got a newer version
-                                versions.set(m.isVersionOf, <Date>m.timestamp);
-                            } else {
-                                // This is an older version, so we ignore it
-                                return;
-                            }
-                        } else {
-                            // First time we see this member
-                            versions.set(
-                                JSON.parse(JSON.stringify(m.isVersionOf)),
-                                <Date>m.timestamp,
-                            );
-                        }
-                    }
-                    // Check if versioned member is to be materialized
-                    streamOut(
-                        maybeVersionMaterialize(
-                            m,
-                            this.config.materialize === true,
-                            info,
-                        ),
-                    );
-                    this.memberCount++;
-                }
+                streamOut(
+                    // Check if member is to be materialized
+                    maybeVersionMaterialize(
+                        m,
+                        this.config.materialize === true,
+                        info,
+                    ),
+                );
+                this.memberCount++;
             },
             pollCycle: () => {
-                this.config.condition.poll();
+                condition.poll();
                 this.emit("poll", undefined);
             },
             mutable: () => {
@@ -341,9 +299,7 @@ export class Client {
             //
             start: async (controller: Controller) => {
                 this.on("error", (error) => {
-                    this.stateFactory.write();
-                    this.memberManager.close();
-                    this.fetcher.close();
+                    this.close();
                     controller.error(error);
                 });
 
@@ -353,7 +309,10 @@ export class Client {
                         controller.enqueue(member);
                         resetPromise(emitted);
                     },
-                    () => controller.close(),
+                    () => {
+                        controller.close();
+                        this.close();
+                    },
                 );
             },
 
@@ -373,10 +332,7 @@ export class Client {
             //
             cancel: async () => {
                 this.logger.info("Stream canceled");
-                this.stateFactory.write();
-                this.strategy?.cancel();
-                this.memberManager?.close();
-                this.fetcher?.close();
+                this.close();
             },
         };
 
@@ -390,6 +346,16 @@ export class Client {
         (this.listeners[key] || []).forEach(function (fn) {
             fn(data);
         });
+    }
+
+    public close() {
+        if (this.closed) return;
+        this.closed = true;
+        this.stateFactory.write();
+        this.strategy?.cancel();
+        this.memberManager?.close();
+        this.fetcher?.close();
+        cleanUpHandlers();
     }
 }
 

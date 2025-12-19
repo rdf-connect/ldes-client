@@ -176,6 +176,7 @@ async function main() {
             materialize,
             lastVersionOnly,
             includeMetadata,
+            concurrentFetches: fetch_config.concurrent,
             fetch: enhanced_fetch(fetch_config),
         }),
         ordered,

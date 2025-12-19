@@ -38,7 +38,8 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
     const INBETWEEN_LDES = "http://localhost:3000/mock-ldes-inbetween.ttl";
     const LINKED_LIST_LDES = "http://localhost:3000/mock-ldes-linked-list.ttl";
     const LOCAL_DUMP_LDES = "./tests/data/ldes-dump.ttl";
-    const LDES_MINIMAL_VIEW = "http://localhost:3000/mock-ldes-minimal-view-0.ttl";
+    const LDES_MINIMAL_VIEW =
+        "http://localhost:3000/mock-ldes-minimal-view-0.ttl";
     const EX = createUriAndTermNamespace(
         "http://example.org/",
         "Clazz1",

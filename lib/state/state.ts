@@ -71,7 +71,7 @@ export class NoStateFactory implements StateFactory {
     ): StateT<T> {
         return new StateT<T>(deserialize, create);
     }
-    write(): void {}
+    write(): void { }
 }
 
 export class FileStateFactory implements StateFactory {
