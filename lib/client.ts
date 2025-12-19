@@ -463,7 +463,6 @@ async function getInfo(
                 localFiles: true,
                 fetch: config.fetch,
             });
-            store = RdfStore.createDefault();
             await new Promise((resolve, reject) => {
                 store.import(resp.data).on("end", resolve).on("error", reject);
             });
