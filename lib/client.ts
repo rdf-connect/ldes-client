@@ -13,7 +13,7 @@ import {
     longPromise,
     resetPromise,
     Manager,
-    statelessPageFetch
+    statelessPageFetch,
 } from "./fetcher";
 import {
     extractMainNodeShape,
@@ -21,7 +21,8 @@ import {
     maybeVersionMaterialize,
     streamToArray,
     getLoggerFor,
-    handleExit
+    handleExit,
+    cleanUpHandlers,
 } from "./utils";
 
 import type { Term } from "@rdfjs/types";
@@ -71,6 +72,7 @@ export class Client {
     private memberManager!: Manager;
     private strategy!: OrderedStrategy | UnorderedStrategy;
     private ordered: Ordered;
+    private closed = false;
 
     private modulatorFactory: ModulatorFactory;
 
@@ -99,6 +101,8 @@ export class Client {
             ? new FileStateFactory(config.stateFile)
             : new NoStateFactory();
         this.modulatorFactory = new ModulatorFactory(this.stateFactory);
+
+        this.logger.debug(`Using ${this.config.workers} worker threads for member extraction`);
 
         if (typeof process !== "undefined") {
             // Handle exit gracefully
@@ -141,7 +145,7 @@ export class Client {
             : df.namedNode(this.config.url);
 
         //*****************************************************************
-        // TODO: Handle the case where there are multiple views available 
+        // TODO: Handle the case where there are multiple views available
         // through a discovery process.
         //*****************************************************************
         const viewQuads = root.data.getQuads(null, TREE.terms.view, null, null);
@@ -161,11 +165,16 @@ export class Client {
             }
         }
 
-        // This is the actual LDES IRI found in the RDF data. 
-        // Might be different from the configured ldesId due to HTTP redirects 
-        const ldesUri = viewQuads[0]?.subject || root.data.getQuads(null, RDF.terms.type, LDES.terms.EventStream)[0].subject;
+        // This is the actual LDES IRI found in the RDF data.
+        // Might be different from the configured ldesId due to HTTP redirects
+        const ldesUri =
+            viewQuads[0]?.subject ||
+            root.data.getQuads(null, RDF.terms.type, LDES.terms.EventStream)[0]
+                .subject;
         if (!ldesUri) {
-            this.logger.error("Could not find the LDES IRI in the fetched RDF data.");
+            this.logger.error(
+                "Could not find the LDES IRI in the fetched RDF data.",
+            );
             throw "No LDES IRI found";
         }
         // This is the ID of the stream of data we are replicating.
@@ -207,13 +216,12 @@ export class Client {
             : undefined;
 
         // Component that manages the extraction of all members from every fetched page
-        this.memberManager = new Manager(
-            isLocalDump
-                ? null // Local dump does not need to dereference a view
-                : ldesUri, // Point to the actual LDES IRI
+        this.memberManager = await Manager.createInstance({
+            ldesURI: isLocalDump ? undefined : ldesUri,
             info,
-            this.config.loose,
-        );
+            poolSize: this.config.workers,
+            loose: this.config.loose,
+        });
 
         this.logger.debug(`timestampPath: ${!!info.timestampPath}`);
 
@@ -322,9 +330,10 @@ export class Client {
                     this.config.pollInterval,
                 );
 
-        if (!isLocalDump) this.logger.debug(
-            `Found ${viewQuads.length} views, choosing ${viewId.value}`,
-        );
+        if (!isLocalDump)
+            this.logger.debug(
+                `Found ${viewQuads.length} views, choosing ${viewId.value}`,
+            );
 
         this.strategy.start(viewId.value, isLocalDump ? root : undefined);
     }
@@ -340,9 +349,7 @@ export class Client {
             //
             start: async (controller: Controller) => {
                 this.on("error", (error) => {
-                    this.stateFactory.write();
-                    this.memberManager.close();
-                    this.fetcher.close();
+                    this.close();
                     controller.error(error);
                 });
 
@@ -352,7 +359,10 @@ export class Client {
                         controller.enqueue(member);
                         resetPromise(emitted);
                     },
-                    () => controller.close(),
+                    () => {
+                        controller.close();
+                        this.close();
+                    },
                 );
             },
 
@@ -372,10 +382,7 @@ export class Client {
             //
             cancel: async () => {
                 this.logger.info("Stream canceled");
-                this.stateFactory.write();
-                this.strategy?.cancel();
-                this.memberManager?.close();
-                this.fetcher?.close();
+                this.close();
             },
         };
 
@@ -389,6 +396,15 @@ export class Client {
         (this.listeners[key] || []).forEach(function (fn) {
             fn(data);
         });
+    }
+    public close() {
+        if (this.closed) return;
+        this.closed = true;
+        this.stateFactory.write();
+        this.strategy?.cancel();
+        this.memberManager?.close();
+        this.fetcher?.close();
+        cleanUpHandlers();
     }
 }
 
@@ -433,12 +449,16 @@ async function getInfo(
 
     if (isLocalDump) {
         // We are dealing with a local dump LDES
-        shapeIds = config.noShape ? [] : getObjects(store, null, TREE.terms.shape);
+        shapeIds = config.noShape
+            ? []
+            : getObjects(store, null, TREE.terms.shape);
         timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
         versionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
     } else {
         // This is a normal LDES on the Web
-        shapeIds = config.noShape ? [] : getObjects(store, ldesId, TREE.terms.shape);
+        shapeIds = config.noShape
+            ? []
+            : getObjects(store, ldesId, TREE.terms.shape);
         timestampPaths = getObjects(store, ldesId, LDES.terms.timestampPath);
         versionOfPaths = getObjects(store, ldesId, LDES.terms.versionOfPath);
     }
@@ -450,7 +470,11 @@ async function getInfo(
     // Only try to dereference the view if we are not dealing with a local dump
     if (isLocalDump) {
         logger.debug("Ignoring view since this is a local dump");
-    } else if (shapeIds.length === 0 || timestampPaths.length === 0 || versionOfPaths.length === 0) {
+    } else if (
+        shapeIds.length === 0 ||
+        timestampPaths.length === 0 ||
+        versionOfPaths.length === 0
+    ) {
         let tryAgainUrl = viewId.value;
         if (config.urlIsView) {
             tryAgainUrl = ldesId.value;
@@ -472,17 +496,25 @@ async function getInfo(
             }
 
             if (!timestampPaths.length) {
-                timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
+                timestampPaths = getObjects(
+                    store,
+                    null,
+                    LDES.terms.timestampPath,
+                );
             }
             if (!versionOfPaths.length) {
-                versionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
+                versionOfPaths = getObjects(
+                    store,
+                    null,
+                    LDES.terms.versionOfPath,
+                );
             }
             logger.debug(
                 `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${versionOfPaths.length} isVersionOfPaths`,
             );
         } catch (ex: unknown) {
             logger.error(`Failed to fetch ${tryAgainUrl}`);
-            logger.error(ex);
+            logger.error((ex as Error).message);
         }
     }
 
@@ -491,11 +523,15 @@ async function getInfo(
     }
 
     if (timestampPaths.length > 1) {
-        logger.error(`Expected at most one timestamp path, found ${timestampPaths.length}`);
+        logger.error(
+            `Expected at most one timestamp path, found ${timestampPaths.length}`,
+        );
     }
 
     if (versionOfPaths.length > 1) {
-        logger.error(`Expected at most one versionOf path, found ${versionOfPaths.length}`);
+        logger.error(
+            `Expected at most one versionOf path, found ${versionOfPaths.length}`,
+        );
     }
 
     const shapeConfigStore = RdfStore.createDefault();
@@ -507,11 +543,18 @@ async function getInfo(
         config.shape.shapeId = extractMainNodeShape(shapeConfigStore);
     } else {
         const shapeId = shapeIds[0];
-        if (shapeId && shapeId.termType === 'NamedNode' && store.getQuads(shapeId, null, null).length === 0) {
+        if (
+            shapeId &&
+            shapeId.termType === "NamedNode" &&
+            store.getQuads(shapeId, null, null).length === 0
+        ) {
             // Dereference out-of-band shape
             const respShape = await rdfDereferencer.dereference(shapeId.value);
             await new Promise((resolve, reject) => {
-                store.import(respShape.data).on("end", resolve).on("error", reject);
+                store
+                    .import(respShape.data)
+                    .on("end", resolve)
+                    .on("error", reject);
             });
         }
     }
@@ -527,5 +570,6 @@ async function getInfo(
         timestampPath: timestampPaths[0],
         versionOfPath: versionOfPaths[0],
         shapeQuads: shapeStore.getQuads(),
+        onlyDefaultGraph: config.onlyDefaultGraph,
     };
 }

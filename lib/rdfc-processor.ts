@@ -42,6 +42,7 @@ type LDESClientArgs = {
     lastVersionOnly?: boolean;
     streamId?: string;
     sdsify?: boolean;
+    workers?: number;
 };
 
 export class LDESClientProcessor extends Processor<LDESClientArgs> {
@@ -66,6 +67,7 @@ export class LDESClientProcessor extends Processor<LDESClientArgs> {
                 condition: await processConditionFile(this.conditionFile),
                 materialize: this.materialize,
                 lastVersionOnly: this.lastVersionOnly,
+                workers: this.workers,
             }),
             <Ordered>this.ordered || "none",
             undefined,

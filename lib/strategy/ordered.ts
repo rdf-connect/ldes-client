@@ -1,7 +1,12 @@
 import { Heap } from "heap-js";
 import { TREE } from "@treecg/types";
 import { Fetcher, ModulatorFactory, RelationChain, Manager } from "../fetcher";
-import { parseInBetweenRelation, getLoggerFor, deserializeMember, serializeMember } from "../utils";
+import {
+    parseInBetweenRelation,
+    getLoggerFor,
+    deserializeMember,
+    serializeMember,
+} from "../utils";
 import { GTRs, LTR } from "./types";
 
 import type {
@@ -13,7 +18,7 @@ import type {
     Notifier,
     SimpleRelation,
     MemberEvents,
-    Modulator
+    Modulator,
 } from "../fetcher";
 import type { StrategyEvents, Ordered, SerializedMember } from ".";
 
@@ -47,7 +52,7 @@ export class OrderedStrategy {
         {
             chain: RelationChain;
             index: number;
-            emitted: ReadonlySet<string>
+            emitted: ReadonlySet<string>;
         }
     >;
 
@@ -92,7 +97,9 @@ export class OrderedStrategy {
                 this.notifier.error(error, {});
             },
             scheduleFetch: ({ target, expected }, { chain }) => {
-                this.logger.debug(`[fetchNotifier - scheduleFetch] Scheduling fetch for mutable page: ${target}`);
+                this.logger.debug(
+                    `[fetchNotifier - scheduleFetch] Scheduling fetch for mutable page: ${target}`,
+                );
                 chain.target = target;
                 this.toPoll.push({ chain, expected });
                 // Register in the state that this page needs to be refetched in the future
@@ -100,19 +107,28 @@ export class OrderedStrategy {
                 this.notifier.mutable({}, {});
             },
             pageFetched: (page, state) => {
-                this.logger.debug(`[fetchNotifier - pageFetched] Page fetched ${page.url}`);
+                this.logger.debug(
+                    `[fetchNotifier - pageFetched] Page fetched ${page.url}`,
+                );
                 this.handleFetched(page, state);
             },
             relationFound: ({ from, target }, { chain }) => {
                 from.expected.push(target.node);
-                this.logger.debug(`[fetchNotifier - relationFound] Relation found ${target.node}`);
+                this.logger.debug(
+                    `[fetchNotifier - relationFound] Relation found ${target.node}`,
+                );
                 const newChain = chain.push(
                     target.node,
                     this.extractRelation(target),
                 );
                 if (newChain.ordering(chain) >= 0) {
                     // Only launch the fetching of this relation if it hasn't been launched already
-                    if (!this.launchedRelations.contains(newChain, (e, o) => e.target === o.target)) {
+                    if (
+                        !this.launchedRelations.contains(
+                            newChain,
+                            (e, o) => e.target === o.target,
+                        )
+                    ) {
                         this.fetch(newChain, [from.target]);
                     }
                 } else {
@@ -131,12 +147,16 @@ export class OrderedStrategy {
                 this.notifier.error(error, {});
             },
             done: (fragment: FetchedPage, { chain, index }) => {
-                this.logger.debug(`[memberNotifier - done] Member extraction done for ${chain.target}`);
+                this.logger.debug(
+                    `[memberNotifier - done] Member extraction done for ${chain.target}`,
+                );
                 this.modulator.finished(index);
                 this.notifier.fragment(fragment, {});
 
                 if (fragment.immutable) {
-                    this.logger.debug(`[memberNotifier - done] Remembering immutable page to avoid future refetching: ${fragment.url}`);
+                    this.logger.debug(
+                        `[memberNotifier - done] Remembering immutable page to avoid future refetching: ${fragment.url}`,
+                    );
                     this.modulator.recordImmutable(fragment.url);
                 }
 
@@ -144,10 +164,18 @@ export class OrderedStrategy {
             },
             extracted: (member) => {
                 // Only proceed to emit if the member is not already in process of being emitted
-                if (!this.members.contains(member, (e, o) => e.id.value === o.id.value)) {
+                if (
+                    !this.members.contains(
+                        member,
+                        (e, o) => e.id.value === o.id.value,
+                    )
+                ) {
                     this.members.push(member);
                     // Register extracted member in the unemitted list
-                    this.modulator.recordUnemitted(member.id.value, serializeMember(member));
+                    this.modulator.recordUnemitted(
+                        member.id.value,
+                        serializeMember(member),
+                    );
                 }
             },
         };
@@ -158,14 +186,18 @@ export class OrderedStrategy {
             {
                 ready: ({ item: { chain, expected }, index }) => {
                     if (!this.modulator.seen(chain.target)) {
-                        this.logger.debug(`[modulator - ready] Ready to fetch page: ${chain.target}`);
+                        this.logger.debug(
+                            `[modulator - ready] Ready to fetch page: ${chain.target}`,
+                        );
                         this.fetcher.fetch(
                             { target: chain.target, expected },
                             { chain, index },
                             this.fetchNotifier,
                         );
                     } else {
-                        this.logger.debug(`[modulator - ready] Skipping fetch for previously fetched immutable page: ${chain.target}`);
+                        this.logger.debug(
+                            `[modulator - ready] Skipping fetch for previously fetched immutable page: ${chain.target}`,
+                        );
                         this.modulator.finished(index);
                         // See if we can emit some members or end the process
                         this.checkEmit();
@@ -230,7 +262,9 @@ export class OrderedStrategy {
         // Check for any unemitted members from a previous run
         const unemitted = this.modulator.getUnemitted();
         if (unemitted.length > 0) {
-            this.logger.debug(`[start] Found ${unemitted.length} unemitted members in the saved state`);
+            this.logger.debug(
+                `[start] Found ${unemitted.length} unemitted members in the saved state`,
+            );
             unemitted
                 .map(deserializeMember)
                 .forEach((member) => this.members.push(member));
@@ -243,9 +277,9 @@ export class OrderedStrategy {
                 {
                     chain: new RelationChain("", ""),
                     index: 0,
-                    emitted: new Set<string>()
+                    emitted: new Set<string>(),
                 },
-                this.memberNotifier
+                this.memberNotifier,
             );
         } else if (this.modulator.length() < 1) {
             this.logger.debug(`[start] Starting at ${url}`);
@@ -255,18 +289,13 @@ export class OrderedStrategy {
                 return 0;
             };
 
-            const relCmp = this.ordered === "ascending"
-                ? (a: RelationValue, b: RelationValue) => +1 * cmp(a, b)
-                : (a: RelationValue, b: RelationValue) => -1 * cmp(a, b);
+            const relCmp =
+                this.ordered === "ascending"
+                    ? (a: RelationValue, b: RelationValue) => +1 * cmp(a, b)
+                    : (a: RelationValue, b: RelationValue) => -1 * cmp(a, b);
 
             this.fetch(
-                new RelationChain(
-                    "",
-                    url,
-                    [],
-                    undefined,
-                    relCmp,
-                ).push(url, {
+                new RelationChain("", url, [], undefined, relCmp).push(url, {
                     important: false,
                     value: 0,
                 }),
@@ -286,6 +315,17 @@ export class OrderedStrategy {
     checkEnd() {
         if (this.canceled) return;
 
+        // Check if there are any relations in transit
+        const inTransit =
+            this.modulator
+                .getInFlight().length > 0 ||
+            this.modulator
+                .getTodo().length > 0;
+
+        if (inTransit) {
+            return;
+        }
+        
         // There are no relations more to be had, emit the other members
         if (this.launchedRelations.isEmpty()) {
             this.logger.debug("[checkEnd] No more launched relations");
@@ -298,7 +338,9 @@ export class OrderedStrategy {
 
             // Make sure polling task is only scheduled once
             if (this.polling && !this.pollingIsScheduled) {
-                this.logger.debug(`[checkEnd] Polling is enabled, setting timeout of ${this.pollInterval || 1000} ms to poll`);
+                this.logger.debug(
+                    `[checkEnd] Polling is enabled, setting timeout of ${this.pollInterval || 1000} ms to poll`,
+                );
                 setTimeout(() => {
                     if (this.canceled) return;
 
@@ -319,7 +361,9 @@ export class OrderedStrategy {
                 }, this.pollInterval || 1000);
                 this.pollingIsScheduled = true;
             } else {
-                this.logger.debug("[checkEnd] Closing the notifier, polling is not set");
+                this.logger.debug(
+                    "[checkEnd] Closing the notifier, polling is not set",
+                );
                 this.canceled = true;
                 this.notifier.close({}, {});
             }
@@ -429,15 +473,18 @@ export class OrderedStrategy {
         this.modulator.push({ chain: rel, expected });
     }
 
-    private handleFetched(page: FetchedPage, state: { chain: RelationChain, index: number }) {
+    private handleFetched(
+        page: FetchedPage,
+        state: { chain: RelationChain; index: number },
+    ) {
         // Page is fetched and will now be extracted
         this.manager.extractMembers(
             page,
             {
                 emitted: this.modulator.getEmitted(),
-                ...state
+                ...state,
             },
-            this.memberNotifier
+            this.memberNotifier,
         );
     }
 
@@ -460,8 +507,12 @@ export class OrderedStrategy {
 
             // If this relation still has things in transit, or getting extracted, we must wait
             const inTransit =
-                this.modulator.getInFlight().find((x) => x.chain.ordering(head!) == 0)
-                || this.modulator.getTodo().find((x) => x.chain.ordering(head!) == 0)
+                this.modulator
+                    .getInFlight()
+                    .find((x) => x.chain.ordering(head!) == 0) ||
+                this.modulator
+                    .getTodo()
+                    .find((x) => x.chain.ordering(head!) == 0);
 
             if (inTransit) {
                 break;
@@ -492,7 +543,10 @@ export class OrderedStrategy {
                 // This member failed, let's put him back
                 if (member) {
                     this.members.push(member);
-                    this.modulator.recordUnemitted(member.id.value, serializeMember(member));
+                    this.modulator.recordUnemitted(
+                        member.id.value,
+                        serializeMember(member),
+                    );
                 }
             }
 
