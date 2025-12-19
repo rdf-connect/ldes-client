@@ -163,7 +163,8 @@ export class Client {
 
         // This is the actual LDES IRI found in the RDF data. 
         // Might be different from the configured ldesId due to HTTP redirects 
-        const ldesUri = viewQuads[0]?.subject || root.data.getQuads(null, RDF.terms.type, LDES.terms.EventStream)[0].subject;
+        const ldesUri = viewQuads[0]?.subject ||
+            root.data.getQuads(null, RDF.terms.type, LDES.terms.EventStream)[0].subject;
         if (!ldesUri) {
             this.logger.error("Could not find the LDES IRI in the fetched RDF data.");
             throw "No LDES IRI found";
@@ -419,6 +420,7 @@ async function getInfo(
                 quads: quads,
                 shapeId: df.namedNode(shapeId),
             };
+            quads.forEach((quad) => store.addQuad(quad));
         } catch (ex) {
             logger.error(`Failed to fetch shape from ${shapeId}`);
             throw ex;
@@ -507,16 +509,21 @@ async function getInfo(
         config.shape.shapeId = extractMainNodeShape(shapeConfigStore);
     } else {
         const shapeId = shapeIds[0];
-        if (shapeId && shapeId.termType === 'NamedNode' && store.getQuads(shapeId, null, null).length === 0) {
+        if (shapeId &&
+            shapeId.termType === 'NamedNode' &&
+            store.getQuads(shapeId, null, null).length === 0
+        ) {
             // Dereference out-of-band shape
             const respShape = await rdfDereferencer.dereference(shapeId.value);
             await new Promise((resolve, reject) => {
-                store.import(respShape.data).on("end", resolve).on("error", reject);
+                shapeConfigStore.import(respShape.data)
+                    .on("end", resolve)
+                    .on("error", reject);
             });
         }
     }
 
-    const shapeStore = config.shape ? shapeConfigStore : store;
+    const shapeStore = shapeIds.length > 0 ? store : shapeConfigStore;
 
     return {
         extractor: new CBDShapeExtractor(shapeStore, dereferencer, {
