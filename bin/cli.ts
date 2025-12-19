@@ -87,7 +87,7 @@ program
     .option(
         "--concurrent <requests>",
         "Allowed amount of concurrent HTTP request to the same domain",
-        "5",
+        "10",
     )
     .option(
         "--retry-count <retry>",
