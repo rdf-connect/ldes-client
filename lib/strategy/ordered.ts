@@ -289,6 +289,15 @@ export class OrderedStrategy {
     checkEnd() {
         if (this.canceled) return;
 
+        // Check if there are any relations in transit
+        const inTransit =
+            this.modulator.getInFlight().length > 0 ||
+            this.modulator.getTodo().length > 0;
+
+        if (inTransit) {
+            return;
+        }
+
         // There are no relations more to be had, emit the other members
         if (this.launchedRelations.isEmpty()) {
             this.logger.debug("[checkEnd] No more launched relations");
