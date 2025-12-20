@@ -304,9 +304,10 @@ export class OrderedStrategy {
             let member = this.members.pop();
             while (member) {
                 if (!this.memberIsOld(member)) {
-                    this.notifier.member(member, {});
                     // Record member as emitted
                     this.modulator.recordEmitted(member.id.value);
+                    // And proceed to emit it
+                    this.notifier.member(member, {});
                 } else {
                     // Remove member from unemitted list as a newer version was already available/emitted
                     this.modulator.deleteUnemitted(member.id.value);
@@ -501,9 +502,10 @@ export class OrderedStrategy {
                             : member.timestamp > marker.value
                     ) {
                         if (!this.memberIsOld(member)) {
-                            this.notifier.member(member, {});
                             // Record member as emitted
                             this.modulator.recordEmitted(member.id.value);
+                            // And proceed to emit it
+                            this.notifier.member(member, {});
                         } else {
                             // Remove member from unemitted list as a newer version was already available/emitted
                             this.modulator.deleteUnemitted(member.id.value);
