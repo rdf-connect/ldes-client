@@ -42,6 +42,7 @@ export type ModulatorEvents<T> = {
  *              This is relevant when the modulator follows a ordered strategy, 
  *              where data entities are buffered and are emitted only when possible. 
  * - Emitted: data entity has been emitted.
+ * - Versions: records the latest version of a data entity.
  */
 export interface Modulator<T, M> {
     /**
@@ -95,6 +96,12 @@ export interface Modulator<T, M> {
     recordUnemitted(url: string, member: M): void
 
     /**
+     * Removes a data entity from the unemitted list.
+     * @param {string} url The URL of the data entity.
+    */
+    deleteUnemitted(url: string): void
+
+    /**
      * Returns all elements that are still in the todo list.
      * @returns {ReadonlyArray<T>} The todo list.
     */
@@ -123,6 +130,12 @@ export interface Modulator<T, M> {
      * @returns {ReadonlySet<string>} The emitted list.
     */
     getEmitted(): ReadonlySet<string>
+
+    /**
+     * Returns the latest versions recorded for all known data entities
+     * @returns {Map<string, number>} The versions map (if any)
+     */
+    getLatestVersions(): Map<string, number> | undefined
 }
 
 type ModulatorInstanceState<T, M> = {
@@ -139,17 +152,17 @@ type ModulatorInstanceState<T, M> = {
  * This is a factory to keep track whether the Modulator should be paused or not.
  */
 export class ModulatorFactory {
-    concurrent = 10;
+    concurrent: number;
     paused: boolean = false;
+    lastVersionOnly: boolean = false;
 
     factory: StateFactory;
     children: ModulatorInstance<unknown, unknown>[] = [];
 
-    constructor(stateFactory: StateFactory, concurrent?: number) {
+    constructor(stateFactory: StateFactory, concurrent?: number, lastVersionOnly?: boolean) {
         this.factory = stateFactory;
-        if (concurrent) {
-            this.concurrent = concurrent;
-        }
+        this.concurrent = concurrent || 10;
+        this.lastVersionOnly = lastVersionOnly!!;
     }
 
     /**
@@ -161,6 +174,7 @@ export class ModulatorFactory {
         notifier: Notifier<ModulatorEvents<T>, unknown>,
         parse?: (item: unknown) => T,
     ): Modulator<T, M> {
+        // Build a page fetch and member emission state object 
         const state = this.factory.build<ModulatorInstanceState<T, M>>(
             name,
             (stateObj) => JSON.stringify(stateObj, (_, value) => {
@@ -208,7 +222,18 @@ export class ModulatorFactory {
             );
         }
 
-        const modulator = new ModulatorInstance(state, ranker, notifier, this);
+        // Build a state object to record the latest version of every member (if required)
+        let versionState;
+        if (this.lastVersionOnly) {
+            versionState = this.factory.build<Map<string, number>>(
+                "memberLastVersion",
+                (map) => JSON.stringify([...map.entries()]),
+                (inp) => new Map(JSON.parse(inp)),
+                () => new Map(),
+            );
+        }
+
+        const modulator = new ModulatorInstance(state, versionState, ranker, notifier, this);
         this.children.push(<ModulatorInstance<unknown, unknown>>modulator);
         return modulator;
     }
@@ -228,6 +253,7 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
     index = 0;
 
     private state: StateT<ModulatorInstanceState<T, M>>;
+    private versionState: StateT<Map<string, number>> | undefined;
     private ranker: Ranker<Indexed<T>>;
     private notifier: Notifier<ModulatorEvents<T>, unknown>;
     private factory: ModulatorFactory;
@@ -236,6 +262,7 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
 
     constructor(
         state: StateT<ModulatorInstanceState<T, M>>,
+        versionState: StateT<Map<string, number>> | undefined,
         ranker: Ranker<Indexed<T>>,
         notifier: Notifier<ModulatorEvents<T>, unknown>,
         factory: ModulatorFactory,
@@ -245,14 +272,16 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
             ...this.state.item.todo.values(),
             ...this.state.item.inflight.values(),
         ];
-
         // Clean up previous record lists
         this.state.item.inflight.clear();
         this.state.item.todo.clear();
 
+        this.versionState = versionState;
+
         this.ranker = ranker;
         this.notifier = notifier;
         this.factory = factory;
+
         for (const item of read) {
             this.push(item);
         }
@@ -294,6 +323,10 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
         this.state.item.unemitted.set(url, member);
     }
 
+    deleteUnemitted(url: string): void {
+        this.state.item.unemitted.delete(url);
+    }
+
     getTodo(): ReadonlyArray<T> {
         return <ReadonlyArray<T>>Array.from(this.state.item.todo.values());
     }
@@ -312,6 +345,10 @@ export class ModulatorInstance<T, M> implements Modulator<T, M> {
 
     getEmitted(): ReadonlySet<string> {
         return <ReadonlySet<string>>this.state.item.emitted;
+    }
+
+    getLatestVersions(): Map<string, number> | undefined {
+        return this.versionState?.item;
     }
 
     finished(index: number) {

@@ -87,7 +87,7 @@ program
     .option(
         "--concurrent <requests>",
         "Allowed amount of concurrent HTTP request to the same domain",
-        "5",
+        "10",
     )
     .option(
         "--retry-count <retry>",
@@ -176,6 +176,7 @@ async function main() {
             materialize,
             lastVersionOnly,
             includeMetadata,
+            concurrentFetches: fetch_config.concurrent,
             fetch: enhanced_fetch(fetch_config),
         }),
         ordered,

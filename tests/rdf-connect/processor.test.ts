@@ -1,152 +1,90 @@
 import { describe, expect, test } from "vitest";
+import { ProcHelper } from "@rdfc/js-runner/lib/testUtils";
+import { LDESClientProcessor } from "../../lib/rdfc-processor";
+
+import type { FullProc } from "@rdfc/js-runner";
 
 
-describe("Tests for js:LdesClient processor", async () => {
-    const pipeline = `
-        @prefix js: <https://w3id.org/conn/js#>.
-        @prefix ws: <https://w3id.org/conn/ws#>.
-        @prefix : <https://w3id.org/conn#>.
-        @prefix owl: <http://www.w3.org/2002/07/owl#>.
-        @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+describe("Tests for rdfc:LdesClient processor", async () => {
+
+    test("rdfc:LdesClient is properly defined", async () => {
+        const processor = `
+        @prefix rdfc: <https://w3id.org/rdf-connect#>.
         @prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
-        @prefix sh: <http://www.w3.org/ns/shacl#>.
 
-        <> owl:imports <./node_modules/@rdfc/js-runner/ontology.ttl>, <./processor.ttl>.
-
-        [ ] a :Channel, js:JsChannel;
-            :writer <jw>.
-
-        <jw> a js:JsWriterChannel.
-    `;
-
-    const baseIRI = process.cwd() + "/config.ttl";
-
-    test("js:LdesClient is properly defined", async () => {
-        const proc = `
-        [ ] a js:LdesClient;
-            js:output <jw>;
-            js:url <https://era.ilabt.imec.be/rinf/ldes>;
-            js:before "2025-01-01T00:00:00.000Z"^^xsd:dateTime;
-            js:after "2023-12-31T23:59:59.000Z"^^xsd:dateTime;
-            js:ordered "ascending";
-            js:follow true;
-            js:interval 5;
-            js:shapeFile </path/to/shape.ttl>;
-            js:noShape false;
-            js:savePath </state/save.json>;
-            js:loose false;
-            js:urlIsView false;
-            js:fetch [
-                js:concurrent 5;
-                js:retry [
-                    js:code 404, 403;
-                    js:maxRetry 5;
+        <http://example.com/ns#processor> a rdfc:LdesClient;
+            rdfc:url <https://era.ilabt.imec.be/rinf/ldes>;
+            rdfc:output <jw>;
+            rdfc:before "2025-01-01T00:00:00.000Z"^^xsd:dateTime;
+            rdfc:after "2023-12-31T23:59:59.000Z"^^xsd:dateTime;
+            rdfc:ordered "ascending";
+            rdfc:follow true;
+            rdfc:interval 5;
+            rdfc:shapeFile "/path/to/shape.ttl";
+            rdfc:noShape false;
+            rdfc:savePath "/state/save.json";
+            rdfc:loose false;
+            rdfc:urlIsView false;
+            rdfc:fetch [
+                rdfc:concurrent 5;
+                rdfc:retry [
+                    rdfc:code 404, 403;
+                    rdfc:maxRetry 5;
                 ];
-                js:safe true;
-                js:auth [
-                    js:auth "test";
-                    js:type "basic"
+                rdfc:safe true;
+                rdfc:auth [
+                    rdfc:auth "test";
+                    rdfc:type "basic"
                 ]
             ];
-            js:conditionFile </path/to/condition.ttl>;
-            js:materialize true;
-            js:lastVersionOnly true;
-            js:streamId "MyStream";
-            js:sdsify true.
+            rdfc:materialize true;
+            rdfc:lastVersionOnly true;
+            rdfc:streamId "MyStream";
+            rdfc:sdsify true.
         `;
-    
-        // TODO: FIX ME
 
-        // const source: Source = {
-        //     value: pipeline + proc,
-        //     baseIRI,
-        //     type: "memory",
-        // };
+        const configLocation = process.cwd() + "/processor.ttl";
 
-        // const {
-        //     processors,
-        //     quads,
-        //     shapes: config,
-        // } = await extractProcessors(source);
+        const procHelper = new ProcHelper<FullProc<LDESClientProcessor>>();
+        // Load processor semantic definition
+        await procHelper.importFile(configLocation);
+        // Load processor instance declaration
+        await procHelper.importInline("pipeline.ttl", processor);
 
-        // const env = processors.find(
-        //     (x) => x.ty.value === "https://w3id.org/conn/js#LdesClient",
-        // )!;
-        // expect(env).toBeDefined();
+        // Get processor configuration
+        procHelper.getConfig("LdesClient");
 
-        // const argss = extractSteps(env, quads, config);
-        // expect(argss.length).toBe(1);
-        // expect(argss[0].length).toBe(17);
+        // Instantiate processor from declared instance
+        const proc: FullProc<LDESClientProcessor> = await procHelper.getProcessor("http://example.com/ns#processor");
 
-        // const [
-        //     [
-        //         output,
-        //         url,
-        //         before,
-        //         after,
-        //         ordered,
-        //         follow,
-        //         pollInterval,
-        //         shapeFile,
-        //         noShape,
-        //         savePath,
-        //         loose,
-        //         urlIsView,
-        //         fetch_config,
-        //         conditionFile,
-        //         materialize,
-        //         lastVersionOnly,
-        //         streamId
-        //     ],
-        // ] = argss;
 
-        // testWriter(output);
-        // expect(url).toBe("https://era.ilabt.imec.be/rinf/ldes");
-        // expect(before.toISOString()).toBe("2025-01-01T00:00:00.000Z");
-        // expect(after.toISOString()).toBe("2023-12-31T23:59:59.000Z");
-        // expect(ordered).toBe("ascending");
-        // expect(follow).toBeTruthy();
-        // expect(pollInterval).toBe(5);
-        // expect(shapeFile).toBe("/path/to/shape.ttl");
-        // expect(noShape).toBeFalsy();
-        // expect(savePath).toBe("/state/save.json");
-        // expect(loose).toBeFalsy();
-        // expect(urlIsView).toBeFalsy();
-
-        // expect(fetch_config.concurrent).toBe(5);
-        // expect(fetch_config.retry).toEqual({
-        //     codes: [404, 403],
-        //     maxRetries: 5,
-        // });
-        // expect(fetch_config.auth).toEqual({
-        //     type: "basic",
-        //     auth: "test",
-        // });
-        // expect(fetch_config.safe).toBeTruthy();
-
-        // expect(conditionFile).toBe("/path/to/condition.ttl");
-        // expect(materialize).toBeTruthy();
-        // expect(lastVersionOnly).toBeTruthy();
-        // expect(streamId).toBe("MyStream");
-
-        // await checkProc(env.file, env.func);
+        expect(proc).toBeDefined();
+        expect(proc.url).toBe("https://era.ilabt.imec.be/rinf/ldes");
+        expect(proc.output.uri).toContain("jw");
+        expect(proc.after!.toISOString()).toBe("2023-12-31T23:59:59.000Z");
+        expect(proc.ordered).toBe("ascending");
+        expect(proc.follow).toBeTruthy();
+        expect(proc.pollInterval).toBe(5);
+        expect(proc.shapeFile).toBe("/path/to/shape.ttl");
+        expect(proc.noShape).toBeFalsy();
+        expect(proc.savePath).toBe("/state/save.json");
+        expect(proc.loose).toBeFalsy();
+        expect(proc.urlIsView).toBeFalsy();
+        expect(proc.fetchConfig).toEqual({
+            concurrent: 5,
+            retry: {
+                codes: [404, 403],
+                maxRetries: 5,
+            },
+            auth: {
+                type: "basic",
+                auth: "test",
+            },
+            safe: true,
+        });
+        expect(proc.materialize).toBeTruthy();
+        expect(proc.lastVersionOnly).toBeTruthy();
+        expect(proc.streamId).toBe("MyStream");
+        expect(proc.sdsify).toBeTruthy();
     });
 });
-
-// FIXME: This type should be imported from the JS runner
-type ChannelArg = {
-    config: { channel: { id: string } };
-    ty: string;
-};
-
-function testWriter(arg: unknown) {
-    expect(arg).toBeInstanceOf(Object);
-    expect((<ChannelArg>arg).ty).toBeDefined();
-    expect((<ChannelArg>arg).config.channel).toBeDefined();
-    expect((<ChannelArg>arg).config.channel.id).toBeDefined();
-}
-
-async function checkProc(location: string, func: string) {
-    const mod = await import("file://" + location);
-    expect(mod[func]).toBeDefined();
-}

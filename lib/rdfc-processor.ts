@@ -66,6 +66,7 @@ export class LDESClientProcessor extends Processor<LDESClientArgs> {
                 condition: await processConditionFile(this.conditionFile),
                 materialize: this.materialize,
                 lastVersionOnly: this.lastVersionOnly,
+                concurrentFetches: this.fetchConfig?.concurrent,
             }),
             <Ordered>this.ordered || "none",
             undefined,

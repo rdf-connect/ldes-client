@@ -230,7 +230,7 @@ export class LeafCondition implements Condition {
     toString(): string {
         const vts =
             this.compareType === "date"
-                ? (x:RelationValue) => (<Date>x).toISOString()
+                ? (x: RelationValue) => (<Date>x).toISOString()
                 : undefined;
         return `${this.pathQuads.id.value} ∈ ${this.range.toString(vts)}`;
     }
@@ -248,7 +248,7 @@ export class LeafCondition implements Condition {
 
         const vts =
             this.compareType === "date"
-                ? (x:RelationValue) => new Date(x).toISOString()
+                ? (x: RelationValue) => new Date(x).toISOString()
                 : undefined;
         this.logger.verbose(
             `${this.range.toString(vts)} contains ${range.toString(vts)}. Overlaps: ${this.range.overlaps(
@@ -264,7 +264,7 @@ export class LeafCondition implements Condition {
         return this.range.contains(value);
     }
 
-    private parseValue(value: string):RelationValue {
+    private parseValue(value: string): RelationValue {
         switch (this.compareType) {
             case "string":
                 return value;

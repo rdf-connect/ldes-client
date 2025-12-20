@@ -135,7 +135,10 @@ export class OrderedStrategy {
                 this.modulator.finished(index);
                 this.notifier.fragment(fragment, {});
 
-                if (fragment.immutable) {
+                // Mark page as immutable if cache headers indicate so and page contains members.
+                // This is to prevent that intermediary pages cannot be re-fetched in case of an interruption
+                // or out-of-order page fetching.
+                if (fragment.immutable && fragment.memberCount > 0) {
                     this.logger.debug(`[memberNotifier - done] Remembering immutable page to avoid future refetching: ${fragment.url}`);
                     this.modulator.recordImmutable(fragment.url);
                 }
@@ -286,13 +289,29 @@ export class OrderedStrategy {
     checkEnd() {
         if (this.canceled) return;
 
+        // Check if there are any relations in transit
+        const inTransit =
+            this.modulator.getInFlight().length > 0 ||
+            this.modulator.getTodo().length > 0;
+
+        if (inTransit) {
+            return;
+        }
+
         // There are no relations more to be had, emit the other members
         if (this.launchedRelations.isEmpty()) {
             this.logger.debug("[checkEnd] No more launched relations");
             let member = this.members.pop();
             while (member) {
-                this.notifier.member(member, {});
-                this.modulator.recordEmitted(member.id.value);
+                if (!this.memberIsOld(member)) {
+                    // Record member as emitted
+                    this.modulator.recordEmitted(member.id.value);
+                    // And proceed to emit it
+                    this.notifier.member(member, {});
+                } else {
+                    // Remove member from unemitted list as a newer version was already available/emitted
+                    this.modulator.deleteUnemitted(member.id.value);
+                }
                 member = this.members.pop();
             }
 
@@ -435,6 +454,7 @@ export class OrderedStrategy {
             page,
             {
                 emitted: this.modulator.getEmitted(),
+                latestVersions: this.modulator.getLatestVersions(),
                 ...state
             },
             this.memberNotifier
@@ -473,6 +493,7 @@ export class OrderedStrategy {
                 while (member) {
                     // Euhm yeah, what to do if there is no timestamp?
                     if (!member.timestamp) {
+                        this.logger.warn("Member " + member.id.value + " has no timestamp, emitting it anyway");
                         this.notifier.member(member, {});
                         this.modulator.recordEmitted(member.id.value);
                     } else if (
@@ -480,9 +501,15 @@ export class OrderedStrategy {
                             ? member.timestamp < marker.value
                             : member.timestamp > marker.value
                     ) {
-                        this.notifier.member(member, {});
-                        // Record member as emitted
-                        this.modulator.recordEmitted(member.id.value);
+                        if (!this.memberIsOld(member)) {
+                            // Record member as emitted
+                            this.modulator.recordEmitted(member.id.value);
+                            // And proceed to emit it
+                            this.notifier.member(member, {});
+                        } else {
+                            // Remove member from unemitted list as a newer version was already available/emitted
+                            this.modulator.deleteUnemitted(member.id.value);
+                        }
                     } else {
                         break;
                     }
@@ -505,5 +532,20 @@ export class OrderedStrategy {
         }
 
         this.checkEnd();
+    }
+
+    private memberIsOld(member: Member): boolean {
+        // In the ordered strategy, we need to check again if this is an older version of the member
+        // when emitting latest versions only, because older versions might have been fetched and queued
+        // at a previous point in time.
+        if (this.modulator.getLatestVersions() && member.isVersionOf) {
+            const currentVersion = (<Date>(member.timestamp)).getTime();
+            const latestVersion = this.modulator.getLatestVersions()!.get(member.isVersionOf);
+            if (latestVersion && currentVersion < latestVersion) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

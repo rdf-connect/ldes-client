@@ -26,6 +26,7 @@ export interface Config {
     materialize?: boolean;
     lastVersionOnly?: boolean;
     includeMetadata?: boolean;
+    concurrentFetches?: number;
     fetch?: typeof fetch;
 }
 
@@ -45,6 +46,7 @@ const defaultConfig: Config = {
     materialize: false,
     lastVersionOnly: false,
     includeMetadata: false,
+    concurrentFetches: 10
 };
 
 const defaultTarget: WithTarget = {
