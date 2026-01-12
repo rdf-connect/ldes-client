@@ -97,7 +97,7 @@ program
         "-s, --save <path>",
         "folder path (or name if running in the browser) of where to store the state used both to resume and to update",
     )
-    .option("--shape-file <shapeFile>", "specify a shapefile")
+    .option("--shape-file <shapeFile>", "specify the path of a (remote) file containing a SHACL shape for extracting members")
     .option("-t --default-timezone <timezone>", "Default timezone for dates in tree:InBetweenRelation", "AoE")
     .option(
         "--url-is-view",

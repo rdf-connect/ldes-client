@@ -327,27 +327,7 @@ export class OrderedStrategy {
             this.logger.debug("[checkEnd] No more pending relations");
             let member = this.members.pop();
             while (member) {
-                let isOld = false;
-                try {
-                    isOld = await this.memberIsOld(member);
-                } catch (ex) {
-                    // Things are shutting down, stop processing
-                    return;
-                }
-
-                if (!isOld) {
-                    if (this.canceled) {
-                        return;
-                    }
-                    // Emit member and record it as emitted
-                    const streamed = this.notifier.member(member, {}) as boolean;
-                    if (streamed) {
-                        await this.modulator.addEmitted(member.id.value)
-                    }
-                } else {
-                    // Remove member from unemitted list as a newer version was already available/emitted
-                    await this.modulator.deleteUnemitted(member.id.value);
-                }
+                await this.emitIfNotOld(member);
                 member = this.members.pop();
             }
 
@@ -547,7 +527,7 @@ export class OrderedStrategy {
                 marker = mostConservative!.relations[0];
             }
 
-            this.logger.debug("[_checkEmit] Marker: {important: " + marker.important + ", value: " + marker.value + "}");
+            this.logger.debug("[_checkEmit] Marker: {important: " + marker.important + ", value: " + new Date(marker.value).toISOString() + "}");
 
             // A relation should only be blocked by PEER branches that are in transit.
             // It should NOT be blocked by its own descendants or by itself.
@@ -586,24 +566,7 @@ export class OrderedStrategy {
                             : (member.timestamp) > (marker.value)
                     )
                 ) {
-                    let isOld = false;
-                    try {
-                        isOld = await this.memberIsOld(member);
-                    } catch (ex) {
-                        // Things are shutting down, stop processing
-                        return;
-                    }
-                    if (!isOld) {
-                        // Emit member and record it as emitted
-                        const streamed = this.notifier.member(member, {}) as boolean;
-                        if (streamed) {
-                            // We need this check in case the client is shut down while emitting
-                            await this.modulator.addEmitted(member.id.value)
-                        }
-                    } else {
-                        // Remove member from unemitted list as a newer version was already available/emitted
-                        await this.modulator.deleteUnemitted(member.id.value);
-                    }
+                    await this.emitIfNotOld(member);
                 } else {
                     break;
                 }
@@ -625,6 +588,30 @@ export class OrderedStrategy {
         }
 
         await this.checkEnd();
+    }
+
+    private async emitIfNotOld(member: Member) {
+        let isOld = false;
+        try {
+            isOld = await this.memberIsOld(member);
+        } catch (ex) {
+            // Things are shutting down, stop processing
+            return;
+        }
+        if (!isOld) {
+            // Emit member and record it as emitted
+
+            // Make sure we keep the original member Id. It might change if materialization is enabled
+            const memberIri = member.id.value;
+            const streamed = this.notifier.member(member, {}) as boolean;
+            if (streamed) {
+                // We need this check in case the client is shut down while emitting
+                await this.modulator.addEmitted(memberIri)
+            }
+        } else {
+            // Remove member from unemitted list as a newer version was already available/emitted
+            await this.modulator.deleteUnemitted(member.id.value);
+        }
     }
 
     private async memberIsOld(member: Member): Promise<boolean> {
