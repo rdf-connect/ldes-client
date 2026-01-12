@@ -14,7 +14,7 @@ export interface Config {
     url: string;
     urlIsView: boolean;
     noShape: boolean;
-    stateFile?: string;
+    statePath?: string;
     pollInterval: number;
     condition: Condition;
     defaultTimezone: string;
@@ -27,6 +27,7 @@ export interface Config {
     lastVersionOnly?: boolean;
     includeMetadata?: boolean;
     concurrentFetches?: number;
+    fresh?: boolean;
     fetch?: typeof fetch;
 }
 
@@ -46,7 +47,8 @@ const defaultConfig: Config = {
     materialize: false,
     lastVersionOnly: false,
     includeMetadata: false,
-    concurrentFetches: 10
+    concurrentFetches: 10,
+    fresh: false,
 };
 
 const defaultTarget: WithTarget = {

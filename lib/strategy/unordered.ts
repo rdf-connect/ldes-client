@@ -1,5 +1,5 @@
 import { Fetcher, ModulatorFactory, Manager } from "../fetcher";
-import { getLoggerFor } from "../utils";
+import { deserializeMember, getLoggerFor, serializeMember } from "../utils";
 
 import type {
     FetchedPage,
@@ -7,7 +7,8 @@ import type {
     Node,
     Modulator,
     Notifier,
-    MemberEvents
+    MemberEvents,
+    Member
 } from "../fetcher";
 import type { StrategyEvents, SerializedMember } from ".";
 
@@ -19,16 +20,19 @@ export class UnorderedStrategy {
     private fetchNotifier: Notifier<FetchEvent, { index: number }>;
     private memberNotifier: Notifier<
         MemberEvents,
-        { index: number, emitted: ReadonlySet<string> }
+        { index: number, modulator: Modulator<Node, Member> }
     >;
 
-    private modulator: Modulator<Node, SerializedMember>;
+    private modulator: Modulator<Node, Member>;
 
     private polling: boolean;
     private pollInterval?: number;
     private pollingIsScheduled: boolean;
 
     private canceled = false;
+    private isEnding = false;
+    private shouldEndAgain = false;
+    public processing = Promise.resolve();
 
     private logger = getLoggerFor(this);
 
@@ -47,127 +51,180 @@ export class UnorderedStrategy {
         this.polling = polling;
         this.pollingIsScheduled = false;
 
-        // Callbacks for the fetcher
-        // - scheduleFetch: a mutable page was fetched, we keep track of it for future polling
-        // - pageFetched: a complete page is fetched and the relations have been extracted
-        //         start member extraction
-        // - relationFound: a relation has been found, put it in the queue
+        /**
+         * Callbacks for the fetcher
+         * - scheduleFetch: a mutable page was fetched, we keep track of it for future polling
+         * - pageFetched: a complete page is fetched and the relations have been extracted
+         *         start member extraction
+         * - relationFound: a relation has been found, put it in the queue
+         */
         this.fetchNotifier = {
             error: (error: unknown) => {
                 this.logger.error(`[fetchNotifier] Error: ${JSON.stringify(error)}`);
                 this.notifier.error(error, {});
             },
-            scheduleFetch: (node: Node) => {
+            scheduleFetch: async (node: Node) => {
                 this.logger.debug(`[fetchNotifier - pageFetched] Scheduling fetch for mutable page: ${node.target}`);
                 // Register in the state that this page needs to be refetched in the future
-                this.modulator.recordMutable(node.target, node);
-                this.notifier.mutable({}, {});
+                if (await this.modulator.addMutable(node.target, node) && !this.canceled) {
+                    this.notifier.mutable({}, {});
+                }
+            },
+            relationsFound: async (relations) => {
+                const toPush = [];
+                for (const { from, target } of relations) {
+                    this.logger.debug(`[fetchNotifier - relationFound] Found relation leading to ${target.node}`);
+                    from.expected.push(target.node);
+                    toPush.push({
+                        target: target.node,
+                        expected: [from.target],
+                    });
+                }
+                await this.modulator.push(toPush);
             },
             pageFetched: (page, { index }) => {
                 this.logger.debug(`[fetchNotifier - pageFetched] Paged fetched ${page.url}`);
                 this.handleFetched(page, index);
             },
-            relationFound: ({ from, target }) => {
-                this.logger.debug(`[fetchNotifier - relationFound] Found relation leading to ${target.node}`);
-                from.expected.push(target.node);
-                this.modulator.push({
-                    target: target.node,
-                    expected: [from.target],
-                });
-            },
         };
 
-        // Callbacks for the member extractor
-        // - done: all members have been extracted
-        // - extracted: a member has been found, yeet it
+        /**
+         * Callbacks for the member extractor
+         * - done: all members have been extracted
+         * - extracted: a member has been found, yeet it
+         */
         this.memberNotifier = {
             error: (error) => {
                 this.notifier.error(error, {});
             },
-            done: (fragment: FetchedPage, { index }) => {
+            extracted: async (mem) => {
+                // Member is emitted immediately after extraction, so no need to record it in the unemitted state
+                if (this.canceled) return;
+                const streamed = this.notifier.member(mem, {});
+                if (streamed) {
+                    await this.modulator.addEmitted(mem.id.value)
+                }
+            },
+            done: async (fragment: FetchedPage, { index }) => {
                 this.logger.debug("[memberNotifier - done] Members on page done");
                 this.notifier.fragment(fragment, {});
-                this.modulator.finished(index)
+                await this.modulator.finished(index)
 
                 // Mark page as immutable if cache headers indicate so and page contains members.
                 // This is to prevent that intermediary pages cannot be re-fetched in case of an interruption
                 // or out-of-order page fetching. 
                 if (fragment.immutable && fragment.memberCount > 0) {
                     this.logger.debug(`[memberNotifier - done] Remembering immutable page to avoid future refetching: ${fragment.url}`);
-                    this.modulator.recordImmutable(fragment.url);
+                    if (!await this.modulator.addImmutable(fragment.url)) return;
                 }
                 this.checkEnd();
             },
-            extracted: (mem) => {
-                // Member is emitted immediately after extraction, so no need to record it in the unemitted state
-                this.notifier.member(mem, {});
-                this.modulator.recordEmitted(mem.id.value);
-            },
         };
 
-        this.modulator = modulatorFactory.create<Node, SerializedMember>("fetcher", [], {
-            ready: ({ item, index }) => {
-                // Only fetch this node if it hasn't been fetched in the past
-                if (!this.modulator.seen(item.target)) {
-                    this.logger.debug(`[modulator - ready] Ready to fetch page: ${item.target}`);
-                    this.fetcher.fetch(item, { index }, this.fetchNotifier);
-                } else {
-                    this.logger.debug(`[modulator - ready] Skipping fetch for previously fetched immutable page: ${item.target}`);
-                    this.modulator.finished(index);
-                    this.checkEnd();
-                }
+        /**
+         * Create an Modulator instance
+         */
+        this.modulator = modulatorFactory.create<Node, Member>(
+            "fetcher",
+            [],
+            {
+                ready: async ({ item, index }) => {
+                    // Only fetch this node if it hasn't been fetched in the past
+                    if (!(await this.modulator.seen(item.target))) {
+                        this.logger.debug(`[modulator - ready] Ready to fetch page: ${item.target}`);
+                        this.fetcher.fetch(item, { index }, this.fetchNotifier);
+                    } else {
+                        this.logger.debug(`[modulator - ready] Skipping fetch for previously fetched immutable page: ${item.target}`);
+                        await this.modulator.finished(index);
+                        this.checkEnd();
+                    }
+                },
             },
-        });
+            undefined,
+            undefined,
+            serializeMember,
+            (member) => deserializeMember(member as SerializedMember),
+        );
     }
 
-    start(url: string, root?: FetchedPage) {
+    async start(url: string, root?: FetchedPage) {
+        if (this.canceled) return;
+        // Try to initialize the modulator
+        if (!(await this.modulator.init())) return;
+
         if (root) {
             // This is a local dump. Proceed to extract members
             this.manager.extractMembers(
                 root,
-                { index: 0, emitted: new Set<string>() },
+                { index: 0, modulator: this.modulator },
                 this.memberNotifier
             );
-        } else if (this.modulator.getInFlight().length < 1
-            && this.modulator.getTodo().length < 1) {
-            this.logger.debug("[start] Nothing in flight, adding start url");
-            this.modulator.push({ target: url, expected: [] });
+        } else if ((await this.modulator.pendingCount()) < 1) {
+            this.logger.debug("[start] Nothing in pending, adding start url");
+            this.modulator.push([{ target: url, expected: [] }]);
         } else {
             this.logger.debug(
-                "[start] Things are already inflight, not adding start url",
+                "[start] Pending things are already being processed, not adding start url",
             );
         }
     }
 
-    cancel() {
+    async cancel() {
         this.canceled = true;
+        await this.processing;
     }
 
     private handleFetched(page: FetchedPage, index: number) {
         this.manager.extractMembers(
             page,
-            { index, emitted: this.modulator.getEmitted() },
+            { index, modulator: this.modulator },
             this.memberNotifier
         );
     }
 
-    private checkEnd() {
+    /**
+     * This function implements the logic of a synchronized ending loop that uses
+     * the @isEnding and @shouldEndAgain flags to prevent multiple ending loops from running at the same time. 
+     * When a process is already running, subsequent calls simply set the shouldEndAgain flag and return. 
+     * The original process then picks up these pending requests in its loop, 
+     * ensuring sequential execution without overlapping asynchronous operations
+     */
+    private async checkEnd() {
+        if (this.isEnding) {
+            this.shouldEndAgain = true;
+            return;
+        }
+
+        this.isEnding = true;
+        this.processing = (async () => {
+            try {
+                while (true) {
+                    this.shouldEndAgain = false;
+                    await this._checkEnd();
+                    if (this.shouldEndAgain && !this.canceled) {
+                        continue;
+                    }
+                    break;
+                }
+            } finally {
+                this.isEnding = false;
+            }
+        })();
+        await this.processing;
+    }
+
+    private async _checkEnd() {
         if (this.canceled) return;
-        if (this.modulator.getInFlight().length < 1
-            && this.modulator.getTodo().length < 1) {
+        if ((await this.modulator.pendingCount()) < 1) {
             // Make sure we don't schedule multiple polling cycles
             if (this.polling && !this.pollingIsScheduled) {
                 this.logger.debug(`[checkEnd] Polling is enabled, setting timeout of ${this.pollInterval || 1000} ms to poll`);
-                setTimeout(() => {
+                setTimeout(async () => {
                     if (this.canceled) return;
-
                     this.pollingIsScheduled = false;
                     this.notifier.pollCycle({}, {});
-                    const toPoll = Array.from(this.modulator.getMutable().values());
-
-                    for (const mutable of toPoll) {
-                        this.modulator.push(mutable);
-                    }
+                    const toPoll = await this.modulator.getAllMutable();
+                    this.modulator.push(toPoll);
                 }, this.pollInterval || 1000);
                 this.pollingIsScheduled = true;
             } else {

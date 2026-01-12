@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, afterAll, describe, expect, test } from "vitest";
 import { Parser } from "n3";
 import { TREE } from "@treecg/types";
-import { rmSync } from "fs";
 import { read, Tree } from "./helper";
 import { MaxCountCondition } from "../lib/condition";
 import { retry_fetch } from "../lib/fetcher";
@@ -10,9 +9,6 @@ import { replicateLDES } from "../lib/client";
 
 const oldFetch = global.fetch;
 beforeEach(() => {
-    rmSync("save.json", {
-        force: true,
-    });
     if ("mockClear" in global.fetch) {
         (<any>global.fetch).mockClear();
     }
@@ -280,6 +276,7 @@ describe("more complex tree", () => {
         const first = await client.stream().getReader().read();
         expect(first.done).toBe(false);
         expect(first.value?.timestamp).toEqual(new Date("2"));
+        await client.close();
     });
 
     test("ordered tree, emits asap ascending", async () => {
@@ -336,6 +333,7 @@ describe("more complex tree", () => {
         expect(m2.done).toBeFalsy();
         end = new Date();
         expect(end.getTime() - start.getTime()).toBeGreaterThan(150);
+        await stream.cancel();
     });
 
     test("ordered tree, emits asap ascending (branched)", async () => {
@@ -392,6 +390,7 @@ describe("more complex tree", () => {
         expect(m2.done).toBeFalsy();
         end = new Date();
         expect(end.getTime() - start.getTime()).toBeGreaterThan(150);
+        await stream.cancel();
     });
 
     test("ordered tree, emits asap descending", async () => {
@@ -459,6 +458,7 @@ describe("more complex tree", () => {
         expect(m2.done).toBeFalsy();
         end = new Date();
         expect(end.getTime() - start.getTime()).toBeGreaterThan(150);
+        await stream.cancel();
     });
 
     test("ordered tree, emits asap descending (branched)", async () => {
@@ -527,6 +527,7 @@ describe("more complex tree", () => {
         expect(m2.done).toBeFalsy();
         end = new Date();
         expect(end.getTime() - start.getTime()).toBeGreaterThan(150);
+        await stream.cancel();
     });
 
     test("Polling works, single page", async () => {

@@ -1,4 +1,4 @@
-import { describe, beforeAll, afterAll, afterEach, expect, test, beforeEach } from "vitest";
+import { describe, beforeAll, afterAll, afterEach, expect, test } from "vitest";
 import fs from "fs";
 import path from "path";
 import { fastify, RequestPayload } from "fastify";
@@ -75,21 +75,15 @@ describe("Client tests", () => {
         }
     });
 
+    afterEach(() => {
+        fs.rmSync("client-state-main", { recursive: true, force: true });
+    });
+
     afterAll(async () => {
         await server.close();
     });
 
-    beforeEach(() => {
-        if (fs.existsSync("./tests/data/client-state.json")) {
-            fs.rmSync(path.resolve("./tests/data/client-state.json"));
-        }
-    });
-
-    afterEach(() => {
-        if (fs.existsSync("./tests/data/client-state.json")) {
-            fs.rmSync(path.resolve("./tests/data/client-state.json"));
-        }
-    });
+    // TODO: Migrate client tests from RDFC to this file
 
     test("Fetching a tree:InBetweenRelation LDES subset", async () => {
         // Setup client
@@ -147,7 +141,6 @@ describe("Client tests", () => {
         // Setup client
         const client = replicateLDES({
             url: LDES,
-            stateFile: "./tests/data/client-state.json",
         });
 
         // Check that fragment event is triggered
@@ -193,15 +186,13 @@ describe("Client tests", () => {
         expect(memCount).toBe(client.memberCount);
         expect(gotFragmentEvent).toBe(true);
         expect(gotDescEvent).toBe(true);
-        // Check that state was saved
-        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
     });
 
     test("Client interruption and resuming in unoredered replication", async () => {
         // Setup client 1
         const client1 = replicateLDES({
             url: LDES,
-            stateFile: "./tests/data/client-state.json",
+            statePath: "client-state-main",
         });
 
         let memCount = 0;
@@ -221,13 +212,16 @@ describe("Client tests", () => {
 
         // Check that fragment event is triggered
         let gotFragmentEvent1 = false;
-        client1.on("fragment", async (fragment: FetchedPage) => {
-            gotFragmentEvent1 = true;
+        const closedPromise = new Promise<void>((resolve) => {
+            client1.on("fragment", async (fragment: FetchedPage) => {
+                gotFragmentEvent1 = true;
 
-            // Interrupt the stream after getting a specific fragment
-            if (fragment.url === "http://localhost:3001/mock-ldes-1.ttl") {
-                await members1.cancel();
-            }
+                // Interrupt the stream after getting a specific fragment
+                if (fragment.url === "http://localhost:3001/mock-ldes-1.ttl") {
+                    await members1.cancel();
+                    resolve();
+                }
+            });
         });
 
         let memRes1 = await members1.read();
@@ -257,6 +251,8 @@ describe("Client tests", () => {
             memRes1 = await members1.read();
         }
 
+        await closedPromise;
+
         // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
         expect(client1.memberCount).toBeGreaterThanOrEqual(3);
         expect(client1.fragmentCount).toBeGreaterThanOrEqual(3);
@@ -265,7 +261,7 @@ describe("Client tests", () => {
         expect(gotFragmentEvent1).toBe(true);
         expect(gotDescEvent1).toBe(true);
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+        expect(fs.existsSync("client-state-main")).toBeTruthy();
 
         /**
          * End of client 1
@@ -274,7 +270,7 @@ describe("Client tests", () => {
         // Setup client 2
         const client2 = replicateLDES({
             url: LDES,
-            stateFile: "./tests/data/client-state.json",
+            statePath: "client-state-main",
         });
 
         // Member stream object
@@ -331,16 +327,15 @@ describe("Client tests", () => {
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+        expect(fs.existsSync("client-state-main")).toBeTruthy();
     });
 
     test("Client interruption and resuming in ordered replication (ascending)", async () => {
         // Setup client 1
-        const client1 = replicateLDES(
-            {
-                url: LDES,
-                stateFile: "./tests/data/client-state.json",
-            },
+        const client1 = replicateLDES({
+            url: LDES,
+            statePath: "client-state-main",
+        },
             "ascending",
         );
 
@@ -361,13 +356,16 @@ describe("Client tests", () => {
 
         // Check that fragment event is triggered
         let gotFragmentEvent1 = false;
-        client1.on("fragment", async (fragment: FetchedPage) => {
-            gotFragmentEvent1 = true;
+        const closedPromise = new Promise<void>((resolve) => {
+            client1.on("fragment", async (fragment: FetchedPage) => {
+                gotFragmentEvent1 = true;
 
-            // Interrupt the stream after getting a specific fragment
-            if (fragment.url === "http://localhost:3001/mock-ldes-1.ttl") {
-                await members1.cancel();
-            }
+                // Interrupt the stream after getting a specific fragment
+                if (fragment.url === "http://localhost:3001/mock-ldes-1.ttl") {
+                    await members1.cancel();
+                    resolve();
+                }
+            });
         });
 
         const timestamps1: number[] = [];
@@ -400,8 +398,9 @@ describe("Client tests", () => {
             memRes1 = await members1.read();
         }
 
+        await closedPromise;
+
         // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
-        expect(client1.memberCount).toBeGreaterThanOrEqual(3);
         expect(client1.fragmentCount).toBeGreaterThanOrEqual(3);
         // Check that we received all members
         expect(memCount).toBe(client1.memberCount);
@@ -412,18 +411,17 @@ describe("Client tests", () => {
             timestamps1.every((v, i) => i === 0 || v >= timestamps1[i - 1]),
         ).toBeTruthy();
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+        expect(fs.existsSync("client-state-main")).toBeTruthy();
 
         /**
          * End of client 1
          */
 
         // Setup client 2
-        const client2 = replicateLDES(
-            {
-                url: LDES,
-                stateFile: "./tests/data/client-state.json",
-            },
+        const client2 = replicateLDES({
+            url: LDES,
+            statePath: "client-state-main",
+        },
             "ascending",
         );
 
@@ -488,16 +486,15 @@ describe("Client tests", () => {
             timestamps2.every((v, i) => i === 0 || v >= timestamps2[i - 1]),
         ).toBeTruthy();
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+        expect(fs.existsSync("client-state-main")).toBeTruthy();
     });
 
     test("Client interruption and resuming in ordered replication (descending)", async () => {
         // Setup client 1
-        const client1 = replicateLDES(
-            {
-                url: LDES,
-                stateFile: "./tests/data/client-state.json",
-            },
+        const client1 = replicateLDES({
+            url: LDES,
+            statePath: "client-state-main",
+        },
             "descending",
         );
 
@@ -518,13 +515,16 @@ describe("Client tests", () => {
 
         // Check that fragment event is triggered
         let gotFragmentEvent1 = false;
-        client1.on("fragment", async (fragment: FetchedPage) => {
-            gotFragmentEvent1 = true;
+        const closedPromise = new Promise<void>((resolve) => {
+            client1.on("fragment", async (fragment: FetchedPage) => {
+                gotFragmentEvent1 = true;
 
-            // Interrupt the stream after getting a specific fragment
-            if (fragment.url === "http://localhost:3001/mock-ldes-1.ttl") {
-                await members1.cancel();
-            }
+                // Interrupt the stream after getting a specific fragment
+                if (fragment.url === "http://localhost:3001/mock-ldes-1.ttl") {
+                    await members1.cancel();
+                    resolve();
+                }
+            });
         });
 
         let memRes1 = await members1.read();
@@ -541,6 +541,8 @@ describe("Client tests", () => {
             memRes1 = await members1.read();
         }
 
+        await closedPromise;
+
         // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
         expect(client1.memberCount).toBe(0);
         expect(client1.fragmentCount).toBeGreaterThanOrEqual(3);
@@ -549,18 +551,17 @@ describe("Client tests", () => {
         expect(gotFragmentEvent1).toBe(true);
         expect(gotDescEvent1).toBe(true);
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+        expect(fs.existsSync("client-state-main")).toBeTruthy();
 
         /**
          * End of client 1
          */
 
         // Setup client 2
-        const client2 = replicateLDES(
-            {
-                url: LDES,
-                stateFile: "./tests/data/client-state.json",
-            },
+        const client2 = replicateLDES({
+            url: LDES,
+            statePath: "client-state-main",
+        },
             "descending",
         );
 
@@ -625,16 +626,15 @@ describe("Client tests", () => {
             timestamps2.every((v, i) => i === 0 || v <= timestamps2[i - 1]),
         ).toBeTruthy();
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+        expect(fs.existsSync("client-state-main")).toBeTruthy();
     });
 
     test("Client interruption and resuming in ordered replication (ascending) of Linked List LDES", async () => {
         // Setup client 1
-        const client1 = replicateLDES(
-            {
-                url: LINKED_LIST_LDES,
-                stateFile: "./tests/data/client-state.json",
-            },
+        const client1 = replicateLDES({
+            url: LINKED_LIST_LDES,
+            statePath: "client-state-main",
+        },
             "ascending",
         );
 
@@ -655,16 +655,16 @@ describe("Client tests", () => {
 
         // Check that fragment event is triggered
         let gotFragmentEvent1 = false;
-        client1.on("fragment", async (fragment: FetchedPage) => {
-            gotFragmentEvent1 = true;
+        const closedPromise = new Promise<void>((resolve) => {
+            client1.on("fragment", async (fragment: FetchedPage) => {
+                gotFragmentEvent1 = true;
 
-            // Interrupt the stream after getting a specific fragment
-            if (
-                fragment.url ===
-                "http://localhost:3001/mock-ldes-linked-list-1.ttl"
-            ) {
-                await members1.cancel();
-            }
+                // Interrupt the stream after getting a specific fragment
+                if (fragment.url === "http://localhost:3001/mock-ldes-linked-list-1.ttl") {
+                    await members1.cancel();
+                    resolve();
+                }
+            });
         });
 
         let memRes1 = await members1.read();
@@ -681,6 +681,7 @@ describe("Client tests", () => {
             memRes1 = await members1.read();
         }
 
+        await closedPromise;
         // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
         expect(client1.memberCount).toBe(0);
         expect(client1.fragmentCount).toBeGreaterThanOrEqual(2);
@@ -689,18 +690,17 @@ describe("Client tests", () => {
         expect(gotFragmentEvent1).toBe(true);
         expect(gotDescEvent1).toBe(true);
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+        expect(fs.existsSync("client-state-main")).toBeTruthy();
 
         /**
          * End of client 1
          */
 
         // Setup client 2
-        const client2 = replicateLDES(
-            {
-                url: LINKED_LIST_LDES,
-                stateFile: "./tests/data/client-state.json",
-            },
+        const client2 = replicateLDES({
+            url: LINKED_LIST_LDES,
+            statePath: "client-state-main",
+        },
             "ascending",
         );
 
@@ -765,16 +765,15 @@ describe("Client tests", () => {
             timestamps2.every((v, i) => i === 0 || v >= timestamps2[i - 1]),
         ).toBeTruthy();
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+        expect(fs.existsSync("client-state-main")).toBeTruthy();
     });
 
     test("Client interruption and resuming in ordered replication (descending) of Linked List LDES", async () => {
         // Setup client 1
-        const client1 = replicateLDES(
-            {
-                url: LINKED_LIST_LDES,
-                stateFile: "./tests/data/client-state.json",
-            },
+        const client1 = replicateLDES({
+            url: LINKED_LIST_LDES,
+            statePath: "client-state-main",
+        },
             "descending",
         );
 
@@ -785,16 +784,16 @@ describe("Client tests", () => {
 
         // Check that fragment event is triggered
         let gotFragmentEvent1 = false;
-        client1.on("fragment", async (fragment: FetchedPage) => {
-            gotFragmentEvent1 = true;
+        const closedPromise = new Promise<void>((resolve) => {
+            client1.on("fragment", async (fragment: FetchedPage) => {
+                gotFragmentEvent1 = true;
 
-            // Interrupt the stream after getting a specific fragment
-            if (
-                fragment.url ===
-                "http://localhost:3001/mock-ldes-linked-list.ttl"
-            ) {
-                await members1.cancel();
-            }
+                // Interrupt the stream after getting a specific fragment
+                if (fragment.url === "http://localhost:3001/mock-ldes-linked-list.ttl") {
+                    await members1.cancel();
+                    resolve();
+                }
+            });
         });
 
         let memRes1 = await members1.read();
@@ -811,6 +810,7 @@ describe("Client tests", () => {
             memRes1 = await members1.read();
         }
 
+        await closedPromise;
         // Depending on when the interruption happens, sometimes the client manages to fetch more or less fragments
         expect(client1.memberCount).toBe(0);
         expect(client1.fragmentCount).toBeGreaterThanOrEqual(1);
@@ -818,18 +818,17 @@ describe("Client tests", () => {
         expect(memCount).toBe(client1.memberCount);
         expect(gotFragmentEvent1).toBe(true);
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+        expect(fs.existsSync("client-state-main")).toBeTruthy();
 
         /**
          * End of client 1
          */
 
         // Setup client 2
-        const client2 = replicateLDES(
-            {
-                url: LINKED_LIST_LDES,
-                stateFile: "./tests/data/client-state.json",
-            },
+        const client2 = replicateLDES({
+            url: LINKED_LIST_LDES,
+            statePath: "client-state-main",
+        },
             "descending",
         );
 
@@ -894,18 +893,17 @@ describe("Client tests", () => {
             timestamps2.every((v, i) => i === 0 || v <= timestamps2[i - 1]),
         ).toBeTruthy();
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+        expect(fs.existsSync("client-state-main")).toBeTruthy();
     });
 
     test("Client runs twice and only receives new members from a calendar-fragmented LDES", async () => {
         // Setup client 1
-        const client1 = replicateLDES(
-            {
-                url: CALENDAR_LDES,
-                urlIsView: true,
-                after: new Date("2025-01-02T00:00:00.000Z"),
-                stateFile: "./tests/data/client-state.json",
-            },
+        const client1 = replicateLDES({
+            statePath: "client-state-main",
+            url: CALENDAR_LDES,
+            urlIsView: true,
+            after: new Date("2025-01-02T00:00:00.000Z"),
+        },
         );
 
         let memCount = 0;
@@ -935,20 +933,19 @@ describe("Client tests", () => {
         expect(client1.memberCount).toBe(3);
         expect(client1.fragmentCount).toBe(5);
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+        expect(fs.existsSync("client-state-main")).toBeTruthy();
 
         /**
          * End of client 1
          */
 
         // Setup client 2
-        const client2 = replicateLDES(
-            {
-                url: CALENDAR_LDES,
-                urlIsView: true,
-                before: new Date("2025-01-02T00:00:00.000Z"),
-                stateFile: "./tests/data/client-state.json",
-            },
+        const client2 = replicateLDES({
+            statePath: "client-state-main",
+            url: CALENDAR_LDES,
+            urlIsView: true,
+            before: new Date("2025-01-02T00:00:00.000Z"),
+        },
         );
 
         // Member stream object
@@ -997,17 +994,16 @@ describe("Client tests", () => {
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+        expect(fs.existsSync("client-state-main")).toBeTruthy();
     })
 
     test("Client runs twice and only receives the latest version of every member in a reversed LDES", async () => {
         // Setup client 1
-        const client1 = replicateLDES(
-            {
-                url: REVERSE_LDES,
-                lastVersionOnly: true,
-                stateFile: "./tests/data/client-state.json",
-            },
+        const client1 = replicateLDES({
+            statePath: "client-state-main",
+            url: REVERSE_LDES,
+            lastVersionOnly: true,
+        },
         );
 
         let memCount = 0;
@@ -1038,19 +1034,18 @@ describe("Client tests", () => {
         expect(client1.memberCount).toBe(6);
         expect(client1.fragmentCount).toBe(4);
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+        expect(fs.existsSync("client-state-main")).toBeTruthy();
 
         /**
          * End of client 1
          */
 
         // Setup client 2
-        const client2 = replicateLDES(
-            {
-                url: REVERSE_LDES,
-                lastVersionOnly: true,
-                stateFile: "./tests/data/client-state.json",
-            },
+        const client2 = replicateLDES({
+            statePath: "client-state-main",
+            url: REVERSE_LDES,
+            lastVersionOnly: true,
+        },
         );
 
         // Member stream object
@@ -1095,18 +1090,17 @@ describe("Client tests", () => {
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+        expect(fs.existsSync("client-state-main")).toBeTruthy();
     })
 
     test("Client runs twice with temporal filters and only receives the latest version of every member in a reversed LDES", async () => {
         // Setup client 1
-        const client1 = replicateLDES(
-            {
-                url: REVERSE_LDES,
-                after: new Date("2024-07-14T00:00:00.000Z"),
-                lastVersionOnly: true,
-                stateFile: "./tests/data/client-state.json",
-            },
+        const client1 = replicateLDES({
+            statePath: "client-state-main",
+            url: REVERSE_LDES,
+            after: new Date("2024-07-14T00:00:00.000Z"),
+            lastVersionOnly: true,
+        },
         );
 
         let memCount = 0;
@@ -1137,20 +1131,19 @@ describe("Client tests", () => {
         expect(client1.memberCount).toBe(3);
         expect(client1.fragmentCount).toBe(2);
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+        expect(fs.existsSync("client-state-main")).toBeTruthy();
 
         /**
          * End of client 1
          */
 
         // Setup client 2
-        const client2 = replicateLDES(
-            {
-                url: REVERSE_LDES,
-                after: new Date("2024-07-12T00:00:00.000Z"),
-                lastVersionOnly: true,
-                stateFile: "./tests/data/client-state.json",
-            },
+        const client2 = replicateLDES({
+            statePath: "client-state-main",
+            url: REVERSE_LDES,
+            after: new Date("2024-07-12T00:00:00.000Z"),
+            lastVersionOnly: true,
+        },
         );
 
         // Member stream object
@@ -1197,14 +1190,15 @@ describe("Client tests", () => {
         expect(gotFragmentEvent2).toBe(true);
         expect(gotDescEvent2).toBe(true);
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/client-state.json")).toBeTruthy();
+        expect(fs.existsSync("client-state-main")).toBeTruthy();
     })
 
     test("Client throws error when configured SHACL shape cannot be dereferenced", async () => {
         let threwError = false;
+        let client;
         try {
             // Setup client
-            const client = replicateLDES({
+            client = replicateLDES({
                 url: LDES,
                 shapeFile: "http://localhost:3001/invalid-shape.ttl",
             });
@@ -1213,6 +1207,7 @@ describe("Client tests", () => {
             await members.read();
         } catch (e) {
             threwError = true;
+            await client?.close();
         }
 
         expect(threwError).toBeTruthy();

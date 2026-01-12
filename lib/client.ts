@@ -5,7 +5,6 @@ import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
 import { intoConfig } from "./config";
 import { handleConditions } from "./condition";
-import { FileStateFactory, NoStateFactory } from "./state";
 import { OrderedStrategy, UnorderedStrategy } from "./strategy";
 import {
     ModulatorFactory,
@@ -27,7 +26,7 @@ import {
 
 import type { Term } from "@rdfjs/types";
 import type { Config } from "./config";
-import type { StateFactory } from "./state";
+import { ClientStateManager } from "./state";
 import type { Ordered, StrategyEvents } from "./strategy";
 import type { LDESInfo, Notifier, FetchedPage, Member } from "./fetcher";
 
@@ -66,6 +65,7 @@ export class Client {
     public memberCount: number;
     public fragmentCount: number;
     public streamId?: Term;
+
     private config: Config;
     private dereferencer: RdfDereferencer;
     private fetcher!: Fetcher;
@@ -73,10 +73,8 @@ export class Client {
     private strategy!: OrderedStrategy | UnorderedStrategy;
     private ordered: Ordered;
     private closed = false;
-
     private modulatorFactory: ModulatorFactory;
-
-    private stateFactory: StateFactory;
+    private clientStateManager: ClientStateManager;
 
     private listeners: {
         [K in keyof ClientEvents]?: Array<(p: ClientEvents[K]) => void>;
@@ -94,24 +92,22 @@ export class Client {
         this.fragmentCount = 0;
         this.config = config;
         this.dereferencer = dereferencer ?? rdfDereferencer;
-
         this.streamId = stream;
         this.ordered = ordered;
-        this.stateFactory = config.stateFile
-            ? new FileStateFactory(config.stateFile)
-            : new NoStateFactory();
+        this.clientStateManager = new ClientStateManager(
+            this.config.statePath,
+            this.config.fresh
+        );
         this.modulatorFactory = new ModulatorFactory(
-            this.stateFactory,
+            this.clientStateManager,
+            this.config.statePath !== undefined,
             this.config.concurrentFetches,
             this.config.lastVersionOnly
         );
 
         if (typeof process !== "undefined") {
             // Handle exit gracefully
-            handleExit(() => {
-                // Save state if any
-                this.stateFactory.write();
-            });
+            handleExit(() => { });
         }
     }
 
@@ -126,9 +122,12 @@ export class Client {
     }
 
     async init(
-        streamOut: (member: Member) => void,
+        streamOut: (member: Member) => boolean,
         close: () => void,
     ): Promise<void> {
+        // Initialize the client state manager
+        this.clientStateManager.init();
+
         // Fetch the given root URL
         const root: FetchedPage = await statelessPageFetch(
             this.config.url,
@@ -233,7 +232,7 @@ export class Client {
                 this.fragmentCount++;
             },
             member: (m) => {
-                streamOut(
+                const streamed = streamOut(
                     // Check if member is to be materialized
                     maybeVersionMaterialize(
                         m,
@@ -241,7 +240,10 @@ export class Client {
                         info,
                     ),
                 );
-                this.memberCount++;
+                if (streamed) {
+                    this.memberCount++;
+                }
+                return streamed;
             },
             pollCycle: () => {
                 condition.poll();
@@ -251,13 +253,13 @@ export class Client {
                 this.emit("mutable", undefined);
             },
             close: () => {
-                this.stateFactory.write();
                 close();
             },
         };
 
         // Opt for descending order strategy if last version only is true, to start reading at the newest end.
         if (this.config.lastVersionOnly) this.ordered = "descending";
+        this.logger.debug("Order chosen: " + this.ordered);
 
         // Fetching strategy definition, i.e., whether to use ordered or unordered fetching;
         // keep on polling the LDES (mutable pages) for new data or finish when fully fetched.
@@ -298,20 +300,25 @@ export class Client {
             // Called when starting the stream
             //
             start: async (controller: Controller) => {
-                this.on("error", (error) => {
-                    this.close();
+                this.on("error", async (error) => {
+                    await this.close();
                     controller.error(error);
                 });
-
                 this.modulatorFactory.pause();
                 await this.init(
                     (member) => {
-                        controller.enqueue(member);
-                        resetPromise(emitted);
+                        try {
+                            controller.enqueue(member);
+                            resetPromise(emitted);
+                            return true;
+                        } catch (_) {
+                            return false;
+                        }
                     },
-                    () => {
+                    async () => {
+                        if (this.closed) return;
                         controller.close();
-                        this.close();
+                        await this.close();
                     },
                 );
             },
@@ -331,8 +338,8 @@ export class Client {
             // Called when canceled
             //
             cancel: async () => {
-                this.logger.info("Stream canceled");
-                this.close();
+                this.logger.info("Stream has been canceled");
+                await this.close();
             },
         };
 
@@ -348,14 +355,16 @@ export class Client {
         });
     }
 
-    public close() {
+    public async close() {
         if (this.closed) return;
         this.closed = true;
-        this.stateFactory.write();
-        this.strategy?.cancel();
         this.memberManager?.close();
         this.fetcher?.close();
+        this.modulatorFactory.close();
+        await this.strategy?.cancel();
+        await this.clientStateManager.close();
         cleanUpHandlers();
+        this.logger.info("Client has been gracefully closed");
     }
 }
 

@@ -2,7 +2,6 @@ import {
     afterAll,
     beforeAll,
     afterEach,
-    beforeEach,
     describe,
     expect,
     test,
@@ -65,7 +64,7 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
 
             server.addHook(
                 "onSend",
-                async (request, reply, payload: RequestPayload) => {
+                async (_, reply, payload: RequestPayload) => {
                     const st = await streamToString(payload);
 
                     // Add cache control headers for immutable files
@@ -95,16 +94,8 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         await server.close();
     });
 
-    beforeEach(() => {
-        if (fs.existsSync("./tests/data/save.json")) {
-            fs.rmSync(path.resolve("./tests/data/save.json"));
-        }
-    });
-
     afterEach(() => {
-        if (fs.existsSync("./tests/data/save.json")) {
-            fs.rmSync(path.resolve("./tests/data/save.json"));
-        }
+        fs.rmSync("client-state", { recursive: true, force: true });
         logger.close();
         logger = createLogger({
             transports: [new transports.Console()],
@@ -125,13 +116,12 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream,
-                ordered: "none",
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: LDES,
+            output: writeStream,
+            ordered: "none",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -163,13 +153,12 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: ATYPICAL_LDES,
-                output: writeStream,
-                ordered: "none",
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: ATYPICAL_LDES,
+            output: writeStream,
+            ordered: "none",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -201,13 +190,12 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: INBETWEEN_LDES,
-                output: writeStream,
-                ordered: "none",
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: INBETWEEN_LDES,
+            output: writeStream,
+            ordered: "none",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -236,14 +224,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream,
-                ordered: "none",
-                after: new Date("3024-03-09T15:00:00.000Z"),
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: LDES,
+            output: writeStream,
+            ordered: "none",
+            after: new Date("3024-03-09T15:00:00.000Z"),
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -272,14 +259,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: ATYPICAL_LDES,
-                output: writeStream,
-                ordered: "none",
-                after: new Date("3024-03-09T15:00:00.000Z"),
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: ATYPICAL_LDES,
+            output: writeStream,
+            ordered: "none",
+            after: new Date("3024-03-09T15:00:00.000Z"),
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -308,14 +294,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: INBETWEEN_LDES,
-                output: writeStream,
-                ordered: "none",
-                after: new Date("3024-03-09T15:00:00.000Z"),
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: INBETWEEN_LDES,
+            output: writeStream,
+            ordered: "none",
+            after: new Date("3024-03-09T15:00:00.000Z"),
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -344,14 +329,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: INBETWEEN_LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("1325-03-09T15:00:00.000Z"),
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: INBETWEEN_LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("1325-03-09T15:00:00.000Z"),
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -380,14 +364,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: ATYPICAL_LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("1325-03-09T15:00:00.000Z"),
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: ATYPICAL_LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("1325-03-09T15:00:00.000Z"),
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -434,15 +417,14 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("2024-07-14T09:30:00.000Z"),
-                after: new Date("2024-07-14T08:30:00.000Z"),
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("2024-07-14T09:30:00.000Z"),
+            after: new Date("2024-07-14T08:30:00.000Z"),
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -489,15 +471,14 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: ATYPICAL_LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("2024-09-18T10:53:00.000Z"),
-                after: new Date("2024-09-18T09:00:00.000Z"),
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: ATYPICAL_LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("2024-09-18T10:53:00.000Z"),
+            after: new Date("2024-09-18T09:00:00.000Z"),
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -540,15 +521,14 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: INBETWEEN_LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("2024-09-26T10:25:00.000Z"),
-                after: new Date("2024-09-26T09:00:00.000Z"),
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: INBETWEEN_LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("2024-09-26T10:25:00.000Z"),
+            after: new Date("2024-09-26T09:00:00.000Z"),
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -594,15 +574,14 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream,
-                ordered: "ascending",
-                before: new Date("2024-07-14T10:30:00.000Z"),
-                after: new Date("2024-07-14T09:00:00.000Z"),
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: LDES,
+            output: writeStream,
+            ordered: "ascending",
+            before: new Date("2024-07-14T10:30:00.000Z"),
+            after: new Date("2024-07-14T09:00:00.000Z"),
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -653,15 +632,14 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: ATYPICAL_LDES,
-                output: writeStream,
-                ordered: "ascending",
-                before: new Date("2024-09-18T10:53:00.000Z"),
-                after: new Date("2024-09-18T09:00:00.000Z"),
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: ATYPICAL_LDES,
+            output: writeStream,
+            ordered: "ascending",
+            before: new Date("2024-09-18T10:53:00.000Z"),
+            after: new Date("2024-09-18T09:00:00.000Z"),
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -712,15 +690,14 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: INBETWEEN_LDES,
-                output: writeStream,
-                ordered: "ascending",
-                before: new Date("2024-09-26T10:25:00.000Z"),
-                after: new Date("2024-09-26T09:00:00.000Z"),
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: INBETWEEN_LDES,
+            output: writeStream,
+            ordered: "ascending",
+            before: new Date("2024-09-26T10:25:00.000Z"),
+            after: new Date("2024-09-26T09:00:00.000Z"),
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -770,15 +747,14 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream,
-                ordered: "descending",
-                before: new Date("2024-07-14T10:30:00.000Z"),
-                after: new Date("2024-07-14T09:00:00.000Z"),
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: LDES,
+            output: writeStream,
+            ordered: "descending",
+            before: new Date("2024-07-14T10:30:00.000Z"),
+            after: new Date("2024-07-14T09:00:00.000Z"),
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -832,15 +808,14 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: ATYPICAL_LDES,
-                output: writeStream,
-                ordered: "descending",
-                before: new Date("2024-09-18T10:53:00.000Z"),
-                after: new Date("2024-09-18T09:00:00.000Z"),
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: ATYPICAL_LDES,
+            output: writeStream,
+            ordered: "descending",
+            before: new Date("2024-09-18T10:53:00.000Z"),
+            after: new Date("2024-09-18T09:00:00.000Z"),
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -894,15 +869,14 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: INBETWEEN_LDES,
-                output: writeStream,
-                ordered: "descending",
-                before: new Date("2024-09-26T10:25:00.000Z"),
-                after: new Date("2024-09-26T09:00:00.000Z"),
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: INBETWEEN_LDES,
+            output: writeStream,
+            ordered: "descending",
+            before: new Date("2024-09-26T10:25:00.000Z"),
+            after: new Date("2024-09-26T09:00:00.000Z"),
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -964,15 +938,14 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("2024-07-14T10:30:00.000Z"),
-                after: new Date("2024-07-14T09:00:00.000Z"),
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("2024-07-14T10:30:00.000Z"),
+            after: new Date("2024-07-14T09:00:00.000Z"),
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -1034,15 +1007,14 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: ATYPICAL_LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("2024-09-18T10:53:00.000Z"),
-                after: new Date("2024-09-18T09:00:00.000Z"),
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: ATYPICAL_LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("2024-09-18T10:53:00.000Z"),
+            after: new Date("2024-09-18T09:00:00.000Z"),
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -1104,15 +1076,14 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: INBETWEEN_LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("2024-09-26T10:25:00.000Z"),
-                after: new Date("2024-09-26T09:00:00.000Z"),
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: INBETWEEN_LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("2024-09-26T10:25:00.000Z"),
+            after: new Date("2024-09-26T09:00:00.000Z"),
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -1179,16 +1150,15 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("2024-07-14T10:30:00.000Z"),
-                after: new Date("2024-07-14T09:00:00.000Z"),
-                shapeFile: "./tests/data/mock-ldes/partial-shape.ttl",
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("2024-07-14T10:30:00.000Z"),
+            after: new Date("2024-07-14T09:00:00.000Z"),
+            shapeFile: "./tests/data/mock-ldes/partial-shape.ttl",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -1256,16 +1226,15 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: ATYPICAL_LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("2024-09-18T10:53:00.000Z"),
-                after: new Date("2024-09-18T09:00:00.000Z"),
-                shapeFile: "./tests/data/mock-ldes/partial-shape.ttl",
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: ATYPICAL_LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("2024-09-18T10:53:00.000Z"),
+            after: new Date("2024-09-18T09:00:00.000Z"),
+            shapeFile: "./tests/data/mock-ldes/partial-shape.ttl",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -1333,16 +1302,15 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: INBETWEEN_LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("2024-09-26T10:25:00.000Z"),
-                after: new Date("2024-09-26T09:00:00.000Z"),
-                shapeFile: "./tests/data/mock-ldes/partial-shape.ttl",
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: INBETWEEN_LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("2024-09-26T10:25:00.000Z"),
+            after: new Date("2024-09-26T09:00:00.000Z"),
+            shapeFile: "./tests/data/mock-ldes/partial-shape.ttl",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -1405,16 +1373,15 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("2024-07-14T10:30:00.000Z"),
-                after: new Date("2024-07-14T09:00:00.000Z"),
-                shapeFile: "http://localhost:3000/full-shape.ttl",
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("2024-07-14T10:30:00.000Z"),
+            after: new Date("2024-07-14T09:00:00.000Z"),
+            shapeFile: "http://localhost:3000/full-shape.ttl",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -1477,16 +1444,15 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: ATYPICAL_LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("2024-09-18T10:53:00.000Z"),
-                after: new Date("2024-09-18T09:00:00.000Z"),
-                shapeFile: "http://localhost:3000/full-shape.ttl",
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: ATYPICAL_LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("2024-09-18T10:53:00.000Z"),
+            after: new Date("2024-09-18T09:00:00.000Z"),
+            shapeFile: "http://localhost:3000/full-shape.ttl",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -1549,16 +1515,15 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: INBETWEEN_LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("2024-09-26T10:25:00.000Z"),
-                after: new Date("2024-09-26T09:00:00.000Z"),
-                shapeFile: "http://localhost:3000/full-shape.ttl",
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: INBETWEEN_LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("2024-09-26T10:25:00.000Z"),
+            after: new Date("2024-09-26T09:00:00.000Z"),
+            shapeFile: "http://localhost:3000/full-shape.ttl",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -1626,16 +1591,15 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("2024-07-14T10:30:00.000Z"),
-                after: new Date("2024-07-14T09:00:00.000Z"),
-                noShape: true,
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("2024-07-14T10:30:00.000Z"),
+            after: new Date("2024-07-14T09:00:00.000Z"),
+            noShape: true,
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -1703,16 +1667,15 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: ATYPICAL_LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("2024-09-18T10:53:00.000Z"),
-                after: new Date("2024-09-18T09:00:00.000Z"),
-                noShape: true,
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: ATYPICAL_LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("2024-09-18T10:53:00.000Z"),
+            after: new Date("2024-09-18T09:00:00.000Z"),
+            noShape: true,
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -1780,16 +1743,15 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: INBETWEEN_LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("2024-09-26T10:25:00.000Z"),
-                after: new Date("2024-09-26T09:00:00.000Z"),
-                noShape: true,
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: INBETWEEN_LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("2024-09-26T10:25:00.000Z"),
+            after: new Date("2024-09-26T09:00:00.000Z"),
+            noShape: true,
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -1855,16 +1817,15 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream,
-                ordered: "ascending",
-                before: new Date("2024-07-14T10:30:00.000Z"),
-                after: new Date("2024-07-14T09:00:00.000Z"),
-                shapeFile: "http://localhost:3000/full-shape.ttl",
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: LDES,
+            output: writeStream,
+            ordered: "ascending",
+            before: new Date("2024-07-14T10:30:00.000Z"),
+            after: new Date("2024-07-14T09:00:00.000Z"),
+            shapeFile: "http://localhost:3000/full-shape.ttl",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -1935,16 +1896,15 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: ATYPICAL_LDES,
-                output: writeStream,
-                ordered: "ascending",
-                before: new Date("2024-09-18T10:53:00.000Z"),
-                after: new Date("2024-09-18T09:00:00.000Z"),
-                shapeFile: "http://localhost:3000/full-shape.ttl",
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: ATYPICAL_LDES,
+            output: writeStream,
+            ordered: "ascending",
+            before: new Date("2024-09-18T10:53:00.000Z"),
+            after: new Date("2024-09-18T09:00:00.000Z"),
+            shapeFile: "http://localhost:3000/full-shape.ttl",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -2012,16 +1972,15 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: INBETWEEN_LDES,
-                output: writeStream,
-                ordered: "ascending",
-                before: new Date("2024-09-26T10:25:00.000Z"),
-                after: new Date("2024-09-26T09:00:00.000Z"),
-                shapeFile: "http://localhost:3000/full-shape.ttl",
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: INBETWEEN_LDES,
+            output: writeStream,
+            ordered: "ascending",
+            before: new Date("2024-09-26T10:25:00.000Z"),
+            after: new Date("2024-09-26T09:00:00.000Z"),
+            shapeFile: "http://localhost:3000/full-shape.ttl",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -2078,14 +2037,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream,
-                ordered: "none",
-                materialize: true,
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: LDES,
+            output: writeStream,
+            ordered: "none",
+            materialize: true,
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -2135,14 +2093,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: ATYPICAL_LDES,
-                output: writeStream,
-                ordered: "none",
-                materialize: true,
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: ATYPICAL_LDES,
+            output: writeStream,
+            ordered: "none",
+            materialize: true,
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -2192,14 +2149,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: INBETWEEN_LDES,
-                output: writeStream,
-                ordered: "none",
-                materialize: true,
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: INBETWEEN_LDES,
+            output: writeStream,
+            ordered: "none",
+            materialize: true,
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -2272,17 +2228,16 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream,
-                ordered: "ascending",
-                before: new Date("2024-07-14T10:30:00.000Z"),
-                after: new Date("2024-07-14T09:00:00.000Z"),
-                shapeFile: "./tests/data/mock-ldes/partial-shape.ttl",
-                materialize: true,
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: LDES,
+            output: writeStream,
+            ordered: "ascending",
+            before: new Date("2024-07-14T10:30:00.000Z"),
+            after: new Date("2024-07-14T09:00:00.000Z"),
+            shapeFile: "./tests/data/mock-ldes/partial-shape.ttl",
+            materialize: true,
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -2364,17 +2319,16 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: ATYPICAL_LDES,
-                output: writeStream,
-                ordered: "ascending",
-                before: new Date("2024-09-18T10:53:00.000Z"),
-                after: new Date("2024-09-18T09:00:00.000Z"),
-                shapeFile: "./tests/data/mock-ldes/partial-shape.ttl",
-                materialize: true,
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: ATYPICAL_LDES,
+            output: writeStream,
+            ordered: "ascending",
+            before: new Date("2024-09-18T10:53:00.000Z"),
+            after: new Date("2024-09-18T09:00:00.000Z"),
+            shapeFile: "./tests/data/mock-ldes/partial-shape.ttl",
+            materialize: true,
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -2456,17 +2410,16 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: INBETWEEN_LDES,
-                output: writeStream,
-                ordered: "ascending",
-                before: new Date("2024-09-26T10:25:00.000Z"),
-                after: new Date("2024-09-26T09:00:00.000Z"),
-                shapeFile: "./tests/data/mock-ldes/partial-shape.ttl",
-                materialize: true,
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: INBETWEEN_LDES,
+            output: writeStream,
+            ordered: "ascending",
+            before: new Date("2024-09-26T10:25:00.000Z"),
+            after: new Date("2024-09-26T09:00:00.000Z"),
+            shapeFile: "./tests/data/mock-ldes/partial-shape.ttl",
+            materialize: true,
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -2523,14 +2476,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream,
-                ordered: "none",
-                lastVersionOnly: true,
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: LDES,
+            output: writeStream,
+            ordered: "none",
+            lastVersionOnly: true,
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -2576,14 +2528,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: ATYPICAL_LDES,
-                output: writeStream,
-                ordered: "none",
-                lastVersionOnly: true,
-                sdsify: false,
-            },
+        const processor = new LDESClientProcessor({
+            url: ATYPICAL_LDES,
+            output: writeStream,
+            ordered: "none",
+            lastVersionOnly: true,
+            sdsify: false,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -2629,14 +2580,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: INBETWEEN_LDES,
-                output: writeStream,
-                ordered: "none",
-                lastVersionOnly: true,
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: INBETWEEN_LDES,
+            output: writeStream,
+            ordered: "none",
+            lastVersionOnly: true,
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -2709,18 +2659,17 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("2024-07-14T10:30:00.000Z"),
-                after: new Date("2024-07-14T09:00:00.000Z"),
-                shapeFile: "http://localhost:3000/full-shape.ttl",
-                materialize: true,
-                lastVersionOnly: true,
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("2024-07-14T10:30:00.000Z"),
+            after: new Date("2024-07-14T09:00:00.000Z"),
+            shapeFile: "http://localhost:3000/full-shape.ttl",
+            materialize: true,
+            lastVersionOnly: true,
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -2800,18 +2749,17 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: ATYPICAL_LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("2024-09-18T10:53:00.000Z"),
-                after: new Date("2024-09-18T09:00:00.000Z"),
-                shapeFile: "http://localhost:3000/full-shape.ttl",
-                materialize: true,
-                lastVersionOnly: true,
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: ATYPICAL_LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("2024-09-18T10:53:00.000Z"),
+            after: new Date("2024-09-18T09:00:00.000Z"),
+            shapeFile: "http://localhost:3000/full-shape.ttl",
+            materialize: true,
+            lastVersionOnly: true,
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -2892,18 +2840,17 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: INBETWEEN_LDES,
-                output: writeStream,
-                ordered: "none",
-                before: new Date("2024-09-26T10:25:00.000Z"),
-                after: new Date("2024-09-26T09:00:00.000Z"),
-                shapeFile: "http://localhost:3000/full-shape.ttl",
-                materialize: true,
-                lastVersionOnly: true,
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: INBETWEEN_LDES,
+            output: writeStream,
+            ordered: "none",
+            before: new Date("2024-09-26T10:25:00.000Z"),
+            after: new Date("2024-09-26T09:00:00.000Z"),
+            shapeFile: "http://localhost:3000/full-shape.ttl",
+            materialize: true,
+            lastVersionOnly: true,
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -2956,16 +2903,15 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LINKED_LIST_LDES,
-                output: writeStream,
-                ordered: "ascending",
-                fetchConfig: {
-                    concurrent: 1,
-                },
-                sdsify: true,
+        const processor = new LDESClientProcessor({
+            url: LINKED_LIST_LDES,
+            output: writeStream,
+            ordered: "ascending",
+            fetchConfig: {
+                concurrent: 1,
             },
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -3003,13 +2949,12 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LOCAL_DUMP_LDES,
-                output: writeStream,
-                ordered: "none",
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: LOCAL_DUMP_LDES,
+            output: writeStream,
+            ordered: "none",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -3058,15 +3003,14 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LOCAL_DUMP_LDES,
-                output: writeStream,
-                ordered: "ascending",
-                before: new Date("2024-08-22T07:56:57Z"),
-                after: new Date("2024-08-22T05:56:57Z"),
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: LOCAL_DUMP_LDES,
+            output: writeStream,
+            ordered: "ascending",
+            before: new Date("2024-08-22T07:56:57Z"),
+            after: new Date("2024-08-22T05:56:57Z"),
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -3104,14 +3048,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LDES_MINIMAL_VIEW,
-                output: writeStream,
-                ordered: "none",
-                urlIsView: true,
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: LDES_MINIMAL_VIEW,
+            output: writeStream,
+            ordered: "none",
+            urlIsView: true,
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -3144,14 +3087,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor = new LDESClientProcessor(
-            {
-                url: LDES_MINIMAL_VIEW,
-                output: writeStream,
-                ordered: "ascending",
-                urlIsView: true,
-                sdsify: true,
-            },
+        const processor = new LDESClientProcessor({
+            url: LDES_MINIMAL_VIEW,
+            output: writeStream,
+            ordered: "ascending",
+            urlIsView: true,
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -3190,14 +3132,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor1 = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream1,
-                ordered: "none",
-                savePath: "./tests/data/save.json",
-                sdsify: true,
-            },
+        const processor1 = new LDESClientProcessor({
+            savePath: "client-state",
+            url: LDES,
+            output: writeStream1,
+            ordered: "none",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -3216,20 +3157,19 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         expect(processor1.client.memberCount).toBe(12);
         expect(processor1.client.fragmentCount).toBe(4);
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
+        expect(fs.existsSync("client-state")).toBeTruthy();
 
         // Run a second client with the saved state
         const [writeStream2] = channel(runner, "input2");
 
         // Setup client
-        const processor2 = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream2,
-                ordered: "none",
-                savePath: "./tests/data/save.json",
-                sdsify: true,
-            },
+        const processor2 = new LDESClientProcessor({
+            savePath: "client-state",
+            url: LDES,
+            output: writeStream2,
+            ordered: "none",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -3266,14 +3206,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor1 = new LDESClientProcessor(
-            {
-                url: LINKED_LIST_LDES,
-                output: writeStream1,
-                ordered: "none",
-                savePath: "./tests/data/save.json",
-                sdsify: true,
-            },
+        const processor1 = new LDESClientProcessor({
+            savePath: "client-state",
+            url: LINKED_LIST_LDES,
+            output: writeStream1,
+            ordered: "none",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -3291,19 +3230,18 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         expect(processor1.client.memberCount).toBe(9);
         expect(processor1.client.fragmentCount).toBe(4);
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
+        expect(fs.existsSync("client-state")).toBeTruthy();
 
         // Run a second client with the saved state
         const [writeStream2] = channel(runner, "input2");
         // Setup client
-        const processor2 = new LDESClientProcessor(
-            {
-                url: LINKED_LIST_LDES,
-                output: writeStream2,
-                ordered: "none",
-                savePath: "./tests/data/save.json",
-                sdsify: true,
-            },
+        const processor2 = new LDESClientProcessor({
+            savePath: "client-state",
+            url: LINKED_LIST_LDES,
+            output: writeStream2,
+            ordered: "none",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -3343,14 +3281,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor1 = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream1,
-                ordered: "ascending",
-                savePath: "./tests/data/save.json",
-                sdsify: true,
-            },
+        const processor1 = new LDESClientProcessor({
+            savePath: "client-state",
+            url: LDES,
+            output: writeStream1,
+            ordered: "ascending",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -3374,19 +3311,18 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         );
         expect(isSorted).toBeTruthy();
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
+        expect(fs.existsSync("client-state")).toBeTruthy();
 
         // Run a second client with the saved state
         const [writeStream2] = channel(runner, "input2");
         // Setup client
-        const processor2 = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream2,
-                ordered: "ascending",
-                savePath: "./tests/data/save.json",
-                sdsify: true,
-            },
+        const processor2 = new LDESClientProcessor({
+            savePath: "client-state",
+            url: LDES,
+            output: writeStream2,
+            ordered: "ascending",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -3426,14 +3362,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor1 = new LDESClientProcessor(
-            {
-                url: LINKED_LIST_LDES,
-                output: writeStream1,
-                ordered: "ascending",
-                savePath: "./tests/data/save.json",
-                sdsify: true,
-            },
+        const processor1 = new LDESClientProcessor({
+            savePath: "client-state",
+            url: LINKED_LIST_LDES,
+            output: writeStream1,
+            ordered: "ascending",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -3457,19 +3392,18 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         );
         expect(isSorted).toBeTruthy();
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
+        expect(fs.existsSync("client-state")).toBeTruthy();
 
         // Run a second client with the saved state
         const [writeStream2] = channel(runner, "input2");
         // Setup client
-        const processor2 = new LDESClientProcessor(
-            {
-                url: LINKED_LIST_LDES,
-                output: writeStream2,
-                ordered: "ascending",
-                savePath: "./tests/data/save.json",
-                sdsify: true,
-            },
+        const processor2 = new LDESClientProcessor({
+            savePath: "client-state",
+            url: LINKED_LIST_LDES,
+            output: writeStream2,
+            ordered: "ascending",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -3509,14 +3443,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor1 = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream1,
-                ordered: "descending",
-                savePath: "./tests/data/save.json",
-                sdsify: true,
-            },
+        const processor1 = new LDESClientProcessor({
+            savePath: "client-state",
+            url: LDES,
+            output: writeStream1,
+            ordered: "descending",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -3540,19 +3473,18 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         );
         expect(isSorted).toBeTruthy();
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
+        expect(fs.existsSync("client-state")).toBeTruthy();
 
         // Run a second client with the saved state
         const [writeStream2] = channel(runner, "input2");
         // Setup client
-        const processor2 = new LDESClientProcessor(
-            {
-                url: LDES,
-                output: writeStream2,
-                ordered: "descending",
-                savePath: "./tests/data/save.json",
-                sdsify: true,
-            },
+        const processor2 = new LDESClientProcessor({
+            savePath: "client-state",
+            url: LDES,
+            output: writeStream2,
+            ordered: "descending",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -3592,14 +3524,13 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         });
 
         // Setup client
-        const processor1 = new LDESClientProcessor(
-            {
-                url: LINKED_LIST_LDES,
-                output: writeStream1,
-                ordered: "descending",
-                savePath: "./tests/data/save.json",
-                sdsify: true,
-            },
+        const processor1 = new LDESClientProcessor({
+            savePath: "client-state",
+            url: LINKED_LIST_LDES,
+            output: writeStream1,
+            ordered: "descending",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 
@@ -3623,19 +3554,18 @@ describe("Functional tests for the rdfc:LdesClient RDF-Connect processor", () =>
         );
         expect(isSorted).toBeTruthy();
         // Check that state was saved
-        expect(fs.existsSync("./tests/data/save.json")).toBeTruthy();
+        expect(fs.existsSync("client-state")).toBeTruthy();
 
         // Run a second client with the saved state
         const [writeStream2] = channel(runner, "input2");
         // Setup client
-        const processor2 = new LDESClientProcessor(
-            {
-                url: LINKED_LIST_LDES,
-                output: writeStream2,
-                ordered: "descending",
-                savePath: "./tests/data/save.json",
-                sdsify: true,
-            },
+        const processor2 = new LDESClientProcessor({
+            savePath: "client-state",
+            url: LINKED_LIST_LDES,
+            output: writeStream2,
+            ordered: "descending",
+            sdsify: true,
+        },
             logger,
         ) as FullProc<LDESClientProcessor>;
 

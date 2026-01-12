@@ -1,11 +1,15 @@
-import { describe, expect, test } from "vitest";
+import { describe, afterAll, expect, test } from "vitest";
 import { ProcHelper } from "@rdfc/js-runner/lib/testUtils";
 import { LDESClientProcessor } from "../../lib/rdfc-processor";
+import { rmSync } from "fs";
 
 import type { FullProc } from "@rdfc/js-runner";
 
 
-describe("Tests for rdfc:LdesClient processor", async () => {
+describe("Tests for rdfc:LdesClient processor", () => {
+    afterAll(() => {
+        rmSync("state-path", { recursive: true, force: true });
+    });
 
     test("rdfc:LdesClient is properly defined", async () => {
         const processor = `
@@ -22,7 +26,7 @@ describe("Tests for rdfc:LdesClient processor", async () => {
             rdfc:interval 5;
             rdfc:shapeFile "/path/to/shape.ttl";
             rdfc:noShape false;
-            rdfc:savePath "/state/save.json";
+            rdfc:savePath "state-path";
             rdfc:loose false;
             rdfc:urlIsView false;
             rdfc:fetch [
@@ -39,6 +43,7 @@ describe("Tests for rdfc:LdesClient processor", async () => {
             ];
             rdfc:materialize true;
             rdfc:lastVersionOnly true;
+            rdfc:fresh true;
             rdfc:streamId "MyStream";
             rdfc:sdsify true.
         `;
@@ -67,7 +72,7 @@ describe("Tests for rdfc:LdesClient processor", async () => {
         expect(proc.pollInterval).toBe(5);
         expect(proc.shapeFile).toBe("/path/to/shape.ttl");
         expect(proc.noShape).toBeFalsy();
-        expect(proc.savePath).toBe("/state/save.json");
+        expect(proc.savePath).toBe("state-path");
         expect(proc.loose).toBeFalsy();
         expect(proc.urlIsView).toBeFalsy();
         expect(proc.fetchConfig).toEqual({
@@ -84,6 +89,7 @@ describe("Tests for rdfc:LdesClient processor", async () => {
         });
         expect(proc.materialize).toBeTruthy();
         expect(proc.lastVersionOnly).toBeTruthy();
+        expect(proc.fresh).toBeTruthy();
         expect(proc.streamId).toBe("MyStream");
         expect(proc.sdsify).toBeTruthy();
     });

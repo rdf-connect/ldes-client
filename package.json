@@ -40,6 +40,7 @@
     "debug": "^4.4.3",
     "extract-cbd-shape": "^0.1.14",
     "heap-js": "^2.7.1",
+    "level": "^10.0.0",
     "n3": "^1.26.0",
     "rdf-data-factory": "^2.0.2",
     "rdf-dereference": "^4.0.0",
@@ -55,8 +56,8 @@
     "@rdfjs/types": "^2.0.1",
     "@types/n3": "^1.26.1",
     "@types/node": "^25.0.3",
-    "@typescript-eslint/eslint-plugin": "^8.50.0",
-    "@typescript-eslint/parser": "^8.50.0",
+    "@typescript-eslint/eslint-plugin": "^8.50.1",
+    "@typescript-eslint/parser": "^8.50.1",
     "@vitest/coverage-v8": "^4.0.16",
     "benchmark": "^2.1.4",
     "eslint": "^9.39.2",
@@ -67,7 +68,7 @@
     "prettier": "^3.7.4",
     "tsc-alias": "^1.8.16",
     "typescript": "^5.9.3",
-    "vite-tsconfig-paths": "^6.0.2",
+    "vite-tsconfig-paths": "^6.0.3",
     "vitest": "^4.0.16"
   },
   "browser": {
@@ -78,6 +79,6 @@
   },
   "optionalDependencies": {
     "@esbuild/darwin-arm64": "^0.27.2",
-    "@rollup/rollup-linux-x64-gnu": "^4.53.5"
+    "@rollup/rollup-linux-x64-gnu": "^4.54.0"
   }
 }

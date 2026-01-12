@@ -343,10 +343,8 @@ export class OrCondition extends BiCondition {
 }
 
 export class EmptyCondition implements Condition {
-    private logger = getLoggerFor(this);
 
     matchRelation(_range: Range, _cbdId: Path): boolean {
-        this.logger.verbose("[matchRelation] Returning true");
         return true;
     }
 
@@ -359,7 +357,7 @@ export class EmptyCondition implements Condition {
     }
 
     toString() {
-        return "all";
+        return "EmptyCondition (always true)";
     }
     poll(): void {
         // empty

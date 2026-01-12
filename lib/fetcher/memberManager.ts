@@ -6,7 +6,7 @@ import { getObjects, memberFromQuads, getLoggerFor } from "../utils";
 import { Condition } from "../condition";
 
 import type { Quad, Term } from "@rdfjs/types";
-import type { Notifier } from "./modulator";
+import type { Modulator, Notifier } from "./modulator";
 import type { FetchedPage } from "./pageFetcher";
 
 const { namedNode } = new DataFactory();
@@ -41,15 +41,13 @@ export type MemberEvents = {
 };
 
 interface ExtractionState {
-    emitted: ReadonlySet<string>;
-    latestVersions?: Map<string, number>;
+    modulator: Modulator<unknown, unknown>;
 }
 
 export class Manager {
     public queued: number = 0;
 
     private closed = false;
-    private resolve?: () => void;
     private ldesUri: Term | null;
 
     private extractor: CBDShapeExtractor;
@@ -94,7 +92,7 @@ export class Manager {
     }
 
     // Extract members found in this page, this does not yet emit the members
-    extractMembers<S extends ExtractionState>(
+    async extractMembers<S extends ExtractionState>(
         page: FetchedPage,
         state: S,
         notifier: Notifier<MemberEvents, S>,
@@ -127,9 +125,9 @@ export class Manager {
         const promises: Promise<Member | undefined | void>[] = [];
 
         for (const member of members) {
-            if (!state.emitted.has(member.value)) {
+            if (!(await state.modulator.wasEmitted(member.value))) {
                 const promise = this.extractMember(member, page.data, members)
-                    .then((member) => {
+                    .then(async (member) => {
                         if (member) {
                             if (!this.closed) {
                                 // Check if member matches condition
@@ -137,15 +135,22 @@ export class Manager {
                                     this.logger.debug(`Member <${member.id.value}> does not match condition`);
                                     return;
                                 }
-                                // Check if member version is to be emitted 
-                                if (this.memberIsOld(member, state.latestVersions)) {
+                                // Check if member version is to be emitted
+                                let isOld = false;
+                                try {
+                                    isOld = await this.memberIsOld(member, state.modulator);
+                                } catch (ex) {
+                                    // Things are shutting down, stop processing
+                                    return;
+                                }
+                                if (isOld) {
                                     this.logger.debug(`Member <${member.id.value}> is older than latest version`);
                                     return;
                                 }
                                 // Emit this member
                                 this.condition.memberEmitted(member);
                                 this.logger.debug(`Member <${member.id.value}> will be emitted`);
-                                notifier.extracted(member, state);
+                                await notifier.extracted(member, state);
                             }
                         }
                     })
@@ -161,23 +166,18 @@ export class Manager {
             }
         }
 
-        Promise.all(promises).then(() => {
+        Promise.all(promises).then(async () => {
             if (!this.closed) {
-                this.logger.debug(`All members extracted for ${page.url}`);
+                this.logger.verbose(`All members (${members.length}) extracted for ${page.url}`);
                 page.created = pageCreated;
                 page.updated = pageUpdated;
                 page.memberCount = members.length;
-                notifier.done(page, state);
+                await notifier.done(page, state);
             }
         });
     }
 
     close() {
-        this.logger.debug("Closing stream");
-        if (this.resolve) {
-            this.resolve();
-            this.resolve = undefined;
-        }
         this.closed = true;
     }
 
@@ -221,30 +221,18 @@ export class Manager {
         }
     }
 
-    private memberIsOld(member: Member, versionState?: Map<string, number>) {
-        if (!versionState || !member.isVersionOf) {
+    private async memberIsOld(member: Member, modulator: Modulator<unknown, unknown>) {
+        if (!modulator.hasLatestVersions() || !member.isVersionOf || !member.timestamp) {
             return false;
         }
-        this.logger.debug(`Checking if member <${member.id.value}> is old`);
+        this.logger.debug(`Checking if member <${member.id.value}> (version of: ${member.isVersionOf}) is old`);
         // We are emitting latest versions only
-        const newVersion = (<Date>(member.timestamp)).getTime();
-        if (versionState.has(member.isVersionOf)) {
-            // Check if this is an older version
-            const latestVersion = versionState.get(member.isVersionOf);
-            if (latestVersion && newVersion > latestVersion) {
-                this.logger.debug(`Found a newer version of <${member.isVersionOf}>`);
-                // We found a newer version, update the state
-                versionState.set(member.isVersionOf, newVersion);
-            } else {
-                this.logger.debug(`Found an older version of <${member.isVersionOf}>, skipping it`);
-                // This is an older version, return true to skip it
-                return true;
-            }
-        } else {
-            // First time seeing this member
-            this.logger.debug(`First time seeing a version of <${member.isVersionOf}>`);
-            versionState.set(member.isVersionOf, newVersion);
+        const version = member.timestamp instanceof Date ?
+            member.timestamp.getTime() : new Date(member.timestamp).getTime();
+        try {
+            return await modulator.filterLatest(member.isVersionOf, version);
+        } catch (ex) {
+            throw ex;
         }
-        return false;
     }
 }

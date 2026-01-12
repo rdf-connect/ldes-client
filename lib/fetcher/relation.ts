@@ -80,6 +80,7 @@ export function extractRelations(
 
     const allowed = [];
     for (const cond of conditions.values()) {
+        logger.verbose(`Checking ${condition.toString()} for relation <${cond.relation.node}>`);
         if (cond.cond.allowed(condition)) {
             allowed.push(cond.relation);
         }

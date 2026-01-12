@@ -1,10 +1,10 @@
-import { StateT } from "../state";
 import { getLoggerFor } from "../utils/";
 
-import type { StateFactory } from "../state";
+import type { ClientStateManager } from "../state";
+import { Level } from "level";
 
 export type Notifier<Events, S> = {
-    [K in keyof Events]: (event: Events[K], state: S) => void;
+    [K in keyof Events]: (event: Events[K], state: S) => unknown;
 };
 
 type Indexed<T> = {
@@ -26,125 +26,144 @@ export type ModulatorEvents<T> = {
     ready: Indexed<T>;
 };
 
-/**
- * Modulator is a state and flow management structure that buffers, ranks and handles elements (T)
- * when its factory is not paused and when not too many elements are active at once.
- * It keeps track of the state of all encountered elements and data entities (M) derived from such elements.
- * 
- * Possible states for elements T are:
- * - Todo: element has been encountered but it has not been handled yet.
- * - InFlight: element is currently being handled.
- * - Mutable: element has been handled but it needs to be handled again in the future.
- * - Immutable: element has been handled and there is no need to handle it again anymore.
- * 
- * Possible states for data entities M are:
- * - Unemitted: data entity has been extracted but has not been emitted yet. 
- *              This is relevant when the modulator follows a ordered strategy, 
- *              where data entities are buffered and are emitted only when possible. 
- * - Emitted: data entity has been emitted.
- * - Versions: records the latest version of a data entity.
- */
-export interface Modulator<T, M> {
+
+export interface Modulator<F, M> {
     /**
-     * Starts the handling of an element by adding it to the todo list.
-     * @param {T} item The element to be handled.
+     * Initializes the modulator and loads any previously existing state from the state manager.
+     * @returns {Promise<boolean>} True if the modulator was initialized successfully.
     */
-    push(item: T): void;
+    init(): Promise<boolean>;
+    /**
+     * Starts the handling of a fragment by adding it to the todo list.
+     * @param {F} fragment The fragment to be handled.
+    */
+    push(fragments: F[]): Promise<void>;
 
     /**
-     * Called when an element has been handled, which removes it from the inflight list.
-     * @param index The index of the element that has been handled.
+     * Checks if the modulator is ready to trigger the ready event.
+    */
+    checkReady(): Promise<void>;
+
+    /**
+     * Called when a fragment has been handled, which removes it from the inflight list.
+     * @param index The index of the fragment that has been handled.
     */
     finished(index: number): void;
 
     /**
-     * @returns The number of elements in the todo list.
+     * Closes the modulator, which removes it from the factory.
     */
-    length(): number;
+    close(): void;
 
     /**
-     * Returns whether an element has been encountered before and is in the immutable list.
-     * @param {string} url The URL of the element to check.
-     * @return {boolean} True if the element is in the immutable list.
+     * Returns the number of fragments that are still pending.
     */
-    seen(url: string): boolean;
+    pendingCount(): Promise<number>;
+
+    /**
+     * Returns whether a fragment has been encountered before and is in the immutable list.
+     * @param {string} url The URL of the element to check.
+     * @return {Promise<boolean>} True if the element is in the immutable list.
+    */
+    seen(url: string): Promise<boolean>;
+
+    /**
+     * Returns all fragments that are mutable.
+     * @returns {Promise<ReadonlyArray<F>>} The mutable list.
+    */
+    getAllMutable(): Promise<Array<F>>
+
+    /**
+     * Returns all data entities that have been extracted but not emitted yet.
+     * @returns {Promise<ReadonlyArray<M>>} The unemitted list.
+    */
+    getAllUnemitted(): Promise<ReadonlyArray<M>>
+
+    /**
+     * Returns all fragments that are currently in flight.
+     * @returns {Promise<ReadonlyArray<F>>} The inflight list.
+    */
+    getAllInFlight(): Promise<ReadonlyArray<F>>
+
+    /**
+     * Returns all fragments that are currently in todo.
+     * @returns {Promise<ReadonlyArray<F>>} The todo list.
+    */
+    getAllTodo(): Promise<ReadonlyArray<F>>
 
     /**
      * Records the fact that an element is mutable
      * @param {string} url The URL of the element to record.
-     * @param {T} item The element to record.
+     * @param {F} fragment The element to record.
+     * @returns {Promise<boolean>} True if all is good to proceed, false if must not emit new notifications.
     */
-    recordMutable(url: string, item: T): void
+    addMutable(url: string, fragment: F): Promise<boolean>
 
     /**
      * Records the fact that an element is immutable.
      * @param {string} url The URL of the element to record.
+     * @returns {Promise<boolean>} True if all is good to proceed, false if must not emit new notifications.
     */
-    recordImmutable(url: string): void
+    addImmutable(url: string): Promise<boolean>
 
     /**
      * Records the fact that a data entity has been emitted.
      * @param {string} url The URL of the emitted data entity.
+     * @returns {Promise<boolean>} True if all is good to proceed, false if must not emit new notifications.
     */
-    recordEmitted(url: string): void
+    addEmitted(url: string): Promise<boolean>
 
     /**
      * Records the fact that a data entity has been extracted but not emitted yet.
      * @param {string} url The URL of the data entity.
      * @param {M} member The extracted data entity.
+     * @returns {Promise<boolean>} True if all is good to proceed, false if must not emit new notifications.
     */
-    recordUnemitted(url: string, member: M): void
+    addUnemitted(url: string, member: M): Promise<boolean>
+
+    /**
+     * Returns whether a data entity has been emitted.
+     * @param {string} url The URL of the data entity.
+     * @returns {Promise<boolean>} True if the data entity has been emitted.
+    */
+    wasEmitted(url: string): Promise<boolean>
 
     /**
      * Removes a data entity from the unemitted list.
      * @param {string} url The URL of the data entity.
+     * @returns {Promise<boolean>} True if all is good to proceed, false if must not emit new notifications.
     */
-    deleteUnemitted(url: string): void
+    deleteUnemitted(url: string): Promise<boolean>
 
     /**
-     * Returns all elements that are still in the todo list.
-     * @returns {ReadonlyArray<T>} The todo list.
+     * Returns whether the modulator is tracking latest versions
+     * @returns {boolean} True if the modulator is tracking latest versions
     */
-    getTodo(): ReadonlyArray<T>
+    hasLatestVersions(): boolean;
 
     /**
-     * Returns all elements that are currently being handled.
-     * @returns {ReadonlyArray<T>} The inflight list.
+     * Filter out older versions of a member.
+     * @param {string} memberId The ID of the member (isVersionOf).
+     * @param {number} version The version of the member.
+     * @returns {Promise<boolean>} True if the member is old and should be filtered out.
+     * @throws {Error} If processing was cancelled and must not continue.
     */
-    getInFlight(): ReadonlyArray<T>
+    filterLatest(memberId: string, version: number): Promise<boolean>
 
-    /**
-     * Returns all elements that are mutable.
-     * @returns {ReadonlyMap<string, T>} The mutable list.
-    */
-    getMutable(): ReadonlyMap<string, T>
-
-    /**
-     * Returns all data entities that have been extracted but not emitted yet.
-     * @returns {ReadonlyArray<M>} The unemitted list.
-    */
-    getUnemitted(): ReadonlyArray<M>
-
-    /**
-     * Returns all data entities that have been emitted.
-     * @returns {ReadonlySet<string>} The emitted list.
-    */
-    getEmitted(): ReadonlySet<string>
-
-    /**
-     * Returns the latest versions recorded for all known data entities
-     * @returns {Map<string, number>} The versions map (if any)
-     */
-    getLatestVersions(): Map<string, number> | undefined
 }
 
-type ModulatorInstanceState<T, M> = {
-    todo: Map<number, T>;
-    inflight: Map<number, T>;
-    mutable: Map<string, T>;
-    immutable: Set<string>;
-    emitted: Set<string>;
-    unemitted: Map<string, M>;
+type ModulatorState<F, M> = {
+    todo: Level<number, F>;
+    inflight: Level<number, F>;
+    mutable: Level<string, F>;
+    emitted: Level<string, boolean>;
+    immutable?: Level<string, boolean>;
+    unemitted?: Level<string, M>;
+    latestVersions?: Level<string, number>;
+    fragmentEncoder?: (item: F) => unknown;
+    fragmentParser?: (item: unknown) => F;
+    memberEncoder?: (item: M) => unknown;
+    memberParser?: (item: unknown) => M;
 };
 
 /**
@@ -154,87 +173,62 @@ type ModulatorInstanceState<T, M> = {
 export class ModulatorFactory {
     concurrent: number;
     paused: boolean = false;
+    saveState: boolean = false;
     lastVersionOnly: boolean = false;
 
-    factory: StateFactory;
-    children: ModulatorInstance<unknown, unknown>[] = [];
+    clientStateManager: ClientStateManager;
+    children: { [key: string]: Modulator<unknown, unknown> } = {};
 
-    constructor(stateFactory: StateFactory, concurrent?: number, lastVersionOnly?: boolean) {
-        this.factory = stateFactory;
+    constructor(
+        clientStateManager: ClientStateManager,
+        saveState?: boolean,
+        concurrent?: number,
+        lastVersionOnly?: boolean
+    ) {
+        this.clientStateManager = clientStateManager;
+        this.saveState = saveState!!;
         this.concurrent = concurrent || 10;
         this.lastVersionOnly = lastVersionOnly!!;
     }
 
-    /**
-     * Note: `T` and `M` should be plain javascript objects (because that how state is saved)
-     */
-    create<T, M>(
+    create<F, M>(
         name: string,
-        ranker: Ranker<Indexed<T>>,
-        notifier: Notifier<ModulatorEvents<T>, unknown>,
-        parse?: (item: unknown) => T,
-    ): Modulator<T, M> {
-        // Build a page fetch and member emission state object 
-        const state = this.factory.build<ModulatorInstanceState<T, M>>(
-            name,
-            (stateObj) => JSON.stringify(stateObj, (_, value) => {
-                if (value instanceof Set) {
-                    return { datatype: "Set", value: Array.from(value) };
-                } else if (value instanceof Map) {
-                    return { datatype: "Map", value: Array.from(value.entries()) };
-                } else {
-                    return value;
-                }
-            }),
-            (input) => {
-                return JSON.parse(input, (_, value) => {
-                    if (value && value.datatype === "Set") {
-                        return new Set(value.value);
-                    } else if (value && value.datatype === "Map") {
-                        return new Map(value.value);
-                    } else {
-                        return value;
-                    }
-                }) as ModulatorInstanceState<T, M>;
-            },
-            () => ({
-                todo: new Map(),
-                inflight: new Map(),
-                mutable: new Map(),
-                immutable: new Set(),
-                emitted: new Set(),
-                unemitted: new Map(),
-            }),
-        );
+        ranker: Ranker<Indexed<F>>,
+        notifier: Notifier<ModulatorEvents<F>, unknown>,
+        fragmentEncoder?: (item: F) => unknown,
+        fragmentParser?: (item: unknown) => F,
+        memberEncoder?: (item: M) => unknown,
+        memberParser?: (item: unknown) => M,
+    ): Modulator<F, M> {
+        const modulatorState: ModulatorState<F, M> = {
+            todo: this.clientStateManager.build<number, F>("todo"),
+            inflight: this.clientStateManager.build<number, F>("inflight"),
+            mutable: this.clientStateManager.build<string, F>("mutable"),
+            emitted: this.clientStateManager.build<string, boolean>("emitted"),
+            fragmentEncoder,
+            fragmentParser,
+            memberEncoder,
+            memberParser,
+        };
 
-        if (parse) {
-            state.item.todo = new Map(
-                Array.from(state.item.todo.entries())
-                    .map(([k, v]) => [k, parse(v)])
-            );
-            state.item.inflight = new Map(
-                Array.from(state.item.inflight.entries())
-                    .map(([k, v]) => [k, parse(v)])
-            );
-            state.item.mutable = new Map(
-                Array.from(state.item.mutable.entries())
-                    .map(([k, v]) => [k, parse(v)])
-            );
+        // Build all state tracking objects (if needed)
+        if (this.saveState) {
+            modulatorState.immutable = this.clientStateManager.build<string, boolean>("immutable");
+            modulatorState.unemitted = this.clientStateManager.build<string, M>("unemitted");
         }
 
         // Build a state object to record the latest version of every member (if required)
-        let versionState;
         if (this.lastVersionOnly) {
-            versionState = this.factory.build<Map<string, number>>(
-                "memberLastVersion",
-                (map) => JSON.stringify([...map.entries()]),
-                (inp) => new Map(JSON.parse(inp)),
-                () => new Map(),
-            );
+            modulatorState.latestVersions = this.clientStateManager.build<string, number>("latestVersions");
         }
 
-        const modulator = new ModulatorInstance(state, versionState, ranker, notifier, this);
-        this.children.push(<ModulatorInstance<unknown, unknown>>modulator);
+        const modulator = new ModulatorInstance(
+            modulatorState,
+            ranker,
+            notifier,
+            this
+        );
+        this.children[name] = modulator;
         return modulator;
     }
 
@@ -244,150 +238,448 @@ export class ModulatorFactory {
 
     unpause() {
         this.paused = false;
-        this.children.forEach((x) => x.checkReady());
+        Object.values(this.children).forEach(async (modulator) => await modulator.checkReady());
+    }
+
+    close() {
+        Object.values(this.children).forEach((modulator) => modulator.close());
     }
 }
 
-export class ModulatorInstance<T, M> implements Modulator<T, M> {
+export class ModulatorInstance<F, M> {
     at: number = 0;
-    index = 0;
+    index: number = 0;
 
-    private state: StateT<ModulatorInstanceState<T, M>>;
-    private versionState: StateT<Map<string, number>> | undefined;
-    private ranker: Ranker<Indexed<T>>;
-    private notifier: Notifier<ModulatorEvents<T>, unknown>;
+    private modulatorState: ModulatorState<F, M>;
+    private ranker: Ranker<Indexed<F>>;
+    private notifier: Notifier<ModulatorEvents<F>, unknown>;
     private factory: ModulatorFactory;
 
     private logger = getLoggerFor(this);
+    private closed = false;
+    private versionStateSync = Promise.resolve();
 
     constructor(
-        state: StateT<ModulatorInstanceState<T, M>>,
-        versionState: StateT<Map<string, number>> | undefined,
-        ranker: Ranker<Indexed<T>>,
-        notifier: Notifier<ModulatorEvents<T>, unknown>,
+        state: ModulatorState<F, M>,
+        ranker: Ranker<Indexed<F>>,
+        notifier: Notifier<ModulatorEvents<F>, unknown>,
         factory: ModulatorFactory,
     ) {
-        this.state = state;
-        const read = [
-            ...this.state.item.todo.values(),
-            ...this.state.item.inflight.values(),
-        ];
-        // Clean up previous record lists
-        this.state.item.inflight.clear();
-        this.state.item.todo.clear();
-
-        this.versionState = versionState;
-
+        this.modulatorState = state;
         this.ranker = ranker;
         this.notifier = notifier;
         this.factory = factory;
+    }
 
-        for (const item of read) {
-            this.push(item);
+    async init(): Promise<boolean> {
+        if (this.closed) return false;
+        try {
+            this.logger.debug("Initializing modulator");
+            const pending = (await Promise.all([
+                this.getAllTodo(),
+                this.getAllInFlight(),
+            ])).flat();
+
+            // Clean up previous record lists
+            await Promise.all([
+                this.clearAllTodo(),
+                this.clearAllInFlight(),
+            ]);
+
+            this.logger.verbose(`Initializing and loading ${pending.length} pending fragments from a previous run`);
+            await this.push(pending);
+            return true;
+        } catch (e) {
+            this.logger.error("Failed to initialize modulator, shutting down: ", e);
+            return false;
         }
     }
 
-    length(): number {
-        return this.state.item.todo.size;
-    }
-
-    push(item: T) {
-        const indexed = { item, index: this.index };
-        this.state.item.todo.set(this.index, item);
-        this.index += 1;
-        this.ranker.push(indexed);
-        this.checkReady();
-    }
-
-    seen(url: string): boolean {
-        return this.state.item.immutable.has(url);
-    }
-
-    recordMutable(url: string, item: T): void {
-        this.state.item.mutable.set(url, item);
-    }
-
-    recordImmutable(url: string): void {
-        this.state.item.immutable.add(url);
-        // Remove from mutable list
-        this.state.item.mutable.delete(url);
-    }
-
-    recordEmitted(url: string): void {
-        this.state.item.emitted.add(url);
-        // Remove form unemitted list
-        this.state.item.unemitted.delete(url);
-    }
-
-    recordUnemitted(url: string, member: M): void {
-        this.state.item.unemitted.set(url, member);
-    }
-
-    deleteUnemitted(url: string): void {
-        this.state.item.unemitted.delete(url);
-    }
-
-    getTodo(): ReadonlyArray<T> {
-        return <ReadonlyArray<T>>Array.from(this.state.item.todo.values());
-    }
-
-    getInFlight(): ReadonlyArray<T> {
-        return <ReadonlyArray<T>>Array.from(this.state.item.inflight.values());
-    }
-
-    getMutable(): ReadonlyMap<string, T> {
-        return <ReadonlyMap<string, T>>this.state.item.mutable;
-    }
-
-    getUnemitted(): ReadonlyArray<M> {
-        return <ReadonlyArray<M>>Array.from(this.state.item.unemitted.values());
-    }
-
-    getEmitted(): ReadonlySet<string> {
-        return <ReadonlySet<string>>this.state.item.emitted;
-    }
-
-    getLatestVersions(): Map<string, number> | undefined {
-        return this.versionState?.item;
-    }
-
-    finished(index: number) {
-        const deleted = this.state.item.inflight.delete(index);
-
-        if (!deleted) {
-            this.logger.warn(
-                "[finished] Expected to be able to remove inflight item",
-            );
+    async push(fragments: F[]) {
+        for (const fragment of fragments) {
+            const indexed = { item: fragment, index: this.index };
+            await this.addTodo(this.index, fragment);
+            this.index += 1;
+            this.ranker.push(indexed);
         }
-
-        this.at -= 1;
-        this.checkReady();
+        await this.checkReady();
     }
 
-    checkReady() {
-        if (this.factory.paused) {
+    async checkReady() {
+        if (this.factory.paused || this.closed) {
             return;
         }
 
         while (this.at < this.factory.concurrent) {
             const indexedItem = this.ranker.pop();
             if (indexedItem) {
-                // This item is no longer todo
-                const removed = this.state.item.todo.delete(indexedItem.index);
-                if (!removed) {
-                    this.logger.warn(
-                        "[checkReady] Expected to be able to remove todo item",
-                    );
-                }
+                const { todo } = this.modulatorState;
 
-                // This item is now inflight
-                this.state.item.inflight.set(indexedItem.index, indexedItem.item);
+                // This item is no longer todo and is now inflight
+                await Promise.all([
+                    todo.del(indexedItem.index),
+                    this.addInFlight(indexedItem.index, indexedItem.item),
+                ]);
 
                 this.at += 1;
                 this.notifier.ready(indexedItem, {});
             } else {
                 break;
             }
+        }
+    }
+
+    async finished(index: number) {
+        const { inflight } = this.modulatorState;
+        try {
+            await inflight.del(index);
+            this.at -= 1;
+            await this.checkReady();
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                return;
+            }
+            throw err;
+        }
+    }
+
+    close() {
+        this.closed = true;
+    }
+
+    async pendingCount(): Promise<number> {
+        if (this.closed) return 0;
+        const { todo, inflight } = this.modulatorState;
+        if (!todo || !inflight) {
+            return 0;
+        }
+        const [a, b] = await Promise.all([
+            todo.values().all(),
+            inflight.values().all(),
+        ]);
+        return a.length + b.length;
+    }
+
+    async seen(url: string): Promise<boolean> {
+        if (this.closed) return false;
+        const { immutable } = this.modulatorState;
+        if (!immutable) {
+            return false;
+        }
+        try {
+            return await immutable.has(url);
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                return false;
+            }
+            throw err;
+        }
+    }
+
+    async getAllMutable(): Promise<Array<F>> {
+        if (this.closed) return [];
+        const { mutable, fragmentParser } = this.modulatorState;
+        try {
+            const values = await mutable.values().all();
+            return fragmentParser ? values.map(fragmentParser) : values;
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                return [];
+            }
+            throw err;
+        }
+    }
+
+    async getAllUnemitted(): Promise<ReadonlyArray<M>> {
+        if (this.closed) return [];
+        const { unemitted, memberParser } = this.modulatorState;
+        if (!unemitted) {
+            return [];
+        }
+        try {
+            const values = await unemitted.values().all();
+            return memberParser ? values.map(memberParser) : values;
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                return [];
+            }
+            throw err;
+        }
+    }
+
+    async getAllInFlight(): Promise<ReadonlyArray<F>> {
+        if (this.closed) return [];
+        const { inflight, fragmentParser } = this.modulatorState;
+        if (!inflight) {
+            return [];
+        }
+        try {
+            const values = await inflight.values().all();
+            return fragmentParser ? values.map(fragmentParser) : values;
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                return [];
+            }
+            throw err;
+        }
+    }
+
+    async getAllTodo(): Promise<ReadonlyArray<F>> {
+        if (this.closed) return [];
+        const { todo, fragmentParser } = this.modulatorState;
+        if (!todo) {
+            return [];
+        }
+        try {
+            const values = await todo.values().all();
+            return fragmentParser ? values.map(fragmentParser) : values;
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                return [];
+            }
+            throw err;
+        }
+    }
+
+    async addMutable(url: string, fragment: F): Promise<boolean> {
+        // If things are shutting down, relay back that we must not emit new notifications
+        if (this.closed) return false;
+        const { mutable, fragmentEncoder } = this.modulatorState;
+
+        try {
+            if (await mutable.has(url)) {
+                // Fragment is already in mutable, so notifications may proceed
+                return true;
+            }
+            await mutable.put(
+                url,
+                fragmentEncoder ? <F>fragmentEncoder(fragment) : fragment
+            );
+            // State was updated successfully, so notifications may proceed
+            return true;
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                // Database is closed, relay back that we must not emit new notifications
+                return false;
+            }
+            throw err;
+        }
+    }
+
+    async addImmutable(url: string): Promise<boolean> {
+        // If things are shutting down, relay back that we must not emit new notifications
+        if (this.closed) return false;
+        const { immutable, mutable } = this.modulatorState;
+
+        try {
+            // Remove from mutable list
+            await mutable.del(url);
+            if (!immutable) {
+                // State is not being tracked, so notifications may proceed
+                return true;
+            }
+            // Add to immutable list
+            await immutable.put(url, true);
+            // State was updated successfully, so notifications may proceed
+            return true;
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                // Database is closed, relay back that we must not emit new notifications
+                return false;
+            }
+            throw err;
+        }
+    }
+
+    async addEmitted(url: string): Promise<boolean> {
+        // If things are shutting down, relay back that we must not emit new notifications
+        if (this.closed) return false;
+        const { emitted, unemitted } = this.modulatorState;
+        try {
+            // Add to emitted list
+            await emitted.put(url, true);
+            if (!unemitted) {
+                // State is not being tracked, so notifications may proceed
+                return true;
+            }
+            // Remove from unemitted list too
+            await unemitted.del(url);
+            // State was updated successfully, so notifications may proceed
+            return true;
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                // Database is closed, relay back that we must not emit new notifications
+                return false;
+            }
+            throw err;
+        }
+    }
+
+    async addUnemitted(url: string, member: M): Promise<boolean> {
+        // If things are shutting down, relay back that we must not emit new notifications
+        if (this.closed) return false;
+        const { unemitted, memberEncoder } = this.modulatorState;
+        if (!unemitted) {
+            // State is not being tracked, so notifications may proceed
+            return true;
+        }
+        try {
+            await unemitted.put(
+                url,
+                memberEncoder ? <M>memberEncoder(member) : member
+            );
+            // State was updated successfully, so notifications may proceed
+            return true;
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                // Database is closed, relay back that we must not emit new notifications
+                return false;
+            }
+            throw err;
+        }
+    }
+
+    async wasEmitted(url: string): Promise<boolean> {
+        if (this.closed) return false;
+        const { emitted } = this.modulatorState;
+        try {
+            return await emitted.has(url);
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                return false;
+            }
+            throw err;
+        }
+    }
+
+    async deleteUnemitted(url: string): Promise<boolean> {
+        // If things are shutting down, relay back that we must not emit new notifications
+        if (this.closed) return false;
+        const { unemitted } = this.modulatorState;
+        if (!unemitted) {
+            // State is not being tracked, so notifications may proceed
+            return true;
+        }
+        try {
+            await unemitted.del(url);
+            // State was updated successfully, so notifications may proceed
+            return true;
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                // Database is closed, relay back that we must not emit new notifications
+                return false;
+            }
+            throw err;
+        }
+    }
+
+    hasLatestVersions(): boolean {
+        if (this.closed) return false;
+        return !!this.modulatorState.latestVersions;
+    }
+
+    /**
+     * This method uses a promise-chain (versionStateSync) to serialize all version checks and updates, 
+     * preventing race conditions when multiple fragment extractions occur in parallel.
+    */
+    async filterLatest(memberId: string, version: number): Promise<boolean> {
+        // If things are shutting down, relay back that we must not emit new notifications
+        if (this.closed) throw new Error('Modulator is closed');
+        const { latestVersions } = this.modulatorState;
+        // If version state is not being tracked, then this member can't be filtered as an old one
+        if (!latestVersions) return false;
+
+        const p = this.versionStateSync.then(async () => {
+            // Again, if things are shutting down, relay back that we must not emit new notifications
+            if (this.closed) throw new Error('Modulator is closed');
+            try {
+                const latestVersion = await latestVersions.get(memberId).catch(() => undefined);
+                if (latestVersion === undefined || version > latestVersion) {
+                    // This member is a newer version
+                    await latestVersions.put(memberId, version);
+                    return false;
+                }
+                return version < latestVersion;
+            } catch (ex) {
+                // Database is closed or something else went wrong, relay back that we must not emit new notifications
+                throw ex;
+            }
+        });
+        this.versionStateSync = p.then(() => { })
+            .catch((err) => {
+                // Things are shutting down or something went wrong, relay back that we must not emit new notifications
+                throw err;
+            });
+        return await p;
+    }
+
+    /**
+     * Clears the todo list.
+    */
+    async clearAllTodo(): Promise<void> {
+        if (this.closed) return;
+        const { todo } = this.modulatorState;
+        try {
+            await todo.clear();
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                return;
+            }
+            throw err;
+        }
+    }
+
+    /**
+     * Adds a fragment to the todo list.
+    */
+    async addTodo(index: number, fragment: F): Promise<void> {
+        if (this.closed) return;
+        const { todo, fragmentEncoder } = this.modulatorState;
+        try {
+            await todo.put(
+                index,
+                fragmentEncoder ? <F>fragmentEncoder(fragment) : fragment
+            );
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                return;
+            }
+            throw err;
+        }
+    }
+
+    /**
+     * Clears the in-flight list.
+    */
+    async clearAllInFlight(): Promise<void> {
+        if (this.closed) return;
+        const { inflight } = this.modulatorState;
+        try {
+            await inflight.clear();
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                return;
+            }
+            throw err;
+        }
+    }
+
+    /**
+     * Adds a fragment to the in-flight list.
+    */
+    async addInFlight(index: number, fragment: F): Promise<void> {
+        if (this.closed) return;
+        const { inflight, fragmentEncoder } = this.modulatorState;
+        try {
+            await inflight.put(
+                index,
+                fragmentEncoder ? <F>fragmentEncoder(fragment) : fragment
+            );
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                return;
+            }
+            throw err;
         }
     }
 }
