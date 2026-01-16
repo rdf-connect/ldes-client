@@ -8,7 +8,7 @@ import { extractRelations } from "./relation";
 import type { IDereferenceOptions } from "rdf-dereference";
 import type { Condition } from "../condition";
 import type { Notifier } from "./modulator";
-import type { Relations } from "./relation";
+import type { FoundRelation } from "./relation";
 
 const { namedNode } = new DataFactory();
 
@@ -66,7 +66,8 @@ export async function statelessPageFetch(
 }
 
 export type FetchEvent = {
-    relationsFound: { from: Node; target: Relations }[];
+    relationsFound: { from: Node; target: FoundRelation }[];
+    relationsFiltered: Node;
     pageFetched: FetchedPage;
     scheduleFetch: Node;
     error: unknown;
@@ -169,7 +170,8 @@ export class Fetcher {
             this.logger.debug(
                 `[fetch] Got data ${node.target} (${quadCount} quads)`,
             );
-            const relations = [];
+            const toFetch = [];
+            let filtered = 0;
             for (const rel of extractRelations(
                 data,
                 namedNode(resp.url),
@@ -178,13 +180,20 @@ export class Fetcher {
                 this.defaultTimezone,
             )) {
                 if (!node.expected.some((x) => x == rel.node)) {
-                    relations.push({ from: node, target: rel });
+                    if (rel.allowed) {
+                        toFetch.push({ from: node, target: rel });
+                    } else {
+                        filtered++;
+                    }
                 }
             }
 
             if (!this.closed) {
-                if (relations.length > 0) {
-                    await notifier.relationsFound(relations, state);
+                if (toFetch.length > 0) {
+                    await notifier.relationsFound(toFetch, state);
+                }
+                if (filtered > 0) {
+                    await notifier.relationsFiltered(node, state);
                 }
                 notifier.pageFetched({
                     data,

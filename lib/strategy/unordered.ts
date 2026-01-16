@@ -55,7 +55,10 @@ export class UnorderedStrategy {
          * Callbacks for the fetcher
          * - scheduleFetch: a mutable page was fetched, we keep track of it for future polling
          * - pageFetched: a complete page is fetched and the relations have been extracted
-         *         start member extraction
+         *       start member extraction
+         * - relationsFiltered: Indicates that a fragment had relations that were filtered out
+         *       due to the process conditions. The fragment should be kept in state for future processes
+         *       that may have different conditions.
          * - relationFound: a relation has been found, put it in the queue
          */
         this.fetchNotifier = {
@@ -81,6 +84,10 @@ export class UnorderedStrategy {
                     });
                 }
                 await this.modulator.push(toPush);
+            },
+            relationsFiltered: async (node) => {
+                this.logger.debug(`[fetchNotifier - relationFiltered] Fragment with filtered relations: ${node.target}`);
+                await this.modulator.addFiltered(node.target, node);
             },
             pageFetched: (page, { index }) => {
                 this.logger.debug(`[fetchNotifier - pageFetched] Paged fetched ${page.url}`);

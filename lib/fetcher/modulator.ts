@@ -122,6 +122,12 @@ export interface Modulator<F, M> {
     addUnemitted(url: string, member: M): Promise<boolean>
 
     /**
+     * Records the fact that a fragment contained relations that were prunned due to filtering conditions.
+     * @param {string} url The URL of the element to record.
+     * @param {F} fragment The element to record.
+     */
+    addFiltered(url: string, fragment: F): Promise<void>
+    /**
      * Returns whether a data entity has been emitted.
      * @param {string} url The URL of the data entity.
      * @returns {Promise<boolean>} True if the data entity has been emitted.
@@ -158,6 +164,7 @@ type ModulatorState<F, M> = {
     mutable: Level<string, F>;
     emitted: Level<string, boolean>;
     immutable?: Level<string, boolean>;
+    filtered?: Level<string, F>;
     unemitted?: Level<string, M>;
     latestVersions?: Level<string, number>;
     fragmentEncoder?: (item: F) => unknown;
@@ -213,6 +220,7 @@ export class ModulatorFactory {
 
         // Build all state tracking objects (if needed)
         if (this.saveState) {
+            modulatorState.filtered = this.clientStateManager.build<string, F>("filtered");
             modulatorState.immutable = this.clientStateManager.build<string, boolean>("immutable");
             modulatorState.unemitted = this.clientStateManager.build<string, M>("unemitted");
         }
@@ -278,12 +286,14 @@ export class ModulatorInstance<F, M> {
             const pending = (await Promise.all([
                 this.getAllTodo(),
                 this.getAllInFlight(),
+                this.getAllFiltered(),
             ])).flat();
 
             // Clean up previous record lists
             await Promise.all([
                 this.clearAllTodo(),
                 this.clearAllInFlight(),
+                this.clearAllFiltered(),
             ]);
 
             this.logger.verbose(`Initializing and loading ${pending.length} pending fragments from a previous run`);
@@ -539,6 +549,25 @@ export class ModulatorInstance<F, M> {
         }
     }
 
+    async addFiltered(url: string, fragment: F): Promise<void> {
+        if (this.closed) return;
+        const { filtered, fragmentEncoder } = this.modulatorState;
+        if (!filtered) {
+            return;
+        }
+        try {
+            await filtered.put(
+                url,
+                fragmentEncoder ? <F>fragmentEncoder(fragment) : fragment
+            );
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                return;
+            }
+            throw err;
+        }
+    }
+
     async wasEmitted(url: string): Promise<boolean> {
         if (this.closed) return false;
         const { emitted } = this.modulatorState;
@@ -675,6 +704,45 @@ export class ModulatorInstance<F, M> {
                 index,
                 fragmentEncoder ? <F>fragmentEncoder(fragment) : fragment
             );
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                return;
+            }
+            throw err;
+        }
+    }
+
+    /**
+     * Returns all fragments with relations that were filtered out.
+    */
+    async getAllFiltered(): Promise<F[]> {
+        if (this.closed) return [];
+        const { filtered, fragmentParser } = this.modulatorState;
+        if (!filtered) {
+            return [];
+        }
+        try {
+            const values = await filtered.values().all();
+            return fragmentParser ? values.map(fragmentParser) : values;
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                return [];
+            }
+            throw err;
+        }
+    }
+
+    /**
+     * Clears the filtered list.
+    */
+    async clearAllFiltered(): Promise<void> {
+        if (this.closed) return;
+        const { filtered } = this.modulatorState;
+        if (!filtered) {
+            return;
+        }
+        try {
+            await filtered.clear();
         } catch (err) {
             if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
                 return;

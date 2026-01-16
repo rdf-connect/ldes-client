@@ -6,7 +6,7 @@ import { GTRs, LTR } from "./types";
 
 import type {
     Member,
-    Relations,
+    FoundRelation,
     RelationValue,
     FetchedPage,
     FetchEvent,
@@ -91,7 +91,10 @@ export class OrderedStrategy {
          * Callbacks for the fetcher
          * - scheduleFetch: a mutable page was fetched, we keep track of it for future polling
          * - pageFetched: a complete page is fetched and the relations have been extracted
-         *         start member extraction
+         *       start member extraction
+         * - relationsFiltered: Indicates that a fragment had relations that were filtered out
+         *       due to the process conditions. The fragment should be kept in state for future processes
+         *       that may have different conditions. 
          * - relationFound: a relation has been found, put the extended chain in the queue
          */
         this.fetchNotifier = {
@@ -130,6 +133,10 @@ export class OrderedStrategy {
                     }
                 }
                 await this.modulator.push(toFetch);
+            },
+            relationsFiltered: async ({ target, expected }, { chain }) => {
+                this.logger.debug(`[fetchNotifier - relationsFiltered] Fragment with filtered relations: ${target}`);
+                await this.modulator.addFiltered(target, { chain, expected });
             },
             pageFetched: async (page, state) => {
                 this.logger.debug(`[fetchNotifier - pageFetched] Page fetched ${page.url}`);
@@ -366,7 +373,7 @@ export class OrderedStrategy {
      * Sorting in ascending order: if a relation comes in with a LT relation, then that relation is not important, because it can be handled later
      * Sorting in descending order: if a relation comes in with a GT relation, then that relation is not important, because it can be handled later
      */
-    private extractRelation(rel: Relations): SimpleRelation {
+    private extractRelation(rel: FoundRelation): SimpleRelation {
         const val = (s: string) => {
             try {
                 return new Date(s);

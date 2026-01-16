@@ -6,13 +6,14 @@ import { getObjects, getLoggerFor } from "../utils";
 import type { Term } from "@rdfjs/types";
 import type { Condition } from "../condition";
 
-export interface Relations {
+export interface FoundRelation {
     source: string;
     node: string;
-    relations: Relation[];
+    allowed: boolean;
+    relations: RelationKind[];
 }
 
-export interface Relation {
+export interface RelationKind {
     id?: Term;
     type: Term;
     value?: Term[];
@@ -32,7 +33,7 @@ export function extractRelations(
     loose: boolean,
     condition: Condition,
     defaultTimezone: string,
-): Relations[] {
+): FoundRelation[] {
     const logger = getLoggerFor("extractRelations");
 
     const relationIds = loose
@@ -43,7 +44,7 @@ export function extractRelations(
 
     const conditions = new Map<
         string,
-        { cond: RelationCondition; relation: Relations }
+        { cond: RelationCondition; relation: FoundRelation }
     >();
 
     for (const relationId of relationIds) {
@@ -69,6 +70,7 @@ export function extractRelations(
                 relation: {
                     node: node.value,
                     source,
+                    allowed: false,
                     relations: [relation],
                 },
             });
@@ -78,16 +80,15 @@ export function extractRelations(
         }
     }
 
-    const allowed = [];
+    const found = [];
     for (const cond of conditions.values()) {
-        logger.verbose(`Checking ${condition.toString()} for relation <${cond.relation.node}>`);
+        logger.verbose(`Checking ${condition.toString()} for relation(s) towards <${cond.relation.node}>`);
         if (cond.cond.allowed(condition)) {
-            allowed.push(cond.relation);
+            cond.relation.allowed = true;
         }
+        found.push(cond.relation);
     }
-
-    logger.debug(`allowed ${JSON.stringify(allowed.map((x) => x.node))}`);
-    return allowed;
+    return found;
 }
 
 /**

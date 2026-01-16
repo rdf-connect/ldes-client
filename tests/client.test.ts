@@ -986,7 +986,7 @@ describe("Client tests", () => {
             memRes2 = await members2.read();
         }
 
-        expect(client2.fragmentCount).toBe(5);
+        expect(client2.fragmentCount).toBe(3);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(6);
         // Check that we received all members
