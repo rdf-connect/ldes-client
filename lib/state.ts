@@ -64,14 +64,14 @@ export class ClientStateManager {
     }
 
     private clear() {
-        this.logger.info("Clearing state manager");
+        this.logger.debug("Clearing state manager");
         if (typeof window === "undefined") {
             fs.rmSync(this.location, { recursive: true, force: true });
         } else {
             // Browser: delete IndexedDB database
             const request = indexedDB.deleteDatabase(this.location);
             request.onsuccess = () => {
-                this.logger.info("State manager cleared on IndexedDB");
+                this.logger.debug("State manager cleared on IndexedDB");
             };
             request.onerror = (event) => {
                 this.logger.error("Could not clear state manager on IndexedDB", event);
