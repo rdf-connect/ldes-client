@@ -250,7 +250,7 @@ export class LeafCondition implements Condition {
             this.compareType === "date"
                 ? (x: RelationValue) => new Date(x).toISOString()
                 : undefined;
-        this.logger.verbose(
+        this.logger.debug(
             `${this.range.toString(vts)} contains ${range.toString(vts)}. Overlaps: ${this.range.overlaps(
                 range,
             )}`,

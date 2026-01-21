@@ -375,11 +375,11 @@ export class OrderedStrategy {
      */
     private extractRelation(rel: FoundRelation): SimpleRelation {
         const val = (s: string) => {
-            try {
-                return new Date(s);
-            } catch (_ex: unknown) {
-                return s;
+            const d = new Date(s);
+            if (!isNaN(d.getTime())) {
+                return d;
             }
+            return s;
         };
         let value = undefined;
         const betweens = rel.relations
@@ -534,7 +534,8 @@ export class OrderedStrategy {
                 marker = mostConservative!.relations[0];
             }
 
-            this.logger.debug("[_checkEmit] Marker: {important: " + marker.important + ", value: " + new Date(marker.value).toISOString() + "}");
+            this.logger.debug("[_checkEmit] Marker: {important: " + marker.important
+                + ", value: " + new Date(marker.value).toISOString() + "}");
 
             // A relation should only be blocked by PEER branches that are in transit.
             // It should NOT be blocked by its own descendants or by itself.
@@ -587,7 +588,6 @@ export class OrderedStrategy {
 
             // At this point we are done with this relation
             head = this.launchedRelations.pop();
-            this.logger.debug("Head [end while]: " + JSON.stringify(head, null, 2));
         }
 
         if (head) {
@@ -607,7 +607,6 @@ export class OrderedStrategy {
         }
         if (!isOld) {
             // Emit member and record it as emitted
-
             // Make sure we keep the original member Id. It might change if materialization is enabled
             const memberIri = member.id.value;
             const streamed = this.notifier.member(member, {}) as boolean;

@@ -124,8 +124,8 @@ describe("Chain relations", () => {
             });
         value2 = new RelationChain("", "").push("", { value: 0, important: true });
 
-        expect(value1.ordering(value2)).toBe(0);
-        expect(value2.ordering(value1)).toBe(0);
+        expect(value1.ordering(value2)).toBe(1);
+        expect(value2.ordering(value1)).toBe(-1);
     });
 
     test("correct ordering with ord", () => {
@@ -199,8 +199,8 @@ describe("Chain relations", () => {
             important: true,
         });
 
-        expect(value1.ordering(value2)).toBe(0);
-        expect(value2.ordering(value1)).toBe(0);
+        expect(value1.ordering(value2)).toBe(1);
+        expect(value2.ordering(value1)).toBe(-1);
     });
 
     test("heap works with relation", () => {

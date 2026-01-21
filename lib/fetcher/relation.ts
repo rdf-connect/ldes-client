@@ -82,7 +82,7 @@ export function extractRelations(
 
     const found = [];
     for (const cond of conditions.values()) {
-        logger.verbose(`Checking ${condition.toString()} for relation(s) towards <${cond.relation.node}>`);
+        logger.debug(`Checking ${condition.toString()} for relation(s) towards <${cond.relation.node}>`);
         if (cond.cond.allowed(condition)) {
             cond.relation.allowed = true;
         }
@@ -184,27 +184,25 @@ export class RelationChain {
         const la = this.relations.length;
         const lb = other.relations.length;
         for (let i = 0; i < Math.min(la, lb); i++) {
-            if (!this.relations[i].important && !other.relations[i].important) {
-                return 0;
-            }
-            if (!this.relations[i].important) return -1;
-            if (!other.relations[i].important) return 1;
+            const a = this.relations[i];
+            const b = other.relations[i];
+
+            if (a.important && !b.important) return 1;
+            if (!a.important && b.important) return -1;
+            if (!a.important && !b.important) continue;
 
             // Both are important
             if (this.cmp) {
-                const v = this.cmp(
-                    this.relations[i].value,
-                    other.relations[i].value,
-                );
+                const v = this.cmp(a.value, b.value);
                 if (v !== 0) return v;
             } else {
-                if (this.relations[i].value < other.relations[i].value)
-                    return -1;
-                if (this.relations[i].value > other.relations[i].value)
-                    return 1;
+                if (a.value < b.value) return -1;
+                if (a.value > b.value) return 1;
             }
         }
 
+        if (la < lb) return -1;
+        if (la > lb) return 1;
         return 0;
     }
 }
