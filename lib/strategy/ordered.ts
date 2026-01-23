@@ -61,9 +61,12 @@ export class OrderedStrategy {
     private pollingIsScheduled: boolean;
 
     private canceled = false;
-    private isChecking = false;
-    private shouldCheckAgain = false;
-    public processing = Promise.resolve();
+    private isEmitChecking = false;
+    private shouldCheckEmitAgain = false;
+    public processingEmit = Promise.resolve();
+    private isEndChecking = false;
+    private shouldCheckEndAgain = false;
+    public processingCheckEnd = Promise.resolve();
 
     private logger = getLoggerFor(this);
 
@@ -103,11 +106,10 @@ export class OrderedStrategy {
             },
             scheduleFetch: async ({ target, expected }, { chain }) => {
                 this.logger.debug(`[fetchNotifier - scheduleFetch] Scheduling fetch for mutable page: ${target}`);
-                const expectedSet = new Set(expected);
                 chain.target = target;
-                this.toPoll.push({ chain, expected: expectedSet });
+                this.toPoll.push({ chain, expected });
                 // Register in the state that this page needs to be refetched in the future
-                if (await this.modulator.addMutable(target, { chain, expected: expectedSet }) && !this.canceled) {
+                if (await this.modulator.addMutable(target, { chain, expected }) && !this.canceled) {
                     this.notifier.mutable({}, {});
                 }
             },
@@ -354,15 +356,49 @@ export class OrderedStrategy {
 
     async cancel() {
         this.canceled = true;
-        await this.processing;
+        await Promise.all([
+            this.processingEmit,
+            this.processingCheckEnd,
+        ]);
     }
 
-    async checkEnd() {
+    /**
+     * This function implements the logic of a synchronized end checking loop that uses
+     * the @isEndChecking and @shouldCheckEndAgain flags to prevent multiple end checking loops from running at the same time. 
+     * When a process is already running, subsequent calls simply set the shouldCheckEndAgain flag and return. 
+     * The original process then picks up these pending requests in its loop, 
+     * ensuring sequential execution without overlapping asynchronous operations
+     */
+    private async checkEnd() {
+        if (this.isEndChecking) {
+            this.shouldCheckEndAgain = true;
+            return;
+        }
+
+        this.isEndChecking = true;
+        this.processingCheckEnd = (async () => {
+            try {
+                while (true) {
+                    this.shouldCheckEndAgain = false;
+                    await this._checkEnd();
+                    if (this.shouldCheckEndAgain && !this.canceled) {
+                        continue;
+                    }
+                    break;
+                }
+            } finally {
+                this.isEndChecking = false;
+            }
+        })();
+        await this.processingCheckEnd;
+    }
+
+    async _checkEnd() {
         if (this.canceled) return;
 
         // Check if there are any pending fragments
         if (await this.modulator.pendingCount() < 1 && this.launchedRelations.isEmpty()) {
-            this.logger.debug("[checkEnd] No more pending relations");
+            this.logger.debug("[_checkEnd] No more pending relations");
             let member = this.members.pop();
             while (member) {
                 await this.emitIfNotOld(member);
@@ -370,16 +406,15 @@ export class OrderedStrategy {
             }
 
             // Make sure polling task is only scheduled once
-            if (this.polling && !this.pollingIsScheduled) {
-                this.logger.debug(`[checkEnd] Polling is enabled, setting timeout of ${this.pollInterval || 1000} ms to poll`);
+            if (this.polling) {
+                this.logger.debug(`[_checkEnd] Polling is enabled, setting timeout of ${this.pollInterval || 1000} ms to poll`);
                 setTimeout(() => {
                     if (this.canceled) return;
 
-                    this.pollingIsScheduled = false;
                     this.notifier.pollCycle({}, {});
                     const toPollArray = this.toPoll.toArray();
                     this.logger.debug(
-                        `Let's repoll (${JSON.stringify(
+                        `[_checkEnd] Let's repoll (${JSON.stringify(
                             toPollArray.map((x) => x.chain.target),
                         )})`,
                     );
@@ -390,9 +425,8 @@ export class OrderedStrategy {
                     }
                     this.modulator.push(toPollArray);
                 }, this.pollInterval || 1000);
-                this.pollingIsScheduled = true;
             } else {
-                this.logger.debug("[checkEnd] Closing the notifier, polling is not set");
+                this.logger.debug("[_checkEnd] Closing the notifier, polling is not set");
                 this.canceled = true;
                 this.notifier.close({}, {});
             }
@@ -517,27 +551,27 @@ export class OrderedStrategy {
      * ensuring sequential execution without overlapping asynchronous operations
      */
     private async checkEmit() {
-        if (this.isChecking) {
-            this.shouldCheckAgain = true;
+        if (this.isEmitChecking) {
+            this.shouldCheckEmitAgain = true;
             return;
         }
 
-        this.isChecking = true;
-        this.processing = (async () => {
+        this.isEmitChecking = true;
+        this.processingEmit = (async () => {
             try {
                 while (true) {
-                    this.shouldCheckAgain = false;
+                    this.shouldCheckEmitAgain = false;
                     await this._checkEmit();
-                    if (this.shouldCheckAgain && !this.canceled) {
+                    if (this.shouldCheckEmitAgain && !this.canceled) {
                         continue;
                     }
                     break;
                 }
             } finally {
-                this.isChecking = false;
+                this.isEmitChecking = false;
             }
         })();
-        await this.processing;
+        await this.processingEmit;
     }
 
     /**

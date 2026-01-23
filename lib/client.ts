@@ -107,7 +107,10 @@ export class Client {
 
         if (typeof process !== "undefined") {
             // Handle exit gracefully
-            handleExit(() => { });
+            handleExit(() => {
+                this.logger.warn("Process was externally terminated, closing client...");
+                this.logger.info("Managed to emit " + this.memberCount + " members from " + this.fragmentCount + " fragments before termination");
+            });
         }
     }
 

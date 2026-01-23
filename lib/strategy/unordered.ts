@@ -27,7 +27,6 @@ export class UnorderedStrategy {
 
     private polling: boolean;
     private pollInterval?: number;
-    private pollingIsScheduled: boolean;
 
     private canceled = false;
     private isEnding = false;
@@ -49,7 +48,6 @@ export class UnorderedStrategy {
         this.manager = memberManager;
         this.fetcher = fetcher;
         this.polling = polling;
-        this.pollingIsScheduled = false;
 
         /**
          * Callbacks for the fetcher
@@ -109,9 +107,11 @@ export class UnorderedStrategy {
             extracted: async (mem) => {
                 // Member is emitted immediately after extraction, so no need to record it in the unemitted state
                 if (this.canceled) return;
+                // Make sure we keep the original member iri for the state in case materialization is enabled
+                const memberIri = mem.id.value;
                 const streamed = this.notifier.member(mem, {});
                 if (streamed) {
-                    await this.modulator.addEmitted(mem.id.value)
+                    await this.modulator.addEmitted(memberIri)
                 }
             },
             done: async (fragment: FetchedPage, { index }) => {
@@ -236,18 +236,15 @@ export class UnorderedStrategy {
         if (this.canceled) return;
         if ((await this.modulator.pendingCount()) < 1) {
             // Make sure we don't schedule multiple polling cycles
-            if (this.polling && !this.pollingIsScheduled) {
-                this.logger.debug(`[checkEnd] Polling is enabled, setting timeout of ${this.pollInterval || 1000} ms to poll`);
+            if (this.polling) {
+                this.logger.debug(`[_checkEnd] Polling is enabled, setting timeout of ${this.pollInterval || 1000} ms to poll`);
                 setTimeout(async () => {
                     if (this.canceled) return;
-                    this.pollingIsScheduled = false;
                     this.notifier.pollCycle({}, {});
-                    const toPoll = await this.modulator.getAllMutable();
-                    this.modulator.push(toPoll);
+                    this.modulator.push(await this.modulator.getAllMutable());
                 }, this.pollInterval || 1000);
-                this.pollingIsScheduled = true;
             } else {
-                this.logger.debug("[checkEnd] Closing the notifier, polling is not set");
+                this.logger.debug("[_checkEnd] Closing the notifier, polling is not set");
                 this.canceled = true;
                 this.notifier.close({}, {});
             }
