@@ -33,11 +33,10 @@ export type ExtractError = {
     memberId: Term;
     error: unknown;
 };
-export type Error = ExtractError;
 export type MemberEvents = {
     extracted: Member;
     done: FetchedPage;
-    error: Error;
+    error: ExtractError;
 };
 
 interface ExtractionState {
@@ -218,7 +217,7 @@ export class Manager {
                 );
             }
         } catch (ex) {
-            this.logger.error(ex);
+            this.logger.error((<Error>ex).message);
             return;
         }
     }
