@@ -55,21 +55,21 @@
     "@rdfc/proto": "^0.1.2",
     "@rdfjs/types": "^2.0.1",
     "@types/n3": "^1.26.1",
-    "@types/node": "^25.0.3",
-    "@typescript-eslint/eslint-plugin": "^8.50.1",
-    "@typescript-eslint/parser": "^8.50.1",
-    "@vitest/coverage-v8": "^4.0.16",
+    "@types/node": "^25.0.10",
+    "@typescript-eslint/eslint-plugin": "^8.53.1",
+    "@typescript-eslint/parser": "^8.53.1",
+    "@vitest/coverage-v8": "^4.0.18",
     "benchmark": "^2.1.4",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
-    "fastify": "^5.6.2",
+    "fastify": "^5.7.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
-    "prettier": "^3.7.4",
+    "prettier": "^3.8.1",
     "tsc-alias": "^1.8.16",
     "typescript": "^5.9.3",
-    "vite-tsconfig-paths": "^6.0.3",
-    "vitest": "^4.0.16"
+    "vite-tsconfig-paths": "^6.0.4",
+    "vitest": "^4.0.18"
   },
   "browser": {
     "fs": false,
@@ -79,6 +79,6 @@
   },
   "optionalDependencies": {
     "@esbuild/darwin-arm64": "^0.27.2",
-    "@rollup/rollup-linux-x64-gnu": "^4.54.0"
+    "@rollup/rollup-linux-x64-gnu": "^4.56.0"
   }
 }
