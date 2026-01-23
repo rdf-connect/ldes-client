@@ -19,7 +19,7 @@ const { namedNode } = new DataFactory();
  */
 export type Node = {
     target: string;
-    expected: string[];
+    expected: Set<string>;
 };
 
 export type FetchedPage = {
@@ -67,7 +67,7 @@ export async function statelessPageFetch(
 
 export type FetchEvent = {
     relationsFound: { from: Node; target: FoundRelation }[];
-    relationsFiltered: Node;
+    relationsFiltered: { from: Node; target: FoundRelation }[];
     pageFetched: FetchedPage;
     scheduleFetch: Node;
     error: unknown;
@@ -171,7 +171,7 @@ export class Fetcher {
                 `[fetch] Got data ${node.target} (${quadCount} quads)`,
             );
             const toFetch = [];
-            let filtered = 0;
+            const filtered = [];
             for (const rel of extractRelations(
                 data,
                 namedNode(resp.url),
@@ -179,11 +179,11 @@ export class Fetcher {
                 this.condition,
                 this.defaultTimezone,
             )) {
-                if (!node.expected.some((x) => x == rel.node)) {
+                if (!node.expected.has(rel.node)) {
                     if (rel.allowed) {
                         toFetch.push({ from: node, target: rel });
                     } else {
-                        filtered++;
+                        filtered.push({ from: node, target: rel });
                     }
                 }
             }
@@ -192,8 +192,8 @@ export class Fetcher {
                 if (toFetch.length > 0) {
                     await notifier.relationsFound(toFetch, state);
                 }
-                if (filtered > 0) {
-                    await notifier.relationsFiltered(node, state);
+                if (filtered.length > 0) {
+                    await notifier.relationsFiltered(filtered, state);
                 }
                 notifier.pageFetched({
                     data,

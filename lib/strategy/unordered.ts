@@ -77,17 +77,19 @@ export class UnorderedStrategy {
                 const toPush = [];
                 for (const { from, target } of relations) {
                     this.logger.debug(`[fetchNotifier - relationFound] Found relation leading to ${target.node}`);
-                    from.expected.push(target.node);
+                    from.expected.add(target.node);
                     toPush.push({
                         target: target.node,
-                        expected: [from.target],
+                        expected: new Set([from.target]),
                     });
                 }
                 await this.modulator.push(toPush);
             },
-            relationsFiltered: async (node) => {
-                this.logger.debug(`[fetchNotifier - relationFiltered] Fragment with filtered relations: ${node.target}`);
-                await this.modulator.addFiltered(node.target, node);
+            relationsFiltered: async (relations) => {
+                for (const { from, target } of relations) {
+                    this.logger.debug(`[fetchNotifier - relationFiltered] Filtered relation leading to ${target.node}`);
+                    await this.modulator.addFiltered(from.target, from);
+                }
             },
             pageFetched: (page, { index }) => {
                 this.logger.debug(`[fetchNotifier - pageFetched] Paged fetched ${page.url}`);
@@ -117,10 +119,10 @@ export class UnorderedStrategy {
                 this.notifier.fragment(fragment, {});
                 await this.modulator.finished(index)
 
-                // Mark page as immutable if cache headers indicate so and page contains members.
-                // This is to prevent that intermediary pages cannot be re-fetched in case of an interruption
-                // or out-of-order page fetching. 
-                if (fragment.immutable && fragment.memberCount > 0) {
+                // Mark fragment as immutable if cache headers indicate so and if fragment didn't have prunned relations.
+                // This is to prevent that future processes with different conditions (e.g. different time windows) 
+                // skip this fragment and miss out its relations which could be now relevant. 
+                if (fragment.immutable && !await this.modulator.wasFiltered(fragment.url)) {
                     this.logger.debug(`[memberNotifier - done] Remembering immutable page to avoid future refetching: ${fragment.url}`);
                     if (!await this.modulator.addImmutable(fragment.url)) return;
                 }
@@ -147,8 +149,18 @@ export class UnorderedStrategy {
                     }
                 },
             },
-            undefined,
-            undefined,
+            (inp: Node) => {
+                return {
+                    target: inp.target,
+                    expected: Array.from(inp.expected),
+                };
+            },
+            (inp: unknown) => {
+                return {
+                    target: (inp as Node).target,
+                    expected: new Set((inp as Node).expected),
+                };
+            },
             serializeMember,
             (member) => deserializeMember(member as SerializedMember),
         );
@@ -168,7 +180,7 @@ export class UnorderedStrategy {
             );
         } else if ((await this.modulator.pendingCount()) < 1) {
             this.logger.debug("[start] Nothing in pending, adding start url");
-            this.modulator.push([{ target: url, expected: [] }]);
+            this.modulator.push([{ target: url, expected: new Set() }]);
         } else {
             this.logger.debug(
                 "[start] Pending things are already being processed, not adding start url",

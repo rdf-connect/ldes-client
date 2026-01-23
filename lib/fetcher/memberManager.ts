@@ -120,8 +120,9 @@ export class Manager {
             ? new Date(pageUpdatedIso.value)
             : undefined;
 
-        this.logger.debug(`Extracting ${members.length} members for ${page.url}`);
+        this.logger.debug(`Found ${members.length} members in ${page.url}, checking extra conditions...`);
 
+        let allowedMembers = 0;
         const promises: Promise<Member | undefined | void>[] = [];
 
         for (const member of members) {
@@ -132,7 +133,7 @@ export class Manager {
                             if (!this.closed) {
                                 // Check if member matches condition
                                 if (!this.condition.matchMember(member)) {
-                                    this.logger.debug(`Member <${member.id.value}> does not match condition`);
+                                    this.logger.silly(`Member <${member.id.value}> does not match condition`);
                                     return;
                                 }
                                 // Check if member version is to be emitted
@@ -144,12 +145,13 @@ export class Manager {
                                     return;
                                 }
                                 if (isOld) {
-                                    this.logger.debug(`Member <${member.id.value}> is older than latest version`);
+                                    this.logger.silly(`Member <${member.id.value}> is older than latest version`);
                                     return;
                                 }
                                 // Emit this member
                                 this.condition.memberEmitted(member);
-                                this.logger.debug(`Member <${member.id.value}> will be emitted`);
+                                this.logger.silly(`Member <${member.id.value}> will be emitted`);
+                                allowedMembers++;
                                 await notifier.extracted(member, state);
                             }
                         }
@@ -168,7 +170,7 @@ export class Manager {
 
         Promise.all(promises).then(async () => {
             if (!this.closed) {
-                this.logger.verbose(`All members (${members.length}) extracted for ${page.url}`);
+                this.logger.verbose(`Extracted ${allowedMembers} out of ${members.length} members from fragment <${page.url}>`);
                 page.created = pageCreated;
                 page.updated = pageUpdated;
                 page.memberCount = members.length;
@@ -225,7 +227,7 @@ export class Manager {
         if (!modulator.hasLatestVersions() || !member.isVersionOf || !member.timestamp) {
             return false;
         }
-        this.logger.debug(`Checking if member <${member.id.value}> (version of: ${member.isVersionOf}) is old`);
+        this.logger.silly(`Checking if member <${member.id.value}> (version of: ${member.isVersionOf}) is old`);
         // We are emitting latest versions only
         const version = member.timestamp instanceof Date ?
             member.timestamp.getTime() : new Date(member.timestamp).getTime();

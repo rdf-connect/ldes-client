@@ -135,6 +135,12 @@ export interface Modulator<F, M> {
     wasEmitted(url: string): Promise<boolean>
 
     /**
+     * Returns whether a fragment had filtered relations.
+     * @param {string} url The URL of the fragment.
+     * @returns {Promise<boolean>} True if the fragment had filtered relations.
+    */
+    wasFiltered(url: string): Promise<boolean>
+    /**
      * Removes a data entity from the unemitted list.
      * @param {string} url The URL of the data entity.
      * @returns {Promise<boolean>} True if all is good to proceed, false if must not emit new notifications.
@@ -297,6 +303,7 @@ export class ModulatorInstance<F, M> {
             ]);
 
             this.logger.verbose(`Initializing and loading ${pending.length} pending fragments from a previous run`);
+            this.logger.debug(`Pending fragments: ${JSON.stringify(pending)}`);
             await this.push(pending);
             return true;
         } catch (e) {
@@ -573,6 +580,22 @@ export class ModulatorInstance<F, M> {
         const { emitted } = this.modulatorState;
         try {
             return await emitted.has(url);
+        } catch (err) {
+            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+                return false;
+            }
+            throw err;
+        }
+    }
+
+    async wasFiltered(url: string): Promise<boolean> {
+        if (this.closed) return false;
+        const { filtered } = this.modulatorState;
+        if (!filtered) {
+            return false;
+        }
+        try {
+            return await filtered.has(url);
         } catch (err) {
             if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
                 return false;
