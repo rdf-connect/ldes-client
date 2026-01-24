@@ -67,7 +67,7 @@
     "prettier": "^3.8.1",
     "tsc-alias": "^1.8.16",
     "typescript": "^5.9.3",
-    "vite-tsconfig-paths": "^5.1.4",
+    "vite-tsconfig-paths": "^6.0.5",
     "vitest": "^3.2.4"
   },
   "browser": {
