@@ -181,9 +181,9 @@ export class Range {
 
     toString(valueToString?: (value: RelationValue) => string): string {
         const vts = valueToString || ((x: RelationValue) => x.toString());
-        const start = this.min ? "[" + vts(this.min) : "[∞";
-        const end = this.max ? vts(this.max) + "]" : "∞]";
-        return start + ", " + end;
+        const start = this.min ? (this.eqMin ? "[" : "]") + vts(this.min) : "]∞";
+        const end = this.max ? vts(this.max) + (this.eqMax ? "]" : "[") : "∞[";
+        return start + "," + end;
     }
 
     parseValue(value: RelationValue, dataType?: string): RelationValue {
