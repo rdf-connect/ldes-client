@@ -35,9 +35,9 @@ export interface Modulator<F, M> {
     init(): Promise<boolean>;
     /**
      * Starts the handling of a fragment by adding it to the todo list.
-     * @param {F} fragment The fragment to be handled.
+     * @param {ReadonlyArray<F>} fragments The fragments to be handled.
     */
-    push(fragments: F[]): Promise<void>;
+    push(fragments: ReadonlyArray<F>): Promise<void>;
 
     /**
      * Checks if the modulator is ready to trigger the ready event.
@@ -312,7 +312,7 @@ export class ModulatorInstance<F, M> {
         }
     }
 
-    async push(fragments: F[]) {
+    async push(fragments: ReadonlyArray<F>) {
         for (const fragment of fragments) {
             const indexed = { item: fragment, index: this.index };
             await this.addTodo(this.index, fragment);
