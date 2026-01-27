@@ -347,17 +347,13 @@ export class ModulatorInstance<F, M> {
     }
 
     async finished(index: number) {
-        const { inflight } = this.modulatorState;
-        try {
+        return this.withState<void>(undefined, async (st) => {
+            const { inflight } = st;
+
             await inflight.del(index);
             this.at -= 1;
             await this.checkReady();
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
-                return;
-            }
-            throw err;
-        }
+        });
     }
 
     close() {
@@ -379,91 +375,69 @@ export class ModulatorInstance<F, M> {
 
     async seen(url: string): Promise<boolean> {
         if (this.closed) return false;
-        const { immutable } = this.modulatorState;
-        if (!immutable) {
-            return false;
-        }
-        try {
-            return await immutable.has(url);
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+        return this.withState<boolean>(false, async (st) => {
+            const { immutable } = st;
+            if (!immutable) {
                 return false;
             }
-            throw err;
-        }
+
+            return await immutable.has(url);
+        });
     }
 
     async getAllMutable(): Promise<Array<F>> {
         if (this.closed) return [];
-        const { mutable, fragmentParser } = this.modulatorState;
-        try {
+        return this.withState<Array<F>>([], async (st) => {
+            const { mutable, fragmentParser } = st;
+
             const values = await mutable.values().all();
             return fragmentParser ? values.map(fragmentParser) : values;
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
-                return [];
-            }
-            throw err;
-        }
+        });
     }
 
     async getAllUnemitted(): Promise<ReadonlyArray<M>> {
         if (this.closed) return [];
-        const { unemitted, memberParser } = this.modulatorState;
-        if (!unemitted) {
-            return [];
-        }
-        try {
-            const values = await unemitted.values().all();
-            return memberParser ? values.map(memberParser) : values;
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+        return this.withState<ReadonlyArray<M>>([], async (st) => {
+            const { unemitted, memberParser } = st;
+            if (!unemitted) {
                 return [];
             }
-            throw err;
-        }
+
+            const values = await unemitted.values().all();
+            return memberParser ? values.map(memberParser) : values;
+        });
     }
 
     async getAllInFlight(): Promise<ReadonlyArray<F>> {
         if (this.closed) return [];
-        const { inflight, fragmentParser } = this.modulatorState;
-        if (!inflight) {
-            return [];
-        }
-        try {
-            const values = await inflight.values().all();
-            return fragmentParser ? values.map(fragmentParser) : values;
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+        return this.withState<ReadonlyArray<F>>([], async (st) => {
+            const { inflight, fragmentParser } = st;
+            if (!inflight) {
                 return [];
             }
-            throw err;
-        }
+
+            const values = await inflight.values().all();
+            return fragmentParser ? values.map(fragmentParser) : values;
+        });
     }
 
     async getAllTodo(): Promise<ReadonlyArray<F>> {
         if (this.closed) return [];
-        const { todo, fragmentParser } = this.modulatorState;
-        if (!todo) {
-            return [];
-        }
-        try {
-            const values = await todo.values().all();
-            return fragmentParser ? values.map(fragmentParser) : values;
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+        return this.withState<ReadonlyArray<F>>([], async (st) => {
+            const { todo, fragmentParser } = st;
+            if (!todo) {
                 return [];
             }
-            throw err;
-        }
+            const values = await todo.values().all();
+            return fragmentParser ? values.map(fragmentParser) : values;
+        });
     }
 
     async addMutable(url: string, fragment: F): Promise<boolean> {
         // If things are shutting down, relay back that we must not emit new notifications
         if (this.closed) return false;
-        const { mutable, fragmentEncoder } = this.modulatorState;
-
-        try {
+        return this.withState<boolean>(true, async (st) => {
+            const { mutable, fragmentEncoder } = st;
             if (await mutable.has(url)) {
                 // Fragment is already in mutable, so notifications may proceed
                 return true;
@@ -474,21 +448,14 @@ export class ModulatorInstance<F, M> {
             );
             // State was updated successfully, so notifications may proceed
             return true;
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
-                // Database is closed, relay back that we must not emit new notifications
-                return false;
-            }
-            throw err;
-        }
+        });
     }
 
     async addImmutable(url: string): Promise<boolean> {
         // If things are shutting down, relay back that we must not emit new notifications
         if (this.closed) return false;
-        const { immutable, mutable } = this.modulatorState;
-
-        try {
+        return this.withState<boolean>(true, async (st) => {
+            const { immutable, mutable } = st;
             // Remove from mutable list
             await mutable.del(url);
             if (!immutable) {
@@ -499,20 +466,14 @@ export class ModulatorInstance<F, M> {
             await immutable.put(url, true);
             // State was updated successfully, so notifications may proceed
             return true;
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
-                // Database is closed, relay back that we must not emit new notifications
-                return false;
-            }
-            throw err;
-        }
+        });
     }
 
     async addEmitted(url: string): Promise<boolean> {
         // If things are shutting down, relay back that we must not emit new notifications
         if (this.closed) return false;
-        const { emitted, unemitted } = this.modulatorState;
-        try {
+        return this.withState<boolean>(true, async (st) => {
+            const { emitted, unemitted } = st;
             // Add to emitted list
             await emitted.put(url, true);
             if (!unemitted) {
@@ -523,106 +484,73 @@ export class ModulatorInstance<F, M> {
             await unemitted.del(url);
             // State was updated successfully, so notifications may proceed
             return true;
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
-                // Database is closed, relay back that we must not emit new notifications
-                return false;
-            }
-            throw err;
-        }
+        });
     }
 
     async addUnemitted(url: string, member: M): Promise<boolean> {
         // If things are shutting down, relay back that we must not emit new notifications
         if (this.closed) return false;
-        const { unemitted, memberEncoder } = this.modulatorState;
-        if (!unemitted) {
-            // State is not being tracked, so notifications may proceed
-            return true;
-        }
-        try {
+        return this.withState<boolean>(true, async (st) => {
+            const { unemitted, memberEncoder } = st;
+            if (!unemitted) {
+                // State is not being tracked, so notifications may proceed
+                return true;
+            }
             await unemitted.put(
                 url,
                 memberEncoder ? <M>memberEncoder(member) : member
             );
             // State was updated successfully, so notifications may proceed
             return true;
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
-                // Database is closed, relay back that we must not emit new notifications
-                return false;
-            }
-            throw err;
-        }
+        });
     }
 
     async addFiltered(url: string, fragment: F): Promise<void> {
         if (this.closed) return;
-        const { filtered, fragmentEncoder } = this.modulatorState;
-        if (!filtered) {
-            return;
-        }
-        try {
+        return this.withState<void>(undefined, async (st) => {
+            const { filtered, fragmentEncoder } = st;
+            if (!filtered) {
+                return;
+            }
             await filtered.put(
                 url,
                 fragmentEncoder ? <F>fragmentEncoder(fragment) : fragment
             );
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
-                return;
-            }
-            throw err;
-        }
+        });
     }
 
     async wasEmitted(url: string): Promise<boolean> {
         if (this.closed) return false;
-        const { emitted } = this.modulatorState;
-        try {
+        return this.withState<boolean>(false, async (st) => {
+            const { emitted } = st;
             return await emitted.has(url);
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
-                return false;
-            }
-            throw err;
-        }
+        });
     }
 
     async wasFiltered(url: string): Promise<boolean> {
         if (this.closed) return false;
-        const { filtered } = this.modulatorState;
-        if (!filtered) {
-            return false;
-        }
-        try {
-            return await filtered.has(url);
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+        return this.withState<boolean>(false, async (st) => {
+            const { filtered } = st;
+            if (!filtered) {
                 return false;
             }
-            throw err;
-        }
+            return await filtered.has(url);
+        });
     }
 
     async deleteUnemitted(url: string): Promise<boolean> {
         // If things are shutting down, relay back that we must not emit new notifications
         if (this.closed) return false;
-        const { unemitted } = this.modulatorState;
-        if (!unemitted) {
-            // State is not being tracked, so notifications may proceed
-            return true;
-        }
-        try {
+        return this.withState<boolean>(true, async (st) => {
+            const { unemitted } = st;
+            if (!unemitted) {
+                // State is not being tracked, so notifications may proceed
+                return true;
+            }
             await unemitted.del(url);
             // State was updated successfully, so notifications may proceed
             return true;
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
-                // Database is closed, relay back that we must not emit new notifications
-                return false;
-            }
-            throw err;
-        }
+        });
     }
 
     hasLatestVersions(): boolean {
@@ -637,14 +565,13 @@ export class ModulatorInstance<F, M> {
     async filterLatest(memberId: string, version: number): Promise<boolean> {
         // If things are shutting down, relay back that we must not emit new notifications
         if (this.closed) throw new Error('Modulator is closed');
-        const { latestVersions } = this.modulatorState;
-        // If version state is not being tracked, then this member can't be filtered as an old one
-        if (!latestVersions) return false;
-
-        const p = this.versionStateSync.then(async () => {
-            // Again, if things are shutting down, relay back that we must not emit new notifications
-            if (this.closed) throw new Error('Modulator is closed');
-            try {
+        return this.withState<boolean>(false, async (st) => {
+            const { latestVersions } = st;
+            // If version state is not being tracked, then this member can't be filtered as an old one
+            if (!latestVersions) return false;
+            const p = this.versionStateSync.then(async () => {
+                // Again, if things are shutting down, relay back that we must not emit new notifications
+                if (this.closed) throw new Error('Modulator is closed');
                 const latestVersion = await latestVersions.get(memberId).catch(() => undefined);
                 if (latestVersion === undefined || version > latestVersion) {
                     // This member is a newer version
@@ -652,17 +579,14 @@ export class ModulatorInstance<F, M> {
                     return false;
                 }
                 return version < latestVersion;
-            } catch (ex) {
-                // Database is closed or something else went wrong, relay back that we must not emit new notifications
-                throw ex;
-            }
-        });
-        this.versionStateSync = p.then(() => { })
-            .catch((err) => {
-                // Things are shutting down or something went wrong, relay back that we must not emit new notifications
-                throw err;
             });
-        return await p;
+            this.versionStateSync = p.then(() => { })
+                .catch((err) => {
+                    // Things are shutting down or something went wrong, relay back that we must not emit new notifications
+                    throw err;
+                });
+            return await p;
+        });
     }
 
     /**
@@ -670,15 +594,10 @@ export class ModulatorInstance<F, M> {
     */
     private async clearAllTodo(): Promise<void> {
         if (this.closed) return;
-        const { todo } = this.modulatorState;
-        try {
+        return this.withState<void>(undefined, async (st) => {
+            const { todo } = st;
             await todo.clear();
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
-                return;
-            }
-            throw err;
-        }
+        });
     }
 
     /**
@@ -686,18 +605,13 @@ export class ModulatorInstance<F, M> {
     */
     private async addTodo(index: number, fragment: F): Promise<void> {
         if (this.closed) return;
-        const { todo, fragmentEncoder } = this.modulatorState;
-        try {
+        return this.withState<void>(undefined, async (st) => {
+            const { todo, fragmentEncoder } = st;
             await todo.put(
                 index,
                 fragmentEncoder ? <F>fragmentEncoder(fragment) : fragment
             );
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
-                return;
-            }
-            throw err;
-        }
+        });
     }
 
     /**
@@ -705,15 +619,10 @@ export class ModulatorInstance<F, M> {
     */
     private async clearAllInFlight(): Promise<void> {
         if (this.closed) return;
-        const { inflight } = this.modulatorState;
-        try {
+        return this.withState<void>(undefined, async (st) => {
+            const { inflight } = st;
             await inflight.clear();
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
-                return;
-            }
-            throw err;
-        }
+        });
     }
 
     /**
@@ -721,38 +630,28 @@ export class ModulatorInstance<F, M> {
     */
     private async addInFlight(index: number, fragment: F): Promise<void> {
         if (this.closed) return;
-        const { inflight, fragmentEncoder } = this.modulatorState;
-        try {
+        return this.withState<void>(undefined, async (st) => {
+            const { inflight, fragmentEncoder } = st;
             await inflight.put(
                 index,
                 fragmentEncoder ? <F>fragmentEncoder(fragment) : fragment
             );
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
-                return;
-            }
-            throw err;
-        }
+        });
     }
 
     /**
      * Returns all fragments with relations that were filtered out.
     */
-    private async getAllFiltered(): Promise<F[]> {
+    private async getAllFiltered(): Promise<ReadonlyArray<F>> {
         if (this.closed) return [];
-        const { filtered, fragmentParser } = this.modulatorState;
-        if (!filtered) {
-            return [];
-        }
-        try {
-            const values = await filtered.values().all();
-            return fragmentParser ? values.map(fragmentParser) : values;
-        } catch (err) {
-            if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
+        return this.withState<ReadonlyArray<F>>([], async (st) => {
+            const { filtered, fragmentParser } = st;
+            if (!filtered) {
                 return [];
             }
-            throw err;
-        }
+            const values = await filtered.values().all();
+            return fragmentParser ? values.map(fragmentParser) : values;
+        });
     }
 
     /**
@@ -760,15 +659,28 @@ export class ModulatorInstance<F, M> {
     */
     private async clearAllFiltered(): Promise<void> {
         if (this.closed) return;
-        const { filtered } = this.modulatorState;
-        if (!filtered) {
-            return;
-        }
-        try {
+        return this.withState<void>(undefined, async (st) => {
+            const { filtered } = st;
+            if (!filtered) {
+                return;
+            }
             await filtered.clear();
+        });
+    }
+
+    /**
+     * Utility function to execute an operation on the modulator state.
+    */
+    private async withState<T>(
+        def: T,
+        fn: (st: typeof this.modulatorState) => Promise<T>
+    ): Promise<T> {
+        if (this.closed) return def;
+        try {
+            return await fn(this.modulatorState);
         } catch (err) {
             if ((err as Error & { code: string }).code === 'LEVEL_DATABASE_NOT_OPEN') {
-                return;
+                return def;
             }
             throw err;
         }
