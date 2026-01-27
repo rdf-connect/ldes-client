@@ -48,7 +48,7 @@ export interface Modulator<F, M> {
      * Called when a fragment has been handled, which removes it from the inflight list.
      * @param index The index of the fragment that has been handled.
     */
-    finished(index: number): void;
+    finished(index: number): Promise<void>;
 
     /**
      * Closes the modulator, which removes it from the factory.
@@ -71,7 +71,7 @@ export interface Modulator<F, M> {
      * Returns all fragments that are mutable.
      * @returns {Promise<ReadonlyArray<F>>} The mutable list.
     */
-    getAllMutable(): Promise<Array<F>>
+    getAllMutable(): Promise<ReadonlyArray<F>>
 
     /**
      * Returns all data entities that have been extracted but not emitted yet.
@@ -668,7 +668,7 @@ export class ModulatorInstance<F, M> {
     /**
      * Clears the todo list.
     */
-    async clearAllTodo(): Promise<void> {
+    private async clearAllTodo(): Promise<void> {
         if (this.closed) return;
         const { todo } = this.modulatorState;
         try {
@@ -684,7 +684,7 @@ export class ModulatorInstance<F, M> {
     /**
      * Adds a fragment to the todo list.
     */
-    async addTodo(index: number, fragment: F): Promise<void> {
+    private async addTodo(index: number, fragment: F): Promise<void> {
         if (this.closed) return;
         const { todo, fragmentEncoder } = this.modulatorState;
         try {
@@ -703,7 +703,7 @@ export class ModulatorInstance<F, M> {
     /**
      * Clears the in-flight list.
     */
-    async clearAllInFlight(): Promise<void> {
+    private async clearAllInFlight(): Promise<void> {
         if (this.closed) return;
         const { inflight } = this.modulatorState;
         try {
@@ -719,7 +719,7 @@ export class ModulatorInstance<F, M> {
     /**
      * Adds a fragment to the in-flight list.
     */
-    async addInFlight(index: number, fragment: F): Promise<void> {
+    private async addInFlight(index: number, fragment: F): Promise<void> {
         if (this.closed) return;
         const { inflight, fragmentEncoder } = this.modulatorState;
         try {
@@ -738,7 +738,7 @@ export class ModulatorInstance<F, M> {
     /**
      * Returns all fragments with relations that were filtered out.
     */
-    async getAllFiltered(): Promise<F[]> {
+    private async getAllFiltered(): Promise<F[]> {
         if (this.closed) return [];
         const { filtered, fragmentParser } = this.modulatorState;
         if (!filtered) {
@@ -758,7 +758,7 @@ export class ModulatorInstance<F, M> {
     /**
      * Clears the filtered list.
     */
-    async clearAllFiltered(): Promise<void> {
+    private async clearAllFiltered(): Promise<void> {
         if (this.closed) return;
         const { filtered } = this.modulatorState;
         if (!filtered) {
