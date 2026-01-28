@@ -260,8 +260,15 @@ export class LeafCondition implements Condition {
     }
 
     matchMember(member: Member): boolean {
-        const value = this.parseValue(this.path.execute(member)[0].id.value);
-        return this.range.contains(value);
+        const rawPathValue = this.path.execute(member)[0];
+        if (rawPathValue) {
+            const value = this.parseValue(rawPathValue.id.value);
+            return this.range.contains(value);
+        } else {
+            throw new Error(
+                `Property Path <${this.pathQuads.id.value}> does not exist in member <${member.id.value}>`,
+            );
+        }
     }
 
     private parseValue(value: string): RelationValue {
