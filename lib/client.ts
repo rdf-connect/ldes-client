@@ -482,8 +482,11 @@ async function getInfo(
         for (const quad of config.shape.quads) {
             shapeConfigStore.addQuad(quad);
         }
-        // Make sure the shapeId is as defined in the given shape file
-        config.shape.shapeId = extractMainNodeShape(shapeConfigStore);
+        if (shapeConfigStore.getQuads(config.shape.shapeId).length === 0) {
+            // This happened because the given shape IRI does not match any shape in the (remote) shape file
+            // We will try to find the main node shape
+            config.shape.shapeId = extractMainNodeShape(shapeConfigStore);
+        }
     } else {
         const shapeId = shapeIds[0];
         if (shapeId &&
