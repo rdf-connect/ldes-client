@@ -383,7 +383,7 @@ async function getInfo(
 ): Promise<LDESInfo> {
     const logger = getLoggerFor("getShape");
 
-    if (config.shapeFile) {
+    if (config.shapeFile && config.shapeFile !== "") {
         // Shape file is given externally, so we need to fetch it
         const shapeId = config.shapeFile.startsWith("http")
             ? config.shapeFile
