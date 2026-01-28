@@ -143,8 +143,8 @@ rdfc:LdesClient rdfc:jsImplementationOf rdfc:Processor;
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
-    sh:path rdfc:fresh;
-    sh:name "fresh";
+    sh:path rdfc:startFresh;
+    sh:name "startFresh";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;

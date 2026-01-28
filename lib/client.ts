@@ -96,7 +96,7 @@ export class Client {
         this.ordered = ordered;
         this.clientStateManager = new ClientStateManager(
             this.config.statePath,
-            this.config.fresh
+            this.config.startFresh
         );
         this.modulatorFactory = new ModulatorFactory(
             this.clientStateManager,

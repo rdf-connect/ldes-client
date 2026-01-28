@@ -43,7 +43,7 @@ describe("Tests for rdfc:LdesClient processor", () => {
             ];
             rdfc:materialize true;
             rdfc:lastVersionOnly true;
-            rdfc:fresh true;
+            rdfc:startFresh true;
             rdfc:streamId "MyStream";
             rdfc:sdsify true.
         `;
@@ -89,7 +89,7 @@ describe("Tests for rdfc:LdesClient processor", () => {
         });
         expect(proc.materialize).toBeTruthy();
         expect(proc.lastVersionOnly).toBeTruthy();
-        expect(proc.fresh).toBeTruthy();
+        expect(proc.startFresh).toBeTruthy();
         expect(proc.streamId).toBe("MyStream");
         expect(proc.sdsify).toBeTruthy();
     });

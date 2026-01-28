@@ -27,7 +27,7 @@ let onlyDefaultGraph: boolean = false;
 let loose: boolean = false;
 let defaultTimezone: string | undefined;
 let includeMetadata: boolean = false;
-let fresh: boolean = false;
+let startFresh: boolean = false;
 
 const fetch_config: FetchConfig = {
     retry: {},
@@ -53,7 +53,6 @@ program
         "--condition <condition_file>",
         "turtle file including the conditions for extracting a member",
     )
-    .option("--fresh", "Clear any previous saved state and execute a fresh run")
     .option("-f, --follow", "follow the LDES, the client stays in sync")
     .option("--http-codes [codes...]", "What HTTP error codes to retry")
     .option(
@@ -98,6 +97,7 @@ program
         "folder path (or name if running in the browser) of where to store the state used both to resume and to update",
     )
     .option("--shape-file <shapeFile>", "specify the path of a (remote) file containing a SHACL shape for extracting members")
+    .option("--start-fresh", "Clear any previous saved state and execute a fresh run")
     .option("-t --default-timezone <timezone>", "Default timezone for dates in tree:InBetweenRelation", "AoE")
     .option(
         "--url-is-view",
@@ -120,7 +120,7 @@ program
         lastVersionOnly = program.lastVersionOnly;
         defaultTimezone = program.defaultTimezone;
         includeMetadata = program.metadata;
-        fresh = program.fresh;
+        startFresh = program.startFresh;
 
         fetch_config.concurrent = parseInt(program.concurrent);
         if (program.basicAuth) {
@@ -180,7 +180,7 @@ async function main() {
             lastVersionOnly,
             includeMetadata,
             concurrentFetches: fetch_config.concurrent,
-            fresh,
+            startFresh,
             fetch: enhanced_fetch(fetch_config),
         }),
         ordered,

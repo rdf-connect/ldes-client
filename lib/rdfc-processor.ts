@@ -40,7 +40,7 @@ type LDESClientArgs = {
     conditionFile?: string;
     materialize?: boolean;
     lastVersionOnly?: boolean;
-    fresh?: boolean;
+    startFresh?: boolean;
     streamId?: string;
     sdsify?: boolean;
 };
@@ -67,7 +67,7 @@ export class LDESClientProcessor extends Processor<LDESClientArgs> {
                 condition: await processConditionFile(this.conditionFile),
                 materialize: this.materialize,
                 lastVersionOnly: this.lastVersionOnly,
-                fresh: this.fresh,
+                startFresh: this.startFresh,
                 concurrentFetches: this.fetchConfig?.concurrent,
             }),
             <Ordered>this.ordered || "none",

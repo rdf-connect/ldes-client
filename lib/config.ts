@@ -27,7 +27,7 @@ export interface Config {
     lastVersionOnly?: boolean;
     includeMetadata?: boolean;
     concurrentFetches?: number;
-    fresh?: boolean;
+    startFresh?: boolean;
     fetch?: typeof fetch;
 }
 
@@ -48,7 +48,7 @@ const defaultConfig: Config = {
     lastVersionOnly: false,
     includeMetadata: false,
     concurrentFetches: 10,
-    fresh: false,
+    startFresh: false,
 };
 
 const defaultTarget: WithTarget = {
