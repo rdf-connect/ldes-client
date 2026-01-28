@@ -2,10 +2,16 @@ import { CBDShapeExtractor } from "extract-cbd-shape";
 import { DC, LDES, TREE } from "@treecg/types";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
-import { getObjects, memberFromQuads, getLoggerFor } from "../utils";
+import {
+    getObjects,
+    memberFromQuads,
+    getLoggerFor,
+    memberIsOld
+} from "../utils";
+import { Condition } from "../condition";
 
 import type { Quad, Term } from "@rdfjs/types";
-import type { Notifier } from "./modulator";
+import type { Modulator, Notifier } from "./modulator";
 import type { FetchedPage } from "./pageFetcher";
 
 const { namedNode } = new DataFactory();
@@ -32,22 +38,20 @@ export type ExtractError = {
     memberId: Term;
     error: unknown;
 };
-export type Error = ExtractError;
 export type MemberEvents = {
     extracted: Member;
     done: FetchedPage;
-    error: Error;
+    error: ExtractError;
 };
 
 interface ExtractionState {
-    emitted: ReadonlySet<string>;
+    modulator: Modulator<unknown, unknown>;
 }
 
 export class Manager {
     public queued: number = 0;
 
     private closed = false;
-    private resolve?: () => void;
     private ldesUri: Term | null;
 
     private extractor: CBDShapeExtractor;
@@ -59,11 +63,13 @@ export class Manager {
     private logger = getLoggerFor(this);
     private loose: boolean;
 
+    private condition: Condition;
 
     constructor(
         ldesUri: Term | null,
         info: LDESInfo,
         loose = false,
+        condition: Condition,
     ) {
         this.ldesUri = ldesUri;
         this.extractor = info.extractor;
@@ -71,6 +77,7 @@ export class Manager {
         this.isVersionOfPath = info.versionOfPath;
         this.shapeId = info.shape;
         this.loose = loose;
+        this.condition = condition;
 
         if (!this.ldesUri) {
             this.logger.debug(
@@ -89,7 +96,7 @@ export class Manager {
     }
 
     // Extract members found in this page, this does not yet emit the members
-    extractMembers<S extends ExtractionState>(
+    async extractMembers<S extends ExtractionState>(
         page: FetchedPage,
         state: S,
         notifier: Notifier<MemberEvents, S>,
@@ -117,20 +124,41 @@ export class Manager {
             ? new Date(pageUpdatedIso.value)
             : undefined;
 
-        this.logger.debug(`Extracting ${members.length} members for ${page.url}`);
+        this.logger.debug(`Found ${members.length} members in ${page.url}, checking extra conditions...`);
 
+        let allowedMembers = 0;
         const promises: Promise<Member | undefined | void>[] = [];
 
         for (const member of members) {
-            if (!state.emitted.has(member.value)) {
+            if (!(await state.modulator.wasEmitted(member.value))) {
                 const promise = this.extractMember(member, page.data, members)
-                    .then((member) => {
+                    .then(async (member) => {
                         if (member) {
                             if (!this.closed) {
-                                notifier.extracted(member, state);
+                                // Check if member matches condition
+                                if (!this.condition.matchMember(member)) {
+                                    this.logger.silly(`Member <${member.id.value}> does not match condition`);
+                                    return;
+                                }
+                                // Check if member version is to be emitted
+                                let isOld = false;
+                                try {
+                                    isOld = await memberIsOld(member, state.modulator);
+                                } catch (ex) {
+                                    // Things are shutting down, stop processing
+                                    return;
+                                }
+                                if (isOld) {
+                                    this.logger.silly(`Member <${member.id.value}> is older than latest version`);
+                                    return;
+                                }
+                                // Emit this member
+                                this.condition.memberEmitted(member);
+                                this.logger.silly(`Member <${member.id.value}> will be emitted`);
+                                allowedMembers++;
+                                await notifier.extracted(member, state);
                             }
                         }
-                        return member;
                     })
                     .catch((ex) => {
                         this.logger.error(ex);
@@ -144,22 +172,18 @@ export class Manager {
             }
         }
 
-        Promise.all(promises).then(() => {
+        Promise.all(promises).then(async () => {
             if (!this.closed) {
-                this.logger.debug(`All members extracted for ${page.url}`);
+                this.logger.verbose(`Extracted ${allowedMembers} out of ${members.length} members from fragment <${page.url}>`);
                 page.created = pageCreated;
                 page.updated = pageUpdated;
-                notifier.done(page, state);
+                page.memberCount = members.length;
+                await notifier.done(page, state);
             }
         });
     }
 
     close() {
-        this.logger.debug("Closing stream");
-        if (this.resolve) {
-            this.resolve();
-            this.resolve = undefined;
-        }
         this.closed = true;
     }
 
@@ -198,7 +222,7 @@ export class Manager {
                 );
             }
         } catch (ex) {
-            this.logger.error(ex);
+            this.logger.error((<Error>ex).message);
             return;
         }
     }

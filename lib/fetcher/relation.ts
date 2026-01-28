@@ -6,13 +6,14 @@ import { getObjects, getLoggerFor } from "../utils";
 import type { Term } from "@rdfjs/types";
 import type { Condition } from "../condition";
 
-export interface Relations {
+export interface FoundRelation {
     source: string;
     node: string;
-    relations: Relation[];
+    allowed: boolean;
+    relations: RelationKind[];
 }
 
-export interface Relation {
+export interface RelationKind {
     id?: Term;
     type: Term;
     value?: Term[];
@@ -32,7 +33,7 @@ export function extractRelations(
     loose: boolean,
     condition: Condition,
     defaultTimezone: string,
-): Relations[] {
+): FoundRelation[] {
     const logger = getLoggerFor("extractRelations");
 
     const relationIds = loose
@@ -43,7 +44,7 @@ export function extractRelations(
 
     const conditions = new Map<
         string,
-        { cond: RelationCondition; relation: Relations }
+        { cond: RelationCondition; relation: FoundRelation }
     >();
 
     for (const relationId of relationIds) {
@@ -69,6 +70,7 @@ export function extractRelations(
                 relation: {
                     node: node.value,
                     source,
+                    allowed: false,
                     relations: [relation],
                 },
             });
@@ -78,15 +80,15 @@ export function extractRelations(
         }
     }
 
-    const allowed = [];
+    const found = [];
     for (const cond of conditions.values()) {
+        logger.debug(`Checking ${condition.toString()} for relation(s) towards <${cond.relation.node}>`);
         if (cond.cond.allowed(condition)) {
-            allowed.push(cond.relation);
+            cond.relation.allowed = true;
         }
+        found.push(cond.relation);
     }
-
-    logger.debug(`allowed ${JSON.stringify(allowed.map((x) => x.node))}`);
-    return allowed;
+    return found;
 }
 
 /**
@@ -182,27 +184,25 @@ export class RelationChain {
         const la = this.relations.length;
         const lb = other.relations.length;
         for (let i = 0; i < Math.min(la, lb); i++) {
-            if (!this.relations[i].important && !other.relations[i].important) {
-                return 0;
-            }
-            if (!this.relations[i].important) return -1;
-            if (!other.relations[i].important) return 1;
+            const a = this.relations[i];
+            const b = other.relations[i];
+
+            if (a.important && !b.important) return 1;
+            if (!a.important && b.important) return -1;
+            if (!a.important && !b.important) continue;
 
             // Both are important
             if (this.cmp) {
-                const v = this.cmp(
-                    this.relations[i].value,
-                    other.relations[i].value,
-                );
+                const v = this.cmp(a.value, b.value);
                 if (v !== 0) return v;
             } else {
-                if (this.relations[i].value < other.relations[i].value)
-                    return -1;
-                if (this.relations[i].value > other.relations[i].value)
-                    return 1;
+                if (a.value < b.value) return -1;
+                if (a.value > b.value) return 1;
             }
         }
 
+        if (la < lb) return -1;
+        if (la > lb) return 1;
         return 0;
     }
 }

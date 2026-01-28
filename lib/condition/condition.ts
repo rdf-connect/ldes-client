@@ -230,7 +230,7 @@ export class LeafCondition implements Condition {
     toString(): string {
         const vts =
             this.compareType === "date"
-                ? (x:RelationValue) => (<Date>x).toISOString()
+                ? (x: RelationValue) => (<Date>x).toISOString()
                 : undefined;
         return `${this.pathQuads.id.value} ∈ ${this.range.toString(vts)}`;
     }
@@ -248,9 +248,9 @@ export class LeafCondition implements Condition {
 
         const vts =
             this.compareType === "date"
-                ? (x:RelationValue) => new Date(x).toISOString()
+                ? (x: RelationValue) => new Date(x).toISOString()
                 : undefined;
-        this.logger.verbose(
+        this.logger.debug(
             `${this.range.toString(vts)} contains ${range.toString(vts)}. Overlaps: ${this.range.overlaps(
                 range,
             )}`,
@@ -260,11 +260,18 @@ export class LeafCondition implements Condition {
     }
 
     matchMember(member: Member): boolean {
-        const value = this.parseValue(this.path.execute(member)[0].id.value);
-        return this.range.contains(value);
+        const rawPathValue = this.path.execute(member)[0];
+        if (rawPathValue) {
+            const value = this.parseValue(rawPathValue.id.value);
+            return this.range.contains(value);
+        } else {
+            throw new Error(
+                `Property Path <${this.pathQuads.id.value}> does not exist in member <${member.id.value}>`,
+            );
+        }
     }
 
-    private parseValue(value: string):RelationValue {
+    private parseValue(value: string): RelationValue {
         switch (this.compareType) {
             case "string":
                 return value;
@@ -343,10 +350,8 @@ export class OrCondition extends BiCondition {
 }
 
 export class EmptyCondition implements Condition {
-    private logger = getLoggerFor(this);
 
     matchRelation(_range: Range, _cbdId: Path): boolean {
-        this.logger.verbose("[matchRelation] Returning true");
         return true;
     }
 
@@ -359,7 +364,7 @@ export class EmptyCondition implements Condition {
     }
 
     toString() {
-        return "all";
+        return "EmptyCondition (always true)";
     }
     poll(): void {
         // empty

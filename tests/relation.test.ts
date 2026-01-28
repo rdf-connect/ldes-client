@@ -124,8 +124,8 @@ describe("Chain relations", () => {
             });
         value2 = new RelationChain("", "").push("", { value: 0, important: true });
 
-        expect(value1.ordering(value2)).toBe(0);
-        expect(value2.ordering(value1)).toBe(0);
+        expect(value1.ordering(value2)).toBe(1);
+        expect(value2.ordering(value1)).toBe(-1);
     });
 
     test("correct ordering with ord", () => {
@@ -199,8 +199,8 @@ describe("Chain relations", () => {
             important: true,
         });
 
-        expect(value1.ordering(value2)).toBe(0);
-        expect(value2.ordering(value1)).toBe(0);
+        expect(value1.ordering(value2)).toBe(1);
+        expect(value2.ordering(value1)).toBe(-1);
     });
 
     test("heap works with relation", () => {
@@ -225,10 +225,7 @@ describe("Chain relations", () => {
         expect(heap.toArray()).toEqual([value1, value2]);
 
         const eq_value1 = new RelationChain("", "", ...params);
-        console.log(
-            "Removed",
-            heap.remove(eq_value1, (a, b) => a.ordering(b) === 0),
-        );
+        heap.remove(eq_value1, (a, b) => a.ordering(b) === 0);
 
         expect(heap.length).toBe(1);
         expect(heap.toArray()).toEqual([value2]);
@@ -260,7 +257,7 @@ describe("Chain relations", () => {
         heap.add(value0);
         // heap.add(value1);
 
-        console.log(heap.toArray().map(({ relations }) => relations));
+        heap.toArray().map(({ relations }) => relations);
         // expect(heap.length).toBe(3);
         expect(heap.toArray()).toEqual([value2, value1, value0]);
     });

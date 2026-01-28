@@ -1,42 +1,42 @@
-@prefix ldes: <https://w3id.org/ldes#> .
-@prefix tree: <https://w3id.org/tree#> .
-@prefix sh: <http://www.w3.org/ns/shacl#> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix ex: <http://example.org/> .
-@prefix : <http://localhost:3000/> .
+@prefix ldes: <https://w3id.org/ldes#>.
+@prefix tree: <https://w3id.org/tree#>.
+@prefix sh: <http://www.w3.org/ns/shacl#>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+@prefix ex: <http://example.org/>.
+@prefix : <http://localhost:3000/>.
 
-<mock-ldes-inbetween.ttl> a ldes:EventStream ;
-    ldes:timestampPath ex:modified ;
-    ldes:versionOfPath ex:isVersionOf ;
-    tree:shape [
-        a sh:NodeShape ;
-        sh:targetClass ex:Clazz1 ;
-        sh:property [
-            a sh:PropertyShape ;
-            sh:path ex:modified ;
-            sh:datatype xsd:dateTime
-        ], [
-            a sh:PropertyShape ;
-            sh:path ex:prop1 ;
-            sh:node [
-                a sh:NodeShape ;
-                sh:targetClass ex:Clazz2
-            ]
-        ]
-    ] ;
-    tree:view <mock-ldes-inbetween-24-09.ttl> .
+<mock-ldes-inbetween.ttl> a ldes:EventStream;
+  ldes:timestampPath ex:modified;
+  ldes:versionOfPath ex:isVersionOf;
+  tree:shape [
+    a sh:NodeShape;
+    sh:targetClass ex:Clazz1;
+    sh:property [
+      a sh:PropertyShape;
+      sh:path ex:modified;
+      sh:datatype xsd:dateTime;
+    ], [
+      a sh:PropertyShape;
+      sh:path ex:prop1;
+      sh:node [
+        a sh:NodeShape;
+        sh:targetClass ex:Clazz2;
+      ];
+    ];
+  ];
+  tree:view <mock-ldes-inbetween-0.ttl>.
 
 # Contains 12 members.
+<mock-ldes-inbetween-24-09.ttl> a tree:Node;
+  tree:relation [
+    a tree:InBetweenRelation;
+    tree:node <mock-ldes-inbetween-24-09-25.ttl>;
+    tree:path ex:modified;
+    tree:value "2024-09-25Z"^^xsd:date;
+  ], [
+    a tree:InBetweenRelation;
+    tree:node <mock-ldes-inbetween-24-09-26.ttl>;
+    tree:path ex:modified;
+    tree:value "2024-09-26Z"^^xsd:date;
+  ].
 
-<mock-ldes-inbetween-24-09.ttl> a tree:Node ;
-    tree:relation [
-        a tree:InBetweenRelation ;
-        tree:node <mock-ldes-inbetween-24-09-25.ttl> ;
-        tree:path ex:modified ;
-        tree:value "2024-09-25Z"^^xsd:date
-    ], [
-        a tree:InBetweenRelation ;
-        tree:node <mock-ldes-inbetween-24-09-26.ttl> ;
-        tree:path ex:modified ;
-        tree:value "2024-09-26Z"^^xsd:date
-    ] .

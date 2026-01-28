@@ -8,7 +8,7 @@ import { extractRelations } from "./relation";
 import type { IDereferenceOptions } from "rdf-dereference";
 import type { Condition } from "../condition";
 import type { Notifier } from "./modulator";
-import type { Relations } from "./relation";
+import type { FoundRelation } from "./relation";
 
 const { namedNode } = new DataFactory();
 
@@ -19,13 +19,14 @@ const { namedNode } = new DataFactory();
  */
 export type Node = {
     target: string;
-    expected: string[];
+    expected: Set<string>;
 };
 
 export type FetchedPage = {
     url: string;
     data: RdfStore;
     immutable: boolean;
+    memberCount: number;
     created?: Date;
     updated?: Date;
 };
@@ -65,7 +66,8 @@ export async function statelessPageFetch(
 }
 
 export type FetchEvent = {
-    relationFound: { from: Node; target: Relations };
+    relationsFound: { from: Node; target: FoundRelation }[];
+    relationsFiltered: { from: Node; target: FoundRelation }[];
     pageFetched: FetchedPage;
     scheduleFetch: Node;
     error: unknown;
@@ -168,6 +170,8 @@ export class Fetcher {
             this.logger.debug(
                 `[fetch] Got data ${node.target} (${quadCount} quads)`,
             );
+            const toFetch = [];
+            const filtered = [];
             for (const rel of extractRelations(
                 data,
                 namedNode(resp.url),
@@ -175,21 +179,27 @@ export class Fetcher {
                 this.condition,
                 this.defaultTimezone,
             )) {
-                if (!node.expected.some((x) => x == rel.node)) {
-                    if (!this.closed) {
-                        notifier.relationFound(
-                            { from: node, target: rel },
-                            state,
-                        );
+                if (!node.expected.has(rel.node)) {
+                    if (rel.allowed) {
+                        toFetch.push({ from: node, target: rel });
+                    } else {
+                        filtered.push({ from: node, target: rel });
                     }
                 }
             }
 
             if (!this.closed) {
-                notifier.pageFetched({ 
-                    data, 
+                if (toFetch.length > 0) {
+                    await notifier.relationsFound(toFetch, state);
+                }
+                if (filtered.length > 0) {
+                    await notifier.relationsFiltered(filtered, state);
+                }
+                notifier.pageFetched({
+                    data,
                     url: resp.url,
                     immutable: !!cache.immutable,
+                    memberCount: 0,
                 }, state);
             }
         } catch (ex) {

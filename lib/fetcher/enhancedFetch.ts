@@ -28,18 +28,18 @@ export function enhanced_fetch(
     const start_f = start || fetch;
     const safe_f = config.safe
         ? ((async (a, b) => {
-              while (true) {
-                  try {
-                      return await start_f(a, b);
-                  } catch (ex) {
-                      logger.debug(
-                          `This should not happen, it will not happen this is safe. ${JSON.stringify(
-                              ex,
-                          )}`,
-                      );
-                  }
-              }
-          }) as typeof fetch)
+            while (true) {
+                try {
+                    return await start_f(a, b);
+                } catch (ex) {
+                    logger.debug(
+                        `This should not happen, it will not happen this is safe. ${JSON.stringify(
+                            ex,
+                        )}`,
+                    );
+                }
+            }
+        }) as typeof fetch)
         : start_f;
 
     const fetch_f = config.auth
@@ -69,7 +69,7 @@ export function limit_fetch_per_domain(
         const requests = domain_dict[domain];
         await new Promise((res) => {
             logger.debug(
-                `[limit] ${domain} capacity ${requests.length}/${concurrent}`,
+                `[limit] request ${input} for domain [${domain}] capacity: (${requests.length}/${concurrent})`,
             );
             if (requests.length < concurrent) {
                 requests.push(res);
@@ -150,7 +150,7 @@ export function retry_fetch(
             if (!resp.ok) {
                 if (config.codes.some((x) => x == resp.status)) {
                     logger.debug(
-                        `[retry_fetch] Retry ${input} ${tryCount}/${config.maxRetries}`,
+                        `[retry_fetch] Got ${resp.status} ${resp.statusText}, retrying ${input} ${tryCount}/${config.maxRetries}`,
                     );
                     // Wait 500ms, 1 second, 2 seconds, 4 seconds, 8 seconds, fail
                     tryCount += 1;
