@@ -64,7 +64,6 @@ export class OrderedStrategy {
     private polling: boolean;
     private toPoll: Heap<NodeChain>;
     private pollInterval?: number;
-    private pollingIsScheduled: boolean;
 
     private canceled = false;
     private isEmitChecking = false;
@@ -91,7 +90,6 @@ export class OrderedStrategy {
         this.notifier = notifier;
         this.polling = polling;
         this.pollInterval = pollInterval;
-        this.pollingIsScheduled = false;
 
         this.toPoll = new Heap((a, b) => a.chain.ordering(b.chain));
         this.launchedRelations = new Heap((a, b) => a.ordering(b));
