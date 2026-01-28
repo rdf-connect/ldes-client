@@ -260,7 +260,7 @@ export class ModulatorFactory {
     }
 }
 
-export class ModulatorInstance<F, M> {
+export class ModulatorInstance<F, M> implements Modulator<F, M> {
     at: number = 0;
     index: number = 0;
 
