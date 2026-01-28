@@ -4,7 +4,7 @@ import { DataFactory } from "rdf-data-factory";
 import { RDF, SHACL } from "@treecg/types";
 import { getLoggerFor } from "./logUtil";
 
-import type { LDESInfo, Member } from "../fetcher";
+import type { LDESInfo, Member, Modulator } from "../fetcher";
 import type { SerializedMember } from "../strategy";
 import type {
     NamedNode,
@@ -197,8 +197,8 @@ export function serializeMember(member: Member): SerializedMember {
     return {
         id: member.id.value,
         quads: new Writer().quadsToString(member.quads),
-        timestamp: member.timestamp instanceof Date 
-            ? member.timestamp.toISOString() 
+        timestamp: member.timestamp instanceof Date
+            ? member.timestamp.toISOString()
             : member.timestamp?.toString(),
         isVersionOf: member.isVersionOf,
         type: member.type?.value,
@@ -274,4 +274,19 @@ export function maybeVersionMaterialize(
     }
 
     return member;
+}
+
+export async function memberIsOld(member: Member, modulator: Modulator<unknown, unknown>) {
+    if (!modulator.hasLatestVersions() || !member.isVersionOf || !member.timestamp) {
+        return false;
+    }
+    logger.silly(`[memberIsOld] Checking if member <${member.id.value}> (version of: ${member.isVersionOf}) is old`);
+    // We are emitting latest versions only
+    const version = member.timestamp instanceof Date ?
+        member.timestamp.getTime() : new Date(member.timestamp).getTime();
+    try {
+        return await modulator.filterLatest(member.isVersionOf, version);
+    } catch (ex) {
+        throw ex;
+    }
 }

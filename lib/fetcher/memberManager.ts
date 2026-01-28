@@ -2,7 +2,12 @@ import { CBDShapeExtractor } from "extract-cbd-shape";
 import { DC, LDES, TREE } from "@treecg/types";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
-import { getObjects, memberFromQuads, getLoggerFor } from "../utils";
+import {
+    getObjects,
+    memberFromQuads,
+    getLoggerFor,
+    memberIsOld
+} from "../utils";
 import { Condition } from "../condition";
 
 import type { Quad, Term } from "@rdfjs/types";
@@ -138,7 +143,7 @@ export class Manager {
                                 // Check if member version is to be emitted
                                 let isOld = false;
                                 try {
-                                    isOld = await this.memberIsOld(member, state.modulator);
+                                    isOld = await memberIsOld(member, state.modulator);
                                 } catch (ex) {
                                     // Things are shutting down, stop processing
                                     return;
@@ -219,21 +224,6 @@ export class Manager {
         } catch (ex) {
             this.logger.error((<Error>ex).message);
             return;
-        }
-    }
-
-    private async memberIsOld(member: Member, modulator: Modulator<unknown, unknown>) {
-        if (!modulator.hasLatestVersions() || !member.isVersionOf || !member.timestamp) {
-            return false;
-        }
-        this.logger.silly(`Checking if member <${member.id.value}> (version of: ${member.isVersionOf}) is old`);
-        // We are emitting latest versions only
-        const version = member.timestamp instanceof Date ?
-            member.timestamp.getTime() : new Date(member.timestamp).getTime();
-        try {
-            return await modulator.filterLatest(member.isVersionOf, version);
-        } catch (ex) {
-            throw ex;
         }
     }
 }

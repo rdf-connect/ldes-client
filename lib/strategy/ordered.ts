@@ -1,7 +1,13 @@
 import { Heap } from "heap-js";
 import { TREE } from "@treecg/types";
 import { Fetcher, ModulatorFactory, RelationChain, Manager } from "../fetcher";
-import { parseInBetweenRelation, getLoggerFor, deserializeMember, serializeMember } from "../utils";
+import {
+    parseInBetweenRelation,
+    getLoggerFor,
+    deserializeMember,
+    serializeMember,
+    memberIsOld
+} from "../utils";
 import { GTRs, LTR } from "./types";
 
 import type {
@@ -666,7 +672,10 @@ export class OrderedStrategy {
     private async emitIfNotOld(member: Member) {
         let isOld = false;
         try {
-            isOld = await this.memberIsOld(member);
+            // In the ordered strategy, we need to check again if this is an older version of the member
+            // when emitting latest versions only, because older versions might have been fetched and queued
+            // at a previous point in time.
+            isOld = await memberIsOld(member, this.modulator);
         } catch (ex) {
             // Things are shutting down, stop processing
             return;
@@ -684,22 +693,5 @@ export class OrderedStrategy {
             // Remove member from unemitted list as a newer version was already available/emitted
             await this.modulator.deleteUnemitted(member.id.value);
         }
-    }
-
-    private async memberIsOld(member: Member): Promise<boolean> {
-        // In the ordered strategy, we need to check again if this is an older version of the member
-        // when emitting latest versions only, because older versions might have been fetched and queued
-        // at a previous point in time.
-        if (this.modulator.hasLatestVersions() && member.isVersionOf && member.timestamp) {
-            const version = member.timestamp instanceof Date ?
-                member.timestamp.getTime() : new Date(member.timestamp).getTime();
-            try {
-                return await this.modulator.filterLatest(member.isVersionOf, version);
-            } catch (ex) {
-                throw ex;
-            }
-        }
-
-        return false;
     }
 }
