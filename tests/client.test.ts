@@ -896,7 +896,7 @@ describe("Client tests", () => {
         expect(fs.existsSync("client-state-main")).toBeTruthy();
     });
 
-    test("Client runs twice and only receives new members from a calendar-fragmented LDES", async () => {
+    test("Client runs twice and only receives filtered members from a calendar-fragmented LDES", async () => {
         // Setup client 1
         const client1 = replicateLDES({
             statePath: "client-state-main",
@@ -944,7 +944,7 @@ describe("Client tests", () => {
             statePath: "client-state-main",
             url: CALENDAR_LDES,
             urlIsView: true,
-            before: new Date("2025-01-02T00:00:00.000Z"),
+            after: new Date("2025-01-02T00:00:00.000Z"),
         },
         );
 
@@ -988,7 +988,7 @@ describe("Client tests", () => {
 
         expect(client2.fragmentCount).toBe(3);
         // Check the total count of members
-        expect(client1.memberCount + client2.memberCount).toBe(6);
+        expect(client1.memberCount + client2.memberCount).toBe(3);
         // Check that we received all members
         expect(memCount).toBe(client1.memberCount + client2.memberCount);
         expect(gotFragmentEvent2).toBe(true);
@@ -1098,10 +1098,9 @@ describe("Client tests", () => {
         const client1 = replicateLDES({
             statePath: "client-state-main",
             url: REVERSE_LDES,
-            after: new Date("2024-07-14T00:00:00.000Z"),
+            after: new Date("2024-07-12T00:00:00.000Z"),
             lastVersionOnly: true,
-        },
-        );
+        });
 
         let memCount = 0;
 
@@ -1128,8 +1127,8 @@ describe("Client tests", () => {
             memRes1 = await members1.read();
         }
 
-        expect(client1.memberCount).toBe(3);
-        expect(client1.fragmentCount).toBe(2);
+        expect(client1.memberCount).toBe(6);
+        expect(client1.fragmentCount).toBe(4);
         // Check that state was saved
         expect(fs.existsSync("client-state-main")).toBeTruthy();
 
@@ -1182,7 +1181,7 @@ describe("Client tests", () => {
         }
 
         // Only 2 fragments are expected due to immutable fragments
-        expect(client2.fragmentCount).toBe(4);
+        expect(client2.fragmentCount).toBe(2);
         // Check the total count of members
         expect(client1.memberCount + client2.memberCount).toBe(6);
         // Check that we received all members
@@ -1191,6 +1190,55 @@ describe("Client tests", () => {
         expect(gotDescEvent2).toBe(true);
         // Check that state was saved
         expect(fs.existsSync("client-state-main")).toBeTruthy();
+    })
+
+    test("Client runs twice with different conditions and throws error", async () => {
+        // Setup client 1
+        const client1 = replicateLDES({
+            statePath: "client-state-main",
+            url: REVERSE_LDES,
+            after: new Date("2024-07-12T00:00:00.000Z"),
+        });
+
+        // Member stream object
+        const members1 = client1.stream({ highWaterMark: 10 }).getReader();
+
+        let memRes1 = await members1.read();
+        while (memRes1) {
+            if (memRes1.done) {
+                break;
+            }
+            memRes1 = await members1.read();
+        }
+
+        expect(client1.memberCount).toBe(12);
+        expect(client1.fragmentCount).toBe(4);
+        // Check that state was saved
+        expect(fs.existsSync("client-state-main")).toBeTruthy();
+
+        /**
+         * End of client 1
+         */
+
+        let threwError = false;
+        let client2;
+
+        try {
+            // Setup client 2
+            client2 = replicateLDES({
+                statePath: "client-state-main",
+                url: REVERSE_LDES,
+                before: new Date("2024-07-12T00:00:00.000Z"),
+            });
+
+            const members = client2.stream({ highWaterMark: 10 }).getReader();
+            await members.read();
+        } catch (e) {
+            threwError = true;
+            await client2?.close();
+        }
+
+        expect(threwError).toBeTruthy();
     })
 
     test("Client throws error when configured SHACL shape cannot be dereferenced", async () => {

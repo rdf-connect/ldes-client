@@ -9,6 +9,7 @@ import {
     memberIsOld
 } from "../utils";
 import { GTRs, LTR } from "./types";
+import { Condition } from "../condition";
 
 import type {
     Member,
@@ -141,16 +142,6 @@ export class OrderedStrategy {
                 }
                 await this.modulator.push(toFetch);
             },
-            relationsFiltered: async (relations, { chain }) => {
-                for (const { from, target } of relations) {
-                    // Push the filtered relation into the RelationChain to set the proper marker
-                    const newChain = chain.push(
-                        from.target,
-                        this.extractRelation(target),
-                    );
-                    await this.modulator.addFiltered(from.target, { chain: newChain, expected: from.expected });
-                }
-            },
             pageFetched: async (page, state) => {
                 this.logger.debug(`[fetchNotifier - pageFetched] Page fetched ${page.url}`);
                 await this.handleFetched(page, state);
@@ -182,10 +173,8 @@ export class OrderedStrategy {
                 await this.modulator.finished(index);
                 this.notifier.fragment(fragment, {});
 
-                // Mark fragment as immutable if cache headers indicate so and if fragment didn't have prunned relations.
-                // This is to prevent that future processes with different conditions (e.g. different time windows) 
-                // skip this fragment and miss out its relations which could be now relevant.
-                if (fragment.immutable && !await this.modulator.wasFiltered(fragment.url)) {
+                // Mark fragment as immutable if cache headers indicate so
+                if (fragment.immutable) {
                     if (await this.modulator.addImmutable(fragment.url)) {
                         this.logger.debug(`[memberNotifier - done] Remembering immutable page to avoid future refetching: ${fragment.url}`);
                     }
@@ -294,10 +283,10 @@ export class OrderedStrategy {
         }
     }
 
-    async start(url: string, root?: FetchedPage) {
+    async start(url: string, condition: Condition, root?: FetchedPage) {
         if (this.canceled) return;
         // Try to initialize the modulator
-        if (!(await this.modulator.init())) return;
+        if (!(await this.modulator.init(condition))) return;
 
         // Check for any unemitted members from a previous run
         const unemitted = await this.modulator.getAllUnemitted();

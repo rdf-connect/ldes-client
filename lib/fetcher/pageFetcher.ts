@@ -67,7 +67,6 @@ export async function statelessPageFetch(
 
 export type FetchEvent = {
     relationsFound: { from: Node; target: FoundRelation }[];
-    relationsFiltered: { from: Node; target: FoundRelation }[];
     pageFetched: FetchedPage;
     scheduleFetch: Node;
     error: unknown;
@@ -171,7 +170,6 @@ export class Fetcher {
                 `[fetch] Got data ${node.target} (${quadCount} quads)`,
             );
             const toFetch = [];
-            const filtered = [];
             for (const rel of extractRelations(
                 data,
                 namedNode(resp.url),
@@ -179,21 +177,14 @@ export class Fetcher {
                 this.condition,
                 this.defaultTimezone,
             )) {
-                if (!node.expected.has(rel.node)) {
-                    if (rel.allowed) {
-                        toFetch.push({ from: node, target: rel });
-                    } else {
-                        filtered.push({ from: node, target: rel });
-                    }
+                if (!node.expected.has(rel.node) && rel.allowed) {
+                    toFetch.push({ from: node, target: rel });
                 }
             }
 
             if (!this.closed) {
                 if (toFetch.length > 0) {
                     await notifier.relationsFound(toFetch, state);
-                }
-                if (filtered.length > 0) {
-                    await notifier.relationsFiltered(filtered, state);
                 }
                 notifier.pageFetched({
                     data,

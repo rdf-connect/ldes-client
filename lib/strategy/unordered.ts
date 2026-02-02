@@ -1,5 +1,6 @@
 import { Fetcher, ModulatorFactory, Manager } from "../fetcher";
 import { deserializeMember, getLoggerFor, serializeMember } from "../utils";
+import { Condition } from "../condition";
 
 import type {
     FetchedPage,
@@ -83,12 +84,6 @@ export class UnorderedStrategy {
                 }
                 await this.modulator.push(toPush);
             },
-            relationsFiltered: async (relations) => {
-                for (const { from, target } of relations) {
-                    this.logger.debug(`[fetchNotifier - relationFiltered] Filtered relation leading to ${target.node}`);
-                    await this.modulator.addFiltered(from.target, from);
-                }
-            },
             pageFetched: (page, { index }) => {
                 this.logger.debug(`[fetchNotifier - pageFetched] Paged fetched ${page.url}`);
                 this.handleFetched(page, index);
@@ -119,10 +114,8 @@ export class UnorderedStrategy {
                 this.notifier.fragment(fragment, {});
                 await this.modulator.finished(index)
 
-                // Mark fragment as immutable if cache headers indicate so and if fragment didn't have prunned relations.
-                // This is to prevent that future processes with different conditions (e.g. different time windows) 
-                // skip this fragment and miss out its relations which could be now relevant. 
-                if (fragment.immutable && !await this.modulator.wasFiltered(fragment.url)) {
+                // Mark fragment as immutable if cache headers indicate so 
+                if (fragment.immutable) {
                     this.logger.debug(`[memberNotifier - done] Remembering immutable page to avoid future refetching: ${fragment.url}`);
                     if (!await this.modulator.addImmutable(fragment.url)) return;
                 }
@@ -166,10 +159,10 @@ export class UnorderedStrategy {
         );
     }
 
-    async start(url: string, root?: FetchedPage) {
+    async start(url: string, condition: Condition, root?: FetchedPage) {
         if (this.canceled) return;
         // Try to initialize the modulator
-        if (!(await this.modulator.init())) return;
+        if (!(await this.modulator.init(condition))) return;
 
         if (root) {
             // This is a local dump. Proceed to extract members

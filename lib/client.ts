@@ -102,9 +102,8 @@ export class Client {
             this.clientStateManager,
             this.config.statePath !== undefined,
             this.config.concurrentFetches,
-            this.config.lastVersionOnly
+            this.config.lastVersionOnly,
         );
-
         if (typeof process !== "undefined") {
             // Handle exit gracefully
             handleExit(() => {
@@ -192,7 +191,7 @@ export class Client {
         );
         this.emit("description", info);
 
-        // Handle and assemble condition object that dictates member emission
+        // Handle and assemble condition object that dictates fragment fetching and member emission
         const condition = handleConditions(
             this.config.condition,
             this.config.defaultTimezone,
@@ -290,7 +289,11 @@ export class Client {
             `Found ${viewQuads.length} views, choosing ${viewId.value}`,
         );
 
-        this.strategy.start(viewId.value, isLocalDump ? root : undefined);
+        await this.strategy.start(
+            viewId.value,
+            condition,
+            isLocalDump ? root : undefined,
+        );
     }
 
     stream(strategy?: {

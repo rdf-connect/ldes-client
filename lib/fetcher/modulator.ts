@@ -1,7 +1,8 @@
 import { getLoggerFor } from "../utils/";
+import { Condition } from "../condition";
+import { Level } from "level";
 
 import type { ClientStateManager } from "../state";
-import { Level } from "level";
 
 export type Notifier<Events, S> = {
     [K in keyof Events]: (event: Events[K], state: S) => unknown;
@@ -30,9 +31,10 @@ export type ModulatorEvents<T> = {
 export interface Modulator<F, M> {
     /**
      * Initializes the modulator and loads any previously existing state from the state manager.
+     * @param {Condition} condition The condition under which the client runs.
      * @returns {Promise<boolean>} True if the modulator was initialized successfully.
     */
-    init(): Promise<boolean>;
+    init(condition: Condition): Promise<boolean>;
     /**
      * Starts the handling of a fragment by adding it to the todo list.
      * @param {ReadonlyArray<F>} fragments The fragments to be handled.
@@ -122,24 +124,12 @@ export interface Modulator<F, M> {
     addUnemitted(url: string, member: M): Promise<boolean>
 
     /**
-     * Records the fact that a fragment contained relations that were prunned due to filtering conditions.
-     * @param {string} url The URL of the element to record.
-     * @param {F} fragment The element to record.
-     */
-    addFiltered(url: string, fragment: F): Promise<void>
-    /**
      * Returns whether a data entity has been emitted.
      * @param {string} url The URL of the data entity.
      * @returns {Promise<boolean>} True if the data entity has been emitted.
     */
     wasEmitted(url: string): Promise<boolean>
 
-    /**
-     * Returns whether a fragment had filtered relations.
-     * @param {string} url The URL of the fragment.
-     * @returns {Promise<boolean>} True if the fragment had filtered relations.
-    */
-    wasFiltered(url: string): Promise<boolean>
     /**
      * Removes a data entity from the unemitted list.
      * @param {string} url The URL of the data entity.
@@ -165,12 +155,12 @@ export interface Modulator<F, M> {
 }
 
 type ModulatorState<F, M> = {
+    condition: Level<number, string>;
     todo: Level<number, F>;
     inflight: Level<number, F>;
     mutable: Level<string, F>;
     emitted: Level<string, boolean>;
     immutable?: Level<string, boolean>;
-    filtered?: Level<string, F>;
     unemitted?: Level<string, M>;
     latestVersions?: Level<string, number>;
     fragmentEncoder?: (item: F) => unknown;
@@ -196,7 +186,7 @@ export class ModulatorFactory {
         clientStateManager: ClientStateManager,
         saveState?: boolean,
         concurrent?: number,
-        lastVersionOnly?: boolean
+        lastVersionOnly?: boolean,
     ) {
         this.clientStateManager = clientStateManager;
         this.saveState = saveState!!;
@@ -214,6 +204,7 @@ export class ModulatorFactory {
         memberParser?: (item: unknown) => M,
     ): Modulator<F, M> {
         const modulatorState: ModulatorState<F, M> = {
+            condition: this.clientStateManager.build<number, string>("condition"),
             todo: this.clientStateManager.build<number, F>("todo"),
             inflight: this.clientStateManager.build<number, F>("inflight"),
             mutable: this.clientStateManager.build<string, F>("mutable"),
@@ -226,7 +217,6 @@ export class ModulatorFactory {
 
         // Build all state tracking objects (if needed)
         if (this.saveState) {
-            modulatorState.filtered = this.clientStateManager.build<string, F>("filtered");
             modulatorState.immutable = this.clientStateManager.build<string, boolean>("immutable");
             modulatorState.unemitted = this.clientStateManager.build<string, M>("unemitted");
         }
@@ -285,21 +275,31 @@ export class ModulatorInstance<F, M> implements Modulator<F, M> {
         this.factory = factory;
     }
 
-    async init(): Promise<boolean> {
+    async init(condition: Condition): Promise<boolean> {
         if (this.closed) return false;
         try {
             this.logger.debug("Initializing modulator");
+
+            // Check we are running under the same conditions as before (if any)
+            const oldCondition = await this.modulatorState.condition.get(0);
+            if (oldCondition && oldCondition !== condition.toString()) {
+                this.logger.error("The running conditions have changed from "
+                    + oldCondition + " to " + condition.toString() + ", shutting down!");
+                throw new Error("Different conditions");
+            } else {
+                await this.modulatorState.condition.put(0, condition.toString());
+            }
+
+            // Load any pending fragments from a previous run
             const pending = (await Promise.all([
                 this.getAllTodo(),
                 this.getAllInFlight(),
-                this.getAllFiltered(),
             ])).flat();
 
             // Clean up previous record lists
             await Promise.all([
                 this.clearAllTodo(),
                 this.clearAllInFlight(),
-                this.clearAllFiltered(),
             ]);
 
             this.logger.verbose(`Initializing and loading ${pending.length} pending fragments from a previous run`);
@@ -307,6 +307,9 @@ export class ModulatorInstance<F, M> implements Modulator<F, M> {
             await this.push(pending);
             return true;
         } catch (e) {
+            if ((e as Error).message === "Different conditions") {
+                throw e;
+            }
             this.logger.error("Failed to initialize modulator, shutting down: ", e);
             return false;
         }
@@ -505,36 +508,11 @@ export class ModulatorInstance<F, M> implements Modulator<F, M> {
         });
     }
 
-    async addFiltered(url: string, fragment: F): Promise<void> {
-        if (this.closed) return;
-        return this.withState<void>(undefined, async (st) => {
-            const { filtered, fragmentEncoder } = st;
-            if (!filtered) {
-                return;
-            }
-            await filtered.put(
-                url,
-                fragmentEncoder ? <F>fragmentEncoder(fragment) : fragment
-            );
-        });
-    }
-
     async wasEmitted(url: string): Promise<boolean> {
         if (this.closed) return false;
         return this.withState<boolean>(false, async (st) => {
             const { emitted } = st;
             return await emitted.has(url);
-        });
-    }
-
-    async wasFiltered(url: string): Promise<boolean> {
-        if (this.closed) return false;
-        return this.withState<boolean>(false, async (st) => {
-            const { filtered } = st;
-            if (!filtered) {
-                return false;
-            }
-            return await filtered.has(url);
         });
     }
 
@@ -636,35 +614,6 @@ export class ModulatorInstance<F, M> implements Modulator<F, M> {
                 index,
                 fragmentEncoder ? <F>fragmentEncoder(fragment) : fragment
             );
-        });
-    }
-
-    /**
-     * Returns all fragments with relations that were filtered out.
-    */
-    private async getAllFiltered(): Promise<ReadonlyArray<F>> {
-        if (this.closed) return [];
-        return this.withState<ReadonlyArray<F>>([], async (st) => {
-            const { filtered, fragmentParser } = st;
-            if (!filtered) {
-                return [];
-            }
-            const values = await filtered.values().all();
-            return fragmentParser ? values.map(fragmentParser) : values;
-        });
-    }
-
-    /**
-     * Clears the filtered list.
-    */
-    private async clearAllFiltered(): Promise<void> {
-        if (this.closed) return;
-        return this.withState<void>(undefined, async (st) => {
-            const { filtered } = st;
-            if (!filtered) {
-                return;
-            }
-            await filtered.clear();
         });
     }
 
