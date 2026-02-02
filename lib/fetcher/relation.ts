@@ -201,8 +201,6 @@ export class RelationChain {
             }
         }
 
-        if (la < lb) return -1;
-        if (la > lb) return 1;
         return 0;
     }
 }
