@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1770010870290,
+  "lastUpdate": 1770185719363,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -6508,6 +6508,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 5.99,
             "range": "±2.55%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "29139614+renovate[bot]@users.noreply.github.com",
+            "name": "renovate[bot]",
+            "username": "renovate[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "817b89913612f37aaef6cad617d6e0e7563776b8",
+          "message": "chore(deps): update dependency fastify to ^5.7.4",
+          "timestamp": "2026-02-04T00:49:36Z",
+          "tree_id": "04cbf7d733ffa9efa5279cf1f666fe19d038bda8",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/817b89913612f37aaef6cad617d6e0e7563776b8"
+        },
+        "date": 1770185718370,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.01,
+            "range": "±2.32%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
