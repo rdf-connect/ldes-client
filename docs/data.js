@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1770287728633,
+  "lastUpdate": 1770290495015,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -6632,6 +6632,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6.03,
             "range": "±2.40%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "29139614+renovate[bot]@users.noreply.github.com",
+            "name": "renovate[bot]",
+            "username": "renovate[bot]"
+          },
+          "committer": {
+            "email": "smessie@users.noreply.github.com",
+            "name": "Ieben Smessaert",
+            "username": "smessie"
+          },
+          "distinct": true,
+          "id": "f6b63005c7adcca29b2253aa26d358337602b0b9",
+          "message": "chore(deps): update vitest monorepo to v4",
+          "timestamp": "2026-02-05T12:21:03+01:00",
+          "tree_id": "5460eb10475f0da35b473a569bb6b1da9d5ddfdf",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/f6b63005c7adcca29b2253aa26d358337602b0b9"
+        },
+        "date": 1770290493732,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.03,
+            "range": "±2.54%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
