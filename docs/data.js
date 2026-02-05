@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1770287715307,
+  "lastUpdate": 1770287728633,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -6601,6 +6601,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6.02,
             "range": "±2.46%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "29139614+renovate[bot]@users.noreply.github.com",
+            "name": "renovate[bot]",
+            "username": "renovate[bot]"
+          },
+          "committer": {
+            "email": "smessie@users.noreply.github.com",
+            "name": "Ieben Smessaert",
+            "username": "smessie"
+          },
+          "distinct": true,
+          "id": "bdc77f6d604554e06c4f235f6d3642f704f2cf2e",
+          "message": "chore(deps): update dependency @fastify/static to v9",
+          "timestamp": "2026-02-05T11:34:58+01:00",
+          "tree_id": "5d64f3f42e234b3e360449944d6658ccdd27004e",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/bdc77f6d604554e06c4f235f6d3642f704f2cf2e"
+        },
+        "date": 1770287727442,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.03,
+            "range": "±2.40%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
