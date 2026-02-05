@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1770290617546,
+  "lastUpdate": 1770293945473,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -6727,6 +6727,37 @@ window.BENCHMARK_DATA = {
             "range": "±2.42%",
             "unit": "ops/sec",
             "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "smessie@smessie.com",
+            "name": "smessie",
+            "username": "smessie"
+          },
+          "committer": {
+            "email": "smessie@users.noreply.github.com",
+            "name": "Ieben Smessaert",
+            "username": "smessie"
+          },
+          "distinct": true,
+          "id": "f29abdab6858c477ff27edaecf2870f40a1e2953",
+          "message": "fix(deps): Update `extract-cbd-shape` dependency",
+          "timestamp": "2026-02-05T13:18:34+01:00",
+          "tree_id": "362a3d788f3fb0640ba7d10ac39ed49536fb42fb",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/f29abdab6858c477ff27edaecf2870f40a1e2953"
+        },
+        "date": 1770293944165,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 5.91,
+            "range": "±2.26%",
+            "unit": "ops/sec",
+            "extra": "33 samples"
           }
         ]
       }
