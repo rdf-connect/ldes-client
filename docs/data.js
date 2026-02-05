@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1770290537576,
+  "lastUpdate": 1770290617546,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -6694,6 +6694,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 6,
             "range": "±2.51%",
+            "unit": "ops/sec",
+            "extra": "34 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "29139614+renovate[bot]@users.noreply.github.com",
+            "name": "renovate[bot]",
+            "username": "renovate[bot]"
+          },
+          "committer": {
+            "email": "smessie@users.noreply.github.com",
+            "name": "Ieben Smessaert",
+            "username": "smessie"
+          },
+          "distinct": true,
+          "id": "347071f1a7ecdc8de58f3376c977afd70cf881ba",
+          "message": "chore(deps): update dependency vite-tsconfig-paths to v6",
+          "timestamp": "2026-02-05T12:23:09+01:00",
+          "tree_id": "a26ed7393f355dacbc144cd4917995887f916df3",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/347071f1a7ecdc8de58f3376c977afd70cf881ba"
+        },
+        "date": 1770290617022,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 6.03,
+            "range": "±2.42%",
             "unit": "ops/sec",
             "extra": "34 samples"
           }
