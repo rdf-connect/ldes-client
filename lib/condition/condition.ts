@@ -261,7 +261,7 @@ export class LeafCondition implements Condition {
 
     matchMember(member: Member): boolean {
         const rawPathValue = this.path.execute(member)[0];
-        if (rawPathValue) {
+        if (rawPathValue !== undefined) {
             const value = this.parseValue(rawPathValue.id.value);
             return this.range.contains(value);
         } else {
