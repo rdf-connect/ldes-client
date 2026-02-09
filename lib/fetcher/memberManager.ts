@@ -140,18 +140,6 @@ export class Manager {
                                     this.logger.silly(`Member <${member.id.value}> does not match condition`);
                                     return;
                                 }
-                                // Check if member version is to be emitted
-                                let isOld = false;
-                                try {
-                                    isOld = await memberIsOld(member, state.modulator);
-                                } catch (ex) {
-                                    // Things are shutting down, stop processing
-                                    return;
-                                }
-                                if (isOld) {
-                                    this.logger.silly(`Member <${member.id.value}> is older than latest version`);
-                                    return;
-                                }
                                 // Emit this member
                                 this.condition.memberEmitted(member);
                                 this.logger.silly(`Member <${member.id.value}> will be emitted`);
