@@ -66,7 +66,11 @@ export class ClientStateManager {
     private clear() {
         this.logger.debug("Clearing state manager");
         if (typeof window === "undefined") {
-            fs.rmSync(this.location, { recursive: true, force: true });
+            if (fs.existsSync(this.location)) {
+                fs.readdirSync(this.location).forEach((file) => {
+                    fs.rmSync(path.join(this.location, file), { recursive: true, force: true });
+                });
+            }
         } else {
             // Browser: delete IndexedDB database
             const request = indexedDB.deleteDatabase(this.location);
