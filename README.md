@@ -1,6 +1,6 @@
 # The LDES client
 
-[![NodeJS CI](https://github.com/rdf-connect/ldes-client/actions/workflows/ci-tests.yml/badge.svg)](https://github.com/rdf-connect/ldes-client/actions/workflows/ci-tests.yml) [![npm](https://img.shields.io/npm/v/ldes-client.svg?style=popout)](https://npmjs.com/package/ldes-client)
+[![CI tests](https://github.com/rdf-connect/ldes-client/actions/workflows/ci-tests.yml/badge.svg)](https://github.com/rdf-connect/ldes-client/actions/workflows/ci-tests.yml) [![npm](https://img.shields.io/npm/v/ldes-client.svg?style=popout)](https://npmjs.com/package/ldes-client)
 
 This package provides a reference implementation of a [Linked Data Event Stream (LDES)](https://w3id.org/ldes/specification) client.
 
@@ -13,10 +13,10 @@ npm install -g ldes-client
 
 ## Replication and synchronization
 
-The LDES client has two modes: replicate and sync. Both are accessable view the ldes-client command line interface (CLI).
+The LDES client has two main modes: `replicate` and `sync`. Both are accessible through the command line interface (CLI) with various alternative options.
 
 ```bash
-ldes-client <url> [--follow] [--ordered <order>] [--after <datetime>] [--before <datetime>] [--save <path>] [--poll-interval <number>] [--basic-auth <username>:<password>] [--shape-file <shapeFile>] [--only-default-graph] [--no-shape] [--materialize] [--last-version-only] [--default-timezone <timezone>] [--condition <conditionFile>] [--concurrent <number>] [--retry-count <number>] [--http-codes codes...] [--safe][--url-is-view] [--loose] [--quiet] [--metadata]
+ldes-client <url> [--follow] [--ordered <order>] [--after <datetime>] [--before <datetime>] [--save <path>] [--poll-interval <number>] [--basic-auth <username>:<password>] [--shape-file <shapeFile>] [--only-default-graph] [--no-shape] [--materialize] [--last-version-only] [--default-timezone <timezone>] [--condition <conditionFile>] [--concurrent <number>] [--retry-count <number>] [--http-codes codes...] [--safe][--url-is-view] [--loose] [--quiet] [--start-fresh] [--metadata]
 ```
 
 ### CLI options
@@ -25,7 +25,8 @@ ldes-client <url> [--follow] [--ordered <order>] [--after <datetime>] [--before 
 - `-o` `--ordered`: temporal order of member emission based on the `ldes:timestampPath` value (if any). `none|ascending|descending` Default: `none`.
 - `--before`: emit only members timestamped before (exclusive) the given timestamp. 
 - `--after`: emit only members timestamped after (exclusive) the given timestamp. 
-- `-s` `--save`: filepath to the save state file to use, used both to resume and to update.
+- `-s` `--save`: path to the save state folder, used both to resume and to update.
+- `--start-fresh`: the client will start from scratch, discarding any existing saved state.
 - `--poll-interval`: time to wait between polling cycles of the LDES. This property applies only when the client is following the LDES.
 - `--basic-auth`: user and password for HTTP basic authentication.
 - `--shape-file`: shape file (local or remote via URL) to which LDES members should conform (overwrites LDES configured shape if any).
@@ -174,43 +175,57 @@ When passing a condition file to the `ldes-client` CLI, the expected content is 
 
 These are some of the use cases for which the `ldes-client` can be used:
 
-- I want to replicate all data as fast as possible. This takes a long time so I want this to be fault tolerant and be able to stop and resume later to stay in sync.
-- I want to stay up to date with all entities present in a dataset (published as an LDES). For this, I don't care about old data, only the newest data per entity is required. And stay in sync later.
-  - It is acceptable that some data is emitted twice, as long as the timestamp is in the correct order.
-  - It is not acceptable that some data is emitted twice. If an entity is re-emitted, the entity is changed at this instance.
-- I want to do timeseries analysis, for this I want all data in order, according to their timestamp path. I want options to resume, and later stay in sync.
+- I want to replicate all/part of a dataset (published as an LDES) as fast as possible. If this would take a long time, I want this to be fault tolerant and be able to stop and resume later without loosing data.
+- I want to stay up to date with all entities present in a dataset (published as an LDES). For this, I don't care about old data, only the newest data per entity is required. Also, I want to periodically trigger the sync process.
+- I want to do timeseries analysis, for which I need all data in order, according to their timestamp. I want options to resume, and later stay in sync.
 
 ## Software architecture
 
-The client contains two parts, fetching the fragments and emitting the members.
-Use cases have different influences on these parts.
+The client contains two parts, `fetching` the pages (aka. LDES fragments) and `extracting & emitting` the entities (aka. LDES members). Different use cases have different influences on these parts. For example:
+- a time series analysis wants to fetch pages first that contain older members, the member emitter only wants to start emitting members when the oldest page has been found.
+- getting the latest versions of each member is the inverse, first fetch the youngest pages, so members can immediately be emitted.
 
-For example:
-  - the time series analysis wants to fetch pages first that contain older members, the member emitter only wants to emit a member when the oldest page has been found.
-  - emitting latest versions is the inverse, first fetch the youngest pages, so some members can already be emitted.
-
-Difficulties:
-- the member emitter needs to know what the fragment fetcher is doing (did it know that the oldest page is fetched?).
-- how do we handle unbouned size?
+The main challenges are related to the coordination between the two parts:
+- the member emitter needs to know what the fragment fetcher is doing (did it know that the oldest page is fetched?)
+- how to handle the unbounded size nature of an LDES?
   - Keeping state of emitted members is unbounded
   - Keeping state of visited pages is unbounded
-  These are also influenced by the configuration.
+These are also influenced by the configuration.
+
+The implementation coordinates the behavior of the two parts through a `Strategy`. So far, two strategies exist:
+- [`unordered`](./lib/strategy/unordered.ts): this strategy fetches pages as soon as they are found and emits members without any regard for their temporal order.
+- [`ordered`](./lib/strategy/ordered.ts): this strategy tries to fetch first (if the LDES structure allows it) the pages that would logically contain the oldest/newest members depending on the configuration (`ascending` or `descending`); and emits members in order based on their timestamp.
 
 ### Fragment Fetcher
 
-The fragment fetcher fetches the fragments. These fragments are targeted by relation chains, but only two types exist, important and not important. For example, when emitting members in order, the important relations are the GreaterThan relations, because all other relation types are equivalent, that is to say, we can only emit members when all unimportant relations are fetched and processed.
+The fragment fetcher fetches the fragments. Depending on the chosen strategy, these fragments are managed in a priority queue with different conditions. 
 
-Relation Chains are chains, because when you fetch a page, you can find new relations pointing from that page. But we need to distinguish between a relation after an important relation or a relation after an unimportant relation.
-Important relations squash unimportant relations, these chains should only be fetched if all unimportant relations are done.
-Unimportant relations squash other unimportant relations. Important relations squash other important relations, the new _value_ is the bigger value of the two.
-The ordering of these chains is thus, first unimportant relations, then important relations ordered on value.
+In the case of the `unordered` strategy, the fragments are handled individually in a simple FIFO manner. 
 
-These chains dictate the order that pages should be fetched.
-Because fetching is asynchronous, we can only interpret a page, if no pages are in flight, that came from a smaller relation. In code this is managed by a `Modulator` ([`lib/fetcher/modulator.ts`](https://github.com/rdf-connect/ldes-client/blob/main/lib/fetcher/modulator.ts)) instance.
+In the case of the `ordered` strategy, the fragments are assembled and targeted via [`RelationChains`](./lib/fetcher/relation.ts#L98), of which two types exist: `important` and `unimportant`. The important relations are, for example, the `tree:GreaterThanRelation` and `tree:GreaterThanOrEqualToRelation` relations, because all other relation types are equivalent.  That is to say, we can only emit members when all unimportant relations are fetched and processed.
 
-**Fault tolerance**
+Relation chains are chains, because when the client fetches a page, it can find new relations pointing from that page. But we need to distinguish between a relation after an important relation or a relation after an unimportant relation:
+- Important relations squash unimportant relations, these chains should only be fetched if all unimportant relations are done.
+- Unimportant relations squash other unimportant relations. 
+- Important relations squash other important relations, the new _value_ is the bigger value of the two.
+The ordering of these chains is thus, first unimportant relations, then important relations ordered on value. These chains dictate the order in which pages are fetched.
 
-The fetcher tries to be tault tolerant. HTTP codes that indicate that the server is overloaded or something else is going wrong are caught and retried, following an exponential back-off strategy.
+Given that multiple relations can be encountered from every new page, it is possible to fetch multiple pages at the same time. However, when following an ordered strategy and considering that fetching is asynchronous, we can only interpret a page that came from a smaller relation, if no pages are _in flight_. These aspects are managed by a [`Modulator`](./lib/fetcher/modulator.ts).
+
+### Member Extraction and Emission
+
+**TODO: Update this section**
+
+The member manager _just_ extracts members and emits them when they are ready.
+Extracting members is asynchonous, because it is possible that some members require out of band requests.
+
+### State Management
+
+**TODO: Update this section**
+
+### Fault Tolerance
+
+The fetcher tries to be fault tolerant. HTTP codes that indicate that the server is overloaded or something else is going wrong are caught and retried, following an exponential back-off strategy.
 This is the default behaviour when the provided config does not provide a fetch function.
 
 Caught HTTP codes:
@@ -228,14 +243,6 @@ Caught HTTP codes:
 config.fetch = enhanced_fetch({ retry: { codes: [408, 425, 429, 500, 502, 503, 504] } });
 ```
 
-### Member Manager
-
-The member manager _just_ extracts members and emits them when they are ready.
-Extracting members is asynchonous, because it is possible that some members require out of band requests.
-
-The streaming API comes with a requirement to always emit at least one member, per poll.
-To achieve this, the `memberManager` has a function called `reset()` which returns a promise when a member is emitted.
-
 
 ## Expected Features
 
@@ -248,4 +255,4 @@ To achieve this, the `memberManager` has a function called `reset()` which retur
  - Tests and design: Pieter Colpaert
  - Actual implementation: Arthur Vercruysse, Ieben Smessaert, Julián Rojas
 
-© 2025 -- Ghent University - IMEC. MIT license
+© 2026 -- Ghent University - IMEC. MIT license

@@ -225,10 +225,7 @@ describe("Chain relations", () => {
         expect(heap.toArray()).toEqual([value1, value2]);
 
         const eq_value1 = new RelationChain("", "", ...params);
-        console.log(
-            "Removed",
-            heap.remove(eq_value1, (a, b) => a.ordering(b) === 0),
-        );
+        heap.remove(eq_value1, (a, b) => a.ordering(b) === 0);
 
         expect(heap.length).toBe(1);
         expect(heap.toArray()).toEqual([value2]);
@@ -260,7 +257,7 @@ describe("Chain relations", () => {
         heap.add(value0);
         // heap.add(value1);
 
-        console.log(heap.toArray().map(({ relations }) => relations));
+        heap.toArray().map(({ relations }) => relations);
         // expect(heap.length).toBe(3);
         expect(heap.toArray()).toEqual([value2, value1, value0]);
     });

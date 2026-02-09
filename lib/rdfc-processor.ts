@@ -40,6 +40,7 @@ type LDESClientArgs = {
     conditionFile?: string;
     materialize?: boolean;
     lastVersionOnly?: boolean;
+    startFresh?: boolean;
     streamId?: string;
     sdsify?: boolean;
 };
@@ -59,13 +60,15 @@ export class LDESClientProcessor extends Processor<LDESClientArgs> {
                 pollInterval: this.pollInterval,
                 shapeFile: this.shapeFile,
                 noShape: this.noShape,
-                stateFile: this.savePath,
+                statePath: this.savePath,
                 loose: this.loose,
                 urlIsView: this.urlIsView,
                 fetch: this.fetchConfig ? enhanced_fetch(this.fetchConfig) : fetch,
                 condition: await processConditionFile(this.conditionFile),
                 materialize: this.materialize,
                 lastVersionOnly: this.lastVersionOnly,
+                startFresh: this.startFresh,
+                concurrentFetches: this.fetchConfig?.concurrent,
             }),
             <Ordered>this.ordered || "none",
             undefined,

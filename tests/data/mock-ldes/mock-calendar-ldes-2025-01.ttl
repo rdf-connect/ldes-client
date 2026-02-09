@@ -1,0 +1,52 @@
+# immutable
+@prefix ldes: <https://w3id.org/ldes#>.
+@prefix tree: <https://w3id.org/tree#>.
+@prefix sh: <http://www.w3.org/ns/shacl#>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+@prefix ex: <http://example.org/>.
+@prefix : <http://localhost:3000/>.
+
+<mock-calendar-ldes.ttl> a ldes:EventStream;
+  ldes:timestampPath ex:modified;
+  ldes:versionOfPath ex:isVersionOf;
+  tree:shape [
+    a sh:NodeShape;
+    sh:targetClass ex:Clazz1;
+    sh:property [
+      a sh:PropertyShape;
+      sh:path ex:modified;
+      sh:datatype xsd:dateTime;
+    ], [
+      a sh:PropertyShape;
+      sh:path ex:prop1;
+      sh:node [
+        a sh:NodeShape;
+        sh:targetClass ex:Clazz2;
+      ];
+    ];
+  ];
+  tree:view <mock-calendar-ldes.ttl>.
+
+<> a tree:Node;
+  tree:relation [
+    a tree:GreaterThanOrEqualToRelation;
+    tree:path ex:modified;
+    tree:value "2025-01-01T00:00:00Z"^^xsd:dateTime;
+    tree:node <mock-calendar-ldes-2025-01-01.ttl>;
+  ], [
+    a tree:LessThanRelation;
+    tree:path ex:modified;
+    tree:value "2025-01-02T00:00:00Z"^^xsd:dateTime;
+    tree:node <mock-calendar-ldes-2025-01-01.ttl>;
+  ], [
+    a tree:GreaterThanOrEqualToRelation;
+    tree:path ex:modified;
+    tree:value "2025-01-02T00:00:00Z"^^xsd:dateTime;
+    tree:node <mock-calendar-ldes-2025-01-02.ttl>;
+  ], [
+    a tree:LessThanRelation;
+    tree:path ex:modified;
+    tree:value "2025-01-03T00:00:00Z"^^xsd:dateTime;
+    tree:node <mock-calendar-ldes-2025-01-02.ttl>;
+  ].
+

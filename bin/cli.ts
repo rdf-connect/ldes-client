@@ -27,6 +27,7 @@ let onlyDefaultGraph: boolean = false;
 let loose: boolean = false;
 let defaultTimezone: string | undefined;
 let includeMetadata: boolean = false;
+let startFresh: boolean = false;
 
 const fetch_config: FetchConfig = {
     retry: {},
@@ -34,34 +35,39 @@ const fetch_config: FetchConfig = {
 
 program
     .arguments("<url>")
-    .addOption(
-        new Option("-o --ordered <ordered>", "emit members in order")
-            .choices(["ascending", "descending", "none"])
-            .default("none"),
-    )
-    .option("-f, --follow", "follow the LDES, the client stays in sync")
     .option(
         "--after <after>",
         "follow only relations including members after a certain point in time",
     )
+    .option("--basic-auth <username>:<password>", "HTTP basic auth information")
     .option(
         "--before <before>",
         "follow only relations including members before a certain point in time",
     )
     .option(
-        "--materialize",
-        "materialize versioned members based on the ldes:versionOfPath predicate"
-    )
-    .option(
-        "--last-version-only",
-        "emit only the latest available version of every member"
+        "--concurrent <requests>",
+        "Allowed amount of concurrent HTTP request to the same domain",
+        "10",
     )
     .option(
         "--condition <condition_file>",
         "turtle file including the conditions for extracting a member",
     )
-    .option("--poll-interval <number>", "specify poll interval")
-    .option("--shape-file <shapeFile>", "specify a shapefile")
+    .option("-f, --follow", "follow the LDES, the client stays in sync")
+    .option("--http-codes [codes...]", "What HTTP error codes to retry")
+    .option(
+        "--last-version-only",
+        "emit only the latest available version of every member"
+    )
+    .option(
+        "-l --loose",
+        "ignores if the page URL does not correspond to the tree:Node IRI when following tree:relation",
+    )
+    .option(
+        "--materialize",
+        "materialize versioned members based on the ldes:versionOfPath predicate"
+    )
+    .option("-m, --metadata", "include metadata in the output members")
     .option(
         "--no-shape",
         "don't extract members with a shape (only use cbd and named graphs)",
@@ -70,25 +76,13 @@ program
         "--only-default-graph",
         "extract members only from the default graph and the member graph",
     )
-    .option(
-        "-s, --save <path>",
-        "filepath to the save state file to use, used both to resume and to update",
+    .addOption(
+        new Option("-o --ordered <ordered>", "emit members in order")
+            .choices(["ascending", "descending", "none"])
+            .default("none"),
     )
-    .option(
-        "-l --loose",
-        "ignores if the page URL does not correspond to the tree:Node IRI when following tree:relation",
-    )
-    .option(
-        "--url-is-view",
-        "the url is the view url, don't try to find the correct view",
-    )
+    .option("--poll-interval <number>", "specify poll interval")
     .option("-q --quiet", "be quiet and don't print the members in the console (mainly for debugging purposes)")
-    .option("--basic-auth <username>:<password>", "HTTP basic auth information")
-    .option(
-        "--concurrent <requests>",
-        "Allowed amount of concurrent HTTP request to the same domain",
-        "5",
-    )
     .option(
         "--retry-count <retry>",
         "Retry count per failing request (0 is infinite)",
@@ -96,11 +90,19 @@ program
     )
     .option(
         "--safe",
-        "Safe mode of fetching",
+        "Safe mode of fetching. The client won't crash on fetching errors",
     )
-    .option("--http-codes [codes...]", "What HTTP codes to retry")
+    .option(
+        "-s, --save <path>",
+        "folder path (or name if running in the browser) of where to store the state used both to resume and to update",
+    )
+    .option("--shape-file <shapeFile>", "specify the path of a (remote) file containing a SHACL shape for extracting members")
+    .option("--start-fresh", "Clear any previous saved state and execute a fresh run")
     .option("-t --default-timezone <timezone>", "Default timezone for dates in tree:InBetweenRelation", "AoE")
-    .option("-m, --metadata", "include metadata in the output members")
+    .option(
+        "--url-is-view",
+        "the url is the view url, don't try to find the correct view",
+    )
     .action((url: string, program) => {
         urlIsView = program.urlIsView;
         noShape = !program.shape;
@@ -118,6 +120,7 @@ program
         lastVersionOnly = program.lastVersionOnly;
         defaultTimezone = program.defaultTimezone;
         includeMetadata = program.metadata;
+        startFresh = program.startFresh;
 
         fetch_config.concurrent = parseInt(program.concurrent);
         if (program.basicAuth) {
@@ -164,7 +167,7 @@ async function main() {
             noShape,
             polling,
             url: paramURL,
-            stateFile: save,
+            statePath: save,
             pollInterval: paramPollInterval,
             urlIsView: urlIsView,
             after,
@@ -176,6 +179,8 @@ async function main() {
             materialize,
             lastVersionOnly,
             includeMetadata,
+            concurrentFetches: fetch_config.concurrent,
+            startFresh,
             fetch: enhanced_fetch(fetch_config),
         }),
         ordered,
