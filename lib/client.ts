@@ -42,7 +42,7 @@ type EventReceiver<T> = (params: T) => void;
 // Re-export util functions
 export { enhanced_fetch } from "./fetcher";
 export { intoConfig } from "./config";
-export { processConditionFile } from "./condition";
+export * from "./condition";
 
 export type ClientEvents = {
     fragment: FetchedPage;
