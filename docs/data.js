@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1770679855420,
+  "lastUpdate": 1772493431400,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -6818,6 +6818,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 5.49,
             "range": "±3.53%",
+            "unit": "ops/sec",
+            "extra": "32 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "julian.rojas87@gmail.com",
+            "name": "Julian Rojas",
+            "username": "julianrojas87"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6799b7d09c31d6510a171b01774aa1aaed9c3803",
+          "message": "Merge pull request #133 from rdf-connect/fix/hidden-exports\n\nFix/hidden exports",
+          "timestamp": "2026-03-03T00:16:40+01:00",
+          "tree_id": "8cb26bbcdaf23ea00e67e998eb5dee50e9ca4f50",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/6799b7d09c31d6510a171b01774aa1aaed9c3803"
+        },
+        "date": 1772493430845,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 5.49,
+            "range": "±3.29%",
             "unit": "ops/sec",
             "extra": "32 samples"
           }
