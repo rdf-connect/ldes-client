@@ -28,6 +28,7 @@ let loose: boolean = false;
 let defaultTimezone: string | undefined;
 let includeMetadata: boolean = false;
 let startFresh: boolean = false;
+let namedGraphsExtraction: boolean = false;
 
 const fetch_config: FetchConfig = {
     retry: {},
@@ -103,6 +104,10 @@ program
         "--url-is-view",
         "the url is the view url, don't try to find the correct view",
     )
+    .option(
+        "--named-graphs-extraction",
+        "Extract member quads using named graphs extraction algorithm"
+    )
     .action((url: string, program) => {
         urlIsView = program.urlIsView;
         noShape = !program.shape;
@@ -121,6 +126,7 @@ program
         defaultTimezone = program.defaultTimezone;
         includeMetadata = program.metadata;
         startFresh = program.startFresh;
+        namedGraphsExtraction = program.namedGraphsExtraction;
 
         fetch_config.concurrent = parseInt(program.concurrent);
         if (program.basicAuth) {
@@ -182,6 +188,7 @@ async function main() {
             concurrentFetches: fetch_config.concurrent,
             startFresh,
             fetch: enhanced_fetch(fetch_config),
+            namedGraphsExtraction,
         }),
         ordered,
     );

@@ -209,6 +209,7 @@ export class Client {
             info,
             this.config.loose,
             condition,
+            this.config.namedGraphsExtraction,
         );
 
         this.logger.debug(`timestampPath: ${!!info.timestampPath}`);

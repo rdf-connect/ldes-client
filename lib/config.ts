@@ -29,6 +29,7 @@ export interface Config {
     concurrentFetches?: number;
     startFresh?: boolean;
     fetch?: typeof fetch;
+    namedGraphsExtraction?: boolean;
 }
 
 export interface WithTarget {
@@ -49,6 +50,7 @@ const defaultConfig: Config = {
     includeMetadata: false,
     concurrentFetches: 10,
     startFresh: false,
+    namedGraphsExtraction: false,
 };
 
 const defaultTarget: WithTarget = {

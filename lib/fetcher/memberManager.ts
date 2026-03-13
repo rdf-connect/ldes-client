@@ -2,17 +2,13 @@ import { CBDShapeExtractor } from "extract-cbd-shape";
 import { DC, LDES, TREE } from "@treecg/types";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
-import {
-    getObjects,
-    memberFromQuads,
-    getLoggerFor,
-    memberIsOld
-} from "../utils";
+import { getLoggerFor, getObjects, memberFromQuads } from "../utils";
 import { Condition } from "../condition";
 
 import type { Quad, Term } from "@rdfjs/types";
 import type { Modulator, Notifier } from "./modulator";
 import type { FetchedPage } from "./pageFetcher";
+import { extract } from "member-extraction-algorithm";
 
 const { namedNode } = new DataFactory();
 
@@ -65,11 +61,14 @@ export class Manager {
 
     private condition: Condition;
 
+    private namedGraphsExtraction: boolean;
+
     constructor(
         ldesUri: Term | null,
         info: LDESInfo,
         loose = false,
         condition: Condition,
+        namedGraphsExtraction: boolean = false,
     ) {
         this.ldesUri = ldesUri;
         this.extractor = info.extractor;
@@ -78,6 +77,7 @@ export class Manager {
         this.shapeId = info.shape;
         this.loose = loose;
         this.condition = condition;
+        this.namedGraphsExtraction = namedGraphsExtraction;
 
         if (!this.ldesUri) {
             this.logger.debug(
@@ -180,10 +180,14 @@ export class Manager {
         data: RdfStore,
         otherMembers: Term[] = [],
     ): Promise<Quad[]> {
-        return await this.extractor.extract(data, member, this.shapeId, [
-            namedNode(LDES.custom("IngestionMetadata")),
-            ...otherMembers,
-        ]);
+        if (this.namedGraphsExtraction) {
+            return extract(data, [member])[0];
+        } else {
+            return await this.extractor.extract(data, member, this.shapeId, [
+                namedNode(LDES.custom("IngestionMetadata")),
+                ...otherMembers,
+            ]);
+        }
     }
 
     private async extractMember(
@@ -192,13 +196,19 @@ export class Manager {
         otherMembers: Term[] = [],
     ): Promise<Member | undefined> {
         try {
-            const quads: Quad[] = await this.extractMemberQuads(member, data, otherMembers);
-            const created = getObjects(
-                data,
-                member,
-                DC.terms.custom("created"),
-                namedNode(LDES.custom("IngestionMetadata")),
-            )[0]?.value;
+            let quads: Quad[] = await this.extractMemberQuads(member, data, otherMembers);
+            let created;
+            if (this.namedGraphsExtraction) {
+                created = quads.find((q) => q.graph.equals(namedNode(LDES.custom("IngestionMetadata"))) && q.predicate.equals(DC.terms.custom("created")) && q.subject.equals(member))?.object.value;
+                quads = quads.filter((q) => !q.graph.equals(namedNode(LDES.custom("IngestionMetadata"))));
+            } else {
+                created = getObjects(
+                    data,
+                    member,
+                    DC.terms.custom("created"),
+                    namedNode(LDES.custom("IngestionMetadata")),
+                )[0]?.value;
+            }
 
             if (quads.length > 0) {
                 return memberFromQuads(
