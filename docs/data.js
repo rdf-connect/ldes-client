@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772493431400,
+  "lastUpdate": 1774365270850,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -6849,6 +6849,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 5.49,
             "range": "±3.29%",
+            "unit": "ops/sec",
+            "extra": "32 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "smessie@users.noreply.github.com",
+            "name": "Ieben Smessaert",
+            "username": "smessie"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d56097665a6fda6d3053f0d81bbea06043ccd362",
+          "message": "chore: Add `sh:description` values to properties of processor's SHACL shape (#135)\n\n* chore: Add `sh:description` values to properties of processor's SHACL shape\n\n* chore: Apply review feedback, add some `sh:in`",
+          "timestamp": "2026-03-24T16:13:52+01:00",
+          "tree_id": "055e3bcfd96e0d08f09902bfbf4fa3622c4ab302",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/d56097665a6fda6d3053f0d81bbea06043ccd362"
+        },
+        "date": 1774365263910,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 5.56,
+            "range": "±3.05%",
             "unit": "ops/sec",
             "extra": "32 samples"
           }
