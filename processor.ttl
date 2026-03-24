@@ -16,7 +16,7 @@ rdfc:LdesClient rdfc:jsImplementationOf rdfc:Processor;
     sh:class rdfc:AuthConfig;
     sh:path rdfc:auth;
     sh:name "auth";
-    sh:description "Authentication settings used when fetching remote resources.";
+    sh:description "Authentication settings used when fetching protected remote resources.";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:integer;
@@ -34,7 +34,7 @@ rdfc:LdesClient rdfc:jsImplementationOf rdfc:Processor;
     sh:datatype xsd:boolean;
     sh:path rdfc:safe;
     sh:name "safe";
-    sh:description "Enable safe fetching mode to reduce risky or non-standard behavior.";
+    sh:description "Enable safe fetching mode to prevent the client crashing on unexpected failures and reduce risky or non-standard behavior.";
     sh:maxCount 1;
   ].
 
@@ -59,7 +59,8 @@ rdfc:LdesClient rdfc:jsImplementationOf rdfc:Processor;
     sh:datatype xsd:string;
     sh:path rdfc:type;
     sh:name "type";
-    sh:description "Authentication scheme type, for example Bearer or Basic.";
+    sh:description "Authentication scheme type.";
+    sh:in ( "basic" );
     sh:maxCount 1;
   ], [
     sh:datatype xsd:string;
@@ -101,7 +102,8 @@ rdfc:LdesClient rdfc:jsImplementationOf rdfc:Processor;
     sh:datatype xsd:string;
     sh:path rdfc:ordered;
     sh:name "ordered";
-    sh:description "Ordering strategy to use while reading the LDES, for example ordered or unordered.";
+    sh:description "Ordering strategy to use while reading the LDES.";
+    sh:in ( "none" "ascending" "descending" );
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
@@ -119,14 +121,14 @@ rdfc:LdesClient rdfc:jsImplementationOf rdfc:Processor;
     sh:datatype xsd:string;
     sh:path rdfc:shapeFile;
     sh:name "shapeFile";
-    sh:description "Path to a SHACL shape file used to validate or interpret members.";
+    sh:description "Path to a SHACL shape file used to guide member extraction.";
     sh:minCount 0;
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
     sh:path rdfc:noShape;
     sh:name "noShape";
-    sh:description "Skip shape discovery and processing when set to true.";
+    sh:description "Skip shape discovery and processing when set to true, leading the client to perform a CBD-based member extraction.";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:string;
@@ -162,13 +164,13 @@ rdfc:LdesClient rdfc:jsImplementationOf rdfc:Processor;
     sh:datatype xsd:boolean;
     sh:path rdfc:materialize;
     sh:name "materialize";
-    sh:description "Materialize relation traversal results into explicit members before output.";
+    sh:description "Materialize versioned members based on the declared ldes:VersionOfPath property value (when available).";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
     sh:path rdfc:startFresh;
     sh:name "startFresh";
-    sh:description "Ignore previously saved state and start reading from a fresh state.";
+    sh:description "Ignore previously saved state and start reading from a fresh state. Will delete the old state.";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
@@ -180,7 +182,7 @@ rdfc:LdesClient rdfc:jsImplementationOf rdfc:Processor;
     sh:datatype xsd:string;
     sh:path rdfc:streamId;
     sh:name "streamId";
-    sh:description "Optional stream identifier to disambiguate the targeted LDES stream.";
+    sh:description "Optional stream identifier, used with SDS metadata, to disambiguate the original LDES IRI from the associated SDS metadata stream.";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
