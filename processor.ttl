@@ -16,21 +16,25 @@ rdfc:LdesClient rdfc:jsImplementationOf rdfc:Processor;
     sh:class rdfc:AuthConfig;
     sh:path rdfc:auth;
     sh:name "auth";
+    sh:description "Authentication settings used when fetching protected remote resources.";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:integer;
     sh:path rdfc:concurrent;
     sh:name "concurrent";
+    sh:description "Maximum number of concurrent fetch requests to run in parallel.";
     sh:maxCount 1;
   ], [
     sh:class rdfc:FetchRetry;
     sh:path rdfc:retry;
     sh:name "retry";
+    sh:description "Retry policy that defines when and how failed fetches are retried.";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
     sh:path rdfc:safe;
     sh:name "safe";
+    sh:description "Enable safe fetching mode to prevent the client crashing on unexpected failures and reduce risky or non-standard behavior.";
     sh:maxCount 1;
   ].
 
@@ -40,10 +44,12 @@ rdfc:LdesClient rdfc:jsImplementationOf rdfc:Processor;
     sh:datatype xsd:integer;
     sh:path rdfc:code;
     sh:name "codes";
+    sh:description "HTTP status code that should trigger a retry. Repeat for multiple codes.";
   ], [
     sh:datatype xsd:integer;
     sh:path rdfc:maxRetry;
     sh:name "maxRetries";
+    sh:description "Maximum number of retry attempts for a failed request.";
     sh:maxCount 1;
   ].
 
@@ -53,11 +59,14 @@ rdfc:LdesClient rdfc:jsImplementationOf rdfc:Processor;
     sh:datatype xsd:string;
     sh:path rdfc:type;
     sh:name "type";
+    sh:description "Authentication scheme type.";
+    sh:in ( "basic" );
     sh:maxCount 1;
   ], [
     sh:datatype xsd:string;
     sh:path rdfc:auth;
     sh:name "auth";
+    sh:description "Authentication credential value, such as a token or encoded secret.";
     sh:maxCount 1;
   ].
 
@@ -67,99 +76,119 @@ rdfc:LdesClient rdfc:jsImplementationOf rdfc:Processor;
     sh:datatype xsd:string;
     sh:path rdfc:url;
     sh:name "url";
+    sh:description "LDES URL to read members from.";
     sh:maxCount 1;
     sh:minCount 1;
   ], [
     sh:class rdfc:Writer;
     sh:path rdfc:output;
     sh:name "output";
+    sh:description "Writer channel IRI where output members are sent to.";
     sh:maxCount 1;
     sh:minCount 1;
   ], [
     sh:datatype xsd:dateTime;
     sh:path rdfc:before;
     sh:name "before";
+    sh:description "Only include members with timestamps before this date-time value.";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:dateTime;
     sh:path rdfc:after;
     sh:name "after";
+    sh:description "Only include members with timestamps after this date-time value.";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:string;
     sh:path rdfc:ordered;
     sh:name "ordered";
+    sh:description "Ordering strategy to use while reading the LDES.";
+    sh:in ( "none" "ascending" "descending" );
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
     sh:path rdfc:follow;
     sh:name "follow";
+    sh:description "Keep polling for new members when the current data is exhausted.";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:integer;
     sh:path rdfc:interval;
     sh:name "pollInterval";
+    sh:description "Polling interval in milliseconds used when follow mode is enabled.";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:string;
     sh:path rdfc:shapeFile;
     sh:name "shapeFile";
+    sh:description "Path to a SHACL shape file used to guide member extraction.";
     sh:minCount 0;
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
     sh:path rdfc:noShape;
     sh:name "noShape";
+    sh:description "Skip shape discovery and processing when set to true, leading the client to perform a CBD-based member extraction.";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:string;
     sh:path rdfc:savePath;
     sh:name "savePath";
+    sh:description "File path where client state should be saved for later reuse.";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
     sh:path rdfc:loose;
     sh:name "loose";
+    sh:description "Allow more permissive processing when input data is not strictly compliant.";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
     sh:path rdfc:urlIsView;
     sh:name "urlIsView";
+    sh:description "Indicate that the provided URL already points to a concrete LDES view.";
     sh:maxCount 1;
   ], [
     sh:class rdfc:FetchConfig;
     sh:path rdfc:fetch;
     sh:name "fetchConfig";
+    sh:description "Advanced fetch behavior settings, including auth and retry options.";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:string;
     sh:path rdfc:conditionFile;
     sh:name "conditionFile";
+    sh:description "Path to a file containing additional filtering conditions.";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
     sh:path rdfc:materialize;
     sh:name "materialize";
+    sh:description "Materialize versioned members based on the declared ldes:VersionOfPath property value (when available).";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
     sh:path rdfc:startFresh;
     sh:name "startFresh";
+    sh:description "Ignore previously saved state and start reading from a fresh state. Will delete the old state.";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
     sh:path rdfc:lastVersionOnly;
     sh:name "lastVersionOnly";
+    sh:description "Only emit the latest version for each resource when versioning is present.";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:string;
     sh:path rdfc:streamId;
     sh:name "streamId";
+    sh:description "Optional stream identifier, used with SDS metadata, to disambiguate the original LDES IRI from the associated SDS metadata stream.";
     sh:maxCount 1;
   ], [
     sh:datatype xsd:boolean;
     sh:path rdfc:sdsify;
     sh:name "sdsify";
+    sh:description "Emit output in SDS-compatible form when enabled.";
     sh:maxCount 1;
   ].
 
