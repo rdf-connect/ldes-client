@@ -43,6 +43,7 @@ type EventReceiver<T> = (params: T) => void;
 export { enhanced_fetch } from "./fetcher";
 export { intoConfig } from "./config";
 export * from "./condition";
+export type { Ordered } from "./strategy";
 
 export type ClientEvents = {
     fragment: FetchedPage;
@@ -148,7 +149,7 @@ export class Client {
             : df.namedNode(this.config.url);
 
         //*****************************************************************
-        // TODO: Handle the case where there are multiple views available 
+        // TODO: Handle the case where there are multiple views available
         // through a discovery process.
         //*****************************************************************
         const viewQuads = root.data.getQuads(null, TREE.terms.view, null, null);
@@ -168,8 +169,8 @@ export class Client {
             }
         }
 
-        // This is the actual LDES IRI found in the RDF data. 
-        // Might be different from the configured ldesId due to HTTP redirects 
+        // This is the actual LDES IRI found in the RDF data.
+        // Might be different from the configured ldesId due to HTTP redirects
         const ldesUri = viewQuads[0]?.subject ||
             root.data.getQuads(null, RDF.terms.type, LDES.terms.EventStream)[0].subject;
         if (!ldesUri) {
