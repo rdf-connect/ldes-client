@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774365270850,
+  "lastUpdate": 1774514415490,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -6882,6 +6882,37 @@ window.BENCHMARK_DATA = {
             "range": "±3.05%",
             "unit": "ops/sec",
             "extra": "32 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "smessie@smessie.com",
+            "name": "smessie",
+            "username": "smessie"
+          },
+          "committer": {
+            "email": "smessie@users.noreply.github.com",
+            "name": "Ieben Smessaert",
+            "username": "smessie"
+          },
+          "distinct": true,
+          "id": "6e0dc51fa64deed4913f50e9ceb67273e74252ed",
+          "message": "fix(deps): update dependency rdf-dereference to v5",
+          "timestamp": "2026-03-26T09:39:42+01:00",
+          "tree_id": "346a8b7b145f731950c82b06f9c05856957ee820",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/6e0dc51fa64deed4913f50e9ceb67273e74252ed"
+        },
+        "date": 1774514415132,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 4.76,
+            "range": "±22.79%",
+            "unit": "ops/sec",
+            "extra": "28 samples"
           }
         ]
       }
