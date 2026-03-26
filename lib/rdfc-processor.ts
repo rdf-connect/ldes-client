@@ -94,6 +94,11 @@ export class LDESClientProcessor extends Processor<LDESClientArgs> {
             this.logger.verbose(`Got fragment: ${fragment.url}`);
         });
 
+        this.output.on("cancel", async () => {
+            await reader.cancel();
+            this.logger.verbose("Stream cancelled, stopping LDES client");
+        });
+
         let member = await reader.read();
 
         while (member) {
