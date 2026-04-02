@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775005221665,
+  "lastUpdate": 1775107295109,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -7128,6 +7128,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 5.49,
             "range": "±2.89%",
+            "unit": "ops/sec",
+            "extra": "32 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "29139614+renovate[bot]@users.noreply.github.com",
+            "name": "renovate[bot]",
+            "username": "renovate[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "758afe04c771dd4f83162f4cc22d05ff009fbf02",
+          "message": "chore(deps): update dependency playwright to ^1.59.0",
+          "timestamp": "2026-04-02T00:41:43Z",
+          "tree_id": "a4cc5650989d2fd0f45e348b47beba526b2b044a",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/758afe04c771dd4f83162f4cc22d05ff009fbf02"
+        },
+        "date": 1775107294525,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 5.49,
+            "range": "±2.87%",
             "unit": "ops/sec",
             "extra": "32 samples"
           }
