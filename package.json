@@ -49,7 +49,7 @@
   },
   "devDependencies": {
     "@fastify/cors": "^11.2.0",
-    "@fastify/static": "^9.1.0",
+    "@fastify/static": "^9.1.1",
     "@grpc/grpc-js": "^1.14.3",
     "@rdfc/js-runner": "^3.1.0",
     "@rdfc/proto": "^0.1.3",
