@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776409528462,
+  "lastUpdate": 1776662893091,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -7407,6 +7407,37 @@ window.BENCHMARK_DATA = {
             "name": "tree-3-3",
             "value": 5.57,
             "range": "±2.73%",
+            "unit": "ops/sec",
+            "extra": "32 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "29139614+renovate[bot]@users.noreply.github.com",
+            "name": "renovate[bot]",
+            "username": "renovate[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4d4619f531cf09aca549fd8c632c4bad0c041c4d",
+          "message": "chore(deps): update dependency @rollup/rollup-linux-x64-gnu to ^4.60.2",
+          "timestamp": "2026-04-20T01:26:25Z",
+          "tree_id": "10bc3212dd3e55776cce1ff323fd3c98412079c0",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/4d4619f531cf09aca549fd8c632c4bad0c041c4d"
+        },
+        "date": 1776662891952,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 5.58,
+            "range": "±2.55%",
             "unit": "ops/sec",
             "extra": "32 samples"
           }
