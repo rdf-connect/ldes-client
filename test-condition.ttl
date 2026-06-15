@@ -1,0 +1,34 @@
+@prefix csp: <http://vocab.deri.ie/csp#>.
+@prefix tree: <https://w3id.org/tree#>.
+@prefix dwc: <http://rs.tdwg.org/dwc/terms/>.
+
+<> a csp:And;
+  csp:and [
+    a csp:Condition;
+    tree:relationType tree:GreaterThanOrEqualToRelation;
+    tree:path dwc:latitude;
+    tree:value 10;
+    tree:compareType "number";
+  ];
+  csp:and [
+    a csp:Condition;
+    tree:relationType tree:LessThanRelation;
+    tree:path dwc:latitude;
+    tree:value 70;
+    tree:compareType "number";
+  ];
+  csp:and [
+    a csp:Condition;
+    tree:relationType tree:GreaterThanOrEqualToRelation;
+    tree:path dwc:longitude;
+    tree:value 0;
+    tree:compareType "number";
+  ];
+  csp:and [
+    a csp:Condition;
+    tree:relationType tree:LessThanRelation;
+    tree:path dwc:longitude;
+    tree:value 10;
+    tree:compareType "number";
+  ].
+
