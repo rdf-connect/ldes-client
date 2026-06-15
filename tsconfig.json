@@ -7,10 +7,9 @@
         "module": "esnext",
         "target": "es2022",
         "strict": true,
-        // "esModuleInterop": true,
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
-        "moduleResolution": "node",
+        "moduleResolution": "bundler",
         "outDir": "dist",
         "declaration": true,
         "allowSyntheticDefaultImports": true
@@ -27,7 +26,6 @@
     "exclude": [
         "node_modules",
         "dist",
-        // "tests",
         "web"
     ]
 }
