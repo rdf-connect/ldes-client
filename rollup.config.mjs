@@ -10,7 +10,8 @@ const externals = [
     'fs/promises',
     'path',
     'os',
-    'url'
+    'url',
+    'stream'
 ];
 
 export default {
