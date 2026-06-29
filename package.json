@@ -68,7 +68,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^17.0.8",
     "playwright": "^1.61.1",
-    "prettier": "^3.8.4",
+    "prettier": "^3.9.1",
     "rollup": "^4.62.2",
     "tsc-alias": "^1.8.17",
     "typescript": "^6.0.3",
