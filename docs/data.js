@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782895141250,
+  "lastUpdate": 1782981252093,
   "repoUrl": "https://github.com/rdf-connect/ldes-client",
   "entries": {
     "Benchmark for ldes client": [
@@ -8246,6 +8246,37 @@ window.BENCHMARK_DATA = {
             "range": "±8.72%",
             "unit": "ops/sec",
             "extra": "30 samples"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "smessie@smessie.com",
+            "name": "smessie",
+            "username": "smessie"
+          },
+          "committer": {
+            "email": "smessie@smessie.com",
+            "name": "smessie",
+            "username": "smessie"
+          },
+          "distinct": true,
+          "id": "0cf41510149d8c2cce7ca8e3a19ea07267e9291b",
+          "message": "fix: Resolve missing and unused prefixes",
+          "timestamp": "2026-07-02T10:33:37+02:00",
+          "tree_id": "785a922c483cdb51e9404a06f18baa516d7f3ac4",
+          "url": "https://github.com/rdf-connect/ldes-client/commit/0cf41510149d8c2cce7ca8e3a19ea07267e9291b"
+        },
+        "date": 1782981250477,
+        "tool": "benchmarkjs",
+        "benches": [
+          {
+            "name": "tree-3-3",
+            "value": 5.44,
+            "range": "±2.66%",
+            "unit": "ops/sec",
+            "extra": "31 samples"
           }
         ]
       }
