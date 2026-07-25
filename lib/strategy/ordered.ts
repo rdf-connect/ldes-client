@@ -48,6 +48,7 @@ export class OrderedStrategy {
     private readonly launchedRelations: Heap<RelationChain>;
 
     private modulator: Modulator<NodeChain, Member>;
+    private preloadedPages = new Map<string, FetchedPage>();
     private fetchNotifier: Notifier<
         FetchEvent,
         { chain: RelationChain; index: number }
@@ -201,11 +202,22 @@ export class OrderedStrategy {
                 ready: async ({ item: { chain, expected }, index }) => {
                     if (!(await this.modulator.seen(chain.target))) {
                         this.logger.debug(`[modulator - ready] Ready to fetch page: ${chain.target}`);
-                        await this.fetcher.fetch(
-                            { target: chain.target, expected },
-                            { chain, index },
-                            this.fetchNotifier,
-                        );
+                        const preloadedPage = this.preloadedPages.get(chain.target);
+                        if (preloadedPage) {
+                            this.preloadedPages.delete(chain.target);
+                            await this.fetcher.processFetchedPage(
+                                { target: chain.target, expected },
+                                preloadedPage,
+                                { chain, index },
+                                this.fetchNotifier,
+                            );
+                        } else {
+                            await this.fetcher.fetch(
+                                { target: chain.target, expected },
+                                { chain, index },
+                                this.fetchNotifier,
+                            );
+                        }
                     } else {
                         this.logger.debug(`[modulator - ready] Skipping fetch for previously fetched immutable page: ${chain.target}`);
                         await this.modulator.finished(index);
@@ -303,17 +315,10 @@ export class OrderedStrategy {
         });
 
         if (root) {
-            // This is a local dump. Proceed to extract members
-            this.manager.extractMembers(
-                root,
-                {
-                    chain: new RelationChain("", ""),
-                    index: 0,
-                    modulator: this.modulator,
-                },
-                this.memberNotifier
-            );
-        } else if (await this.modulator.pendingCount() < 1) {
+            this.preloadedPages.set(root.url, root);
+        }
+
+        if (await this.modulator.pendingCount() < 1) {
             this.logger.debug(`[start] Starting at ${url}`);
 
             // Setting comparator functions for relations
