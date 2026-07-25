@@ -21,6 +21,7 @@ export interface Member {
     quads: Quad[];
     order?: string | Date | number;
     timestamp?: string | Date;
+    transactionFinalized?: boolean;
     isVersionOf?: string;
     type?: Term;
     created?: Date;
@@ -40,6 +41,8 @@ export type LDESInfo = {
     sequencePath?: Term;
     sequencePathTerms?: Term[];
     sequencePathKey?: string;
+    transactionFinalizedPath?: Term;
+    transactionFinalizedPathTerms?: Term[];
     versionOfPath?: Term;
     versionTimestampPath?: Term;
     versionSequencePath?: Term;
@@ -73,6 +76,8 @@ export class Manager {
     private timestampPath?: Term;
     private sequencePath?: Term;
     private sequencePathTerms?: Term[];
+    private transactionFinalizedPath?: Term;
+    private transactionFinalizedPathTerms?: Term[];
     private isVersionOfPath?: Term;
 
     private logger = getLoggerFor(this);
@@ -91,6 +96,8 @@ export class Manager {
         this.timestampPath = info.timestampPath;
         this.sequencePath = info.sequencePath;
         this.sequencePathTerms = info.sequencePathTerms;
+        this.transactionFinalizedPath = info.transactionFinalizedPath;
+        this.transactionFinalizedPathTerms = info.transactionFinalizedPathTerms;
         this.isVersionOfPath = info.versionOfPath;
         this.shapeId = info.shape;
         this.loose = loose;
@@ -225,6 +232,8 @@ export class Manager {
                     this.timestampPath,
                     this.sequencePath,
                     this.sequencePathTerms,
+                    this.transactionFinalizedPath,
+                    this.transactionFinalizedPathTerms,
                     this.isVersionOfPath,
                     created ? new Date(created) : undefined,
                     data,

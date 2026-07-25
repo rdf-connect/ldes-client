@@ -251,7 +251,7 @@ Run the suite from this repository:
 
 ```bash
 npm ci
-npm run test:compliance
+npm run test:conformance
 ```
 
 The command uses `../ldes-client-conformance-test-suite` when that checkout already exists. If it is missing, it clones the suite from GitHub first. Local changes in that sibling checkout are respected.
@@ -259,7 +259,7 @@ The command uses `../ldes-client-conformance-test-suite` when that checkout alre
 The command exits with a non-zero status when required conformance tests fail. To generate the report artifacts while adopting or debugging failures, pass `--no-fail` through npm:
 
 ```bash
-npm run test:compliance -- --no-fail
+npm run test:conformance -- --no-fail
 ```
 
 ## Expected Features

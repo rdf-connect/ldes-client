@@ -274,25 +274,7 @@ export class OrderedStrategy {
         /**
          * Member heap that determines their emission order
          */
-        if (ordered == "ascending") {
-            this.members = new Heap((a, b) => {
-                if (a.id.equals(b.id)) return 0;
-                if (a.order == b.order) return 0;
-                if (!a && b) return 1;
-                if (a && !b) return -1;
-                if (a.order! < b.order!) return -1;
-                return 1;
-            });
-        } else {
-            this.members = new Heap((a, b) => {
-                if (a.id.equals(b.id)) return 0;
-                if (a.order == b.order) return 0;
-                if (!a && b) return -1;
-                if (a && !b) return 1;
-                if (a.order! < b.order!) return 1;
-                return -1;
-            });
-        }
+        this.members = new Heap((a, b) => compareMembers(a, b, ordered));
     }
 
     async start(
@@ -719,4 +701,30 @@ function parseRelationValue(value: RelationValue): RelationValue {
         return date;
     }
     return value;
+}
+
+function compareMembers(a: Member, b: Member, ordered: Ordered): number {
+    if (a.id.equals(b.id)) return 0;
+    const order = compareOrderValues(a.order, b.order);
+    if (order !== 0) {
+        return ordered === "ascending" ? order : -order;
+    }
+    if (a.transactionFinalized !== b.transactionFinalized) {
+        return a.transactionFinalized ? 1 : -1;
+    }
+    return a.id.value < b.id.value ? -1 : 1;
+}
+
+function compareOrderValues(
+    a: string | Date | number | undefined,
+    b: string | Date | number | undefined,
+): number {
+    if (a === undefined && b === undefined) return 0;
+    if (a === undefined) return 1;
+    if (b === undefined) return -1;
+    const left = a instanceof Date ? a.getTime() : a;
+    const right = b instanceof Date ? b.getTime() : b;
+    if (left < right) return -1;
+    if (left > right) return 1;
+    return 0;
 }

@@ -15,7 +15,7 @@
     "build": "tsc && tsc-alias && rollup -c",
     "test": "vitest run --coverage --coverage.include lib --coverage.exclude dist",
     "test:browser": "vitest run -c vitest.browser.config.ts",
-    "test:compliance": "sh scripts/test-compliance.sh",
+    "test:conformance": "sh scripts/test-conformance.sh",
     "prepublishOnly": "npm run build"
   },
   "files": [

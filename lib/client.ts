@@ -420,6 +420,7 @@ async function getInfo(
     let contextShapeIds;
     let timestampPaths;
     let sequencePaths;
+    let transactionFinalizedPaths;
     let versionOfPaths;
     let versionTimestampPaths;
     let versionSequencePaths;
@@ -433,6 +434,7 @@ async function getInfo(
         shapeIds = config.noShape ? [] : contextShapeIds;
         timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
         sequencePaths = getObjects(store, null, LDES.terms.custom("sequencePath"));
+        transactionFinalizedPaths = getObjects(store, null, LDES.terms.custom("transactionFinalizedPath"));
         versionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
         versionTimestampPaths = getObjects(store, null, LDES.terms.custom("versionTimestampPath"));
         versionSequencePaths = getObjects(store, null, LDES.terms.custom("versionSequencePath"));
@@ -443,6 +445,7 @@ async function getInfo(
         shapeIds = config.noShape ? [] : contextShapeIds;
         timestampPaths = getObjects(store, ldesId, LDES.terms.timestampPath);
         sequencePaths = getObjects(store, ldesId, LDES.terms.custom("sequencePath"));
+        transactionFinalizedPaths = getObjects(store, ldesId, LDES.terms.custom("transactionFinalizedPath"));
         versionOfPaths = getObjects(store, ldesId, LDES.terms.versionOfPath);
         versionTimestampPaths = getObjects(store, ldesId, LDES.terms.custom("versionTimestampPath"));
         versionSequencePaths = getObjects(store, ldesId, LDES.terms.custom("versionSequencePath"));
@@ -462,7 +465,7 @@ async function getInfo(
             tryAgainUrl = ldesId.value;
         }
         if (tryAgainUrl === fetchedRootUrl) {
-            return buildInfo(config, store, dereferencer, shapeIds, timestampPaths, sequencePaths, versionOfPaths, versionTimestampPaths, versionSequencePaths, pollingIntervals, ldesId, viewId, contextShapeIds);
+            return buildInfo(config, store, dereferencer, shapeIds, timestampPaths, sequencePaths, transactionFinalizedPaths, versionOfPaths, versionTimestampPaths, versionSequencePaths, pollingIntervals, ldesId, viewId, contextShapeIds);
         }
         try {
             logger.debug(`Maybe find more info at ${tryAgainUrl}`);
@@ -485,6 +488,9 @@ async function getInfo(
             }
             if (!sequencePaths.length) {
                 sequencePaths = getObjects(store, null, LDES.terms.custom("sequencePath"));
+            }
+            if (!transactionFinalizedPaths.length) {
+                transactionFinalizedPaths = getObjects(store, null, LDES.terms.custom("transactionFinalizedPath"));
             }
             if (!versionOfPaths.length) {
                 versionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
@@ -519,6 +525,10 @@ async function getInfo(
         logger.error(`Expected at most one sequence path, found ${sequencePaths.length}`);
     }
 
+    if (transactionFinalizedPaths.length > 1) {
+        logger.error(`Expected at most one transactionFinalized path, found ${transactionFinalizedPaths.length}`);
+    }
+
     if (versionOfPaths.length > 1) {
         logger.error(`Expected at most one versionOf path, found ${versionOfPaths.length}`);
     }
@@ -535,7 +545,7 @@ async function getInfo(
         logger.error(`Expected at most one polling interval, found ${pollingIntervals.length}`);
     }
 
-    return buildInfo(config, store, dereferencer, shapeIds, timestampPaths, sequencePaths, versionOfPaths, versionTimestampPaths, versionSequencePaths, pollingIntervals, ldesId, viewId, contextShapeIds);
+    return buildInfo(config, store, dereferencer, shapeIds, timestampPaths, sequencePaths, transactionFinalizedPaths, versionOfPaths, versionTimestampPaths, versionSequencePaths, pollingIntervals, ldesId, viewId, contextShapeIds);
 }
 
 async function buildInfo(
@@ -545,6 +555,7 @@ async function buildInfo(
     shapeIds: Term[],
     timestampPaths: Term[],
     sequencePaths: Term[],
+    transactionFinalizedPaths: Term[],
     versionOfPaths: Term[],
     versionTimestampPaths: Term[],
     versionSequencePaths: Term[],
@@ -603,6 +614,8 @@ async function buildInfo(
         sequencePath: sequencePaths[0],
         sequencePathTerms: shaclPathTerms(store, sequencePaths[0]),
         sequencePathKey: shaclPathKey(store, sequencePaths[0]),
+        transactionFinalizedPath: transactionFinalizedPaths[0],
+        transactionFinalizedPathTerms: shaclPathTerms(store, transactionFinalizedPaths[0]),
         versionOfPath: versionOfPaths[0],
         versionTimestampPath: versionTimestampPaths[0],
         versionSequencePath: versionSequencePaths[0],

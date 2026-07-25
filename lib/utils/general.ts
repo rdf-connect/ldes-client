@@ -196,6 +196,8 @@ export function memberFromQuads(
     timestampPath: Term | undefined,
     sequencePath: Term | undefined,
     sequencePathTerms: Term[] | undefined,
+    transactionFinalizedPath: Term | undefined,
+    transactionFinalizedPathTerms: Term[] | undefined,
     isVersionOfPath: Term | undefined,
     created?: Date,
     pathStore?: RdfStore,
@@ -216,6 +218,13 @@ export function memberFromQuads(
         }
     }
     const order = timestamp ?? extractSequenceValue(member, quads, sequencePath, sequencePathTerms, pathStore);
+    const transactionFinalized = extractBooleanValue(
+        member,
+        quads,
+        transactionFinalizedPath,
+        transactionFinalizedPathTerms,
+        pathStore,
+    );
 
     // Get isVersionof
     let isVersionOf: string | undefined;
@@ -230,7 +239,7 @@ export function memberFromQuads(
     const type: Term | undefined = quads.find(
         (x) => x.subject.equals(member) && x.predicate.value === RDF.type,
     )?.object;
-    return { quads, id: member, isVersionOf, order, timestamp, type, created };
+    return { quads, id: member, isVersionOf, order, timestamp, transactionFinalized, type, created };
 }
 
 function extractSequenceValue(
@@ -253,6 +262,27 @@ function extractSequenceValue(
     }
     const numeric = Number(sequence.value);
     return Number.isNaN(numeric) ? sequence.value : numeric;
+}
+
+function extractBooleanValue(
+    member: Term,
+    quads: Quad[],
+    path: Term | undefined,
+    pathTerms: Term[] | undefined,
+    pathStore?: RdfStore,
+): boolean | undefined {
+    if (!path) {
+        return;
+    }
+    const memberStore = RdfStore.createDefault();
+    quads.forEach((quad) => memberStore.addQuad(quad));
+    const value = pathTerms
+        ? resolveShaclPathTerms(pathStore ?? memberStore, member, pathTerms)[0]
+        : resolveShaclPath(pathStore ?? memberStore, member, path, pathStore)[0];
+    if (!value) {
+        return;
+    }
+    return value.value === "true" || value.value === "1";
 }
 
 export function resolveShaclPath(
@@ -341,6 +371,7 @@ export function serializeMember(member: Member): SerializedMember {
         timestamp: member.timestamp instanceof Date
             ? member.timestamp.toISOString()
             : member.timestamp?.toString(),
+        transactionFinalized: member.transactionFinalized,
         isVersionOf: member.isVersionOf,
         type: member.type?.value,
         created: member.created?.toISOString(),
@@ -373,6 +404,7 @@ export function deserializeMember(serialized: SerializedMember): Member {
         quads: parseQuads(serialized.quads),
         order,
         timestamp,
+        transactionFinalized: serialized.transactionFinalized,
         isVersionOf: serialized.isVersionOf,
         type: serialized.type ? df.namedNode(serialized.type) : undefined,
         created: serialized.created ? new Date(serialized.created) : undefined,
