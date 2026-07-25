@@ -5,7 +5,7 @@ import { TREE } from "@treecg/types";
 import { read, Tree } from "./helper";
 import { MaxCountCondition } from "../lib/condition";
 import { retry_fetch } from "../lib/fetcher";
-import { replicateLDES } from "../lib/client";
+import { intoConfig, replicateLDES } from "../lib/client";
 
 const oldFetch = global.fetch;
 beforeEach(() => {
@@ -767,5 +767,32 @@ describe("more complex tree", () => {
 
         expect(thrown).toBeTruthy();
         expect(errorCb).toBeTruthy();
+    });
+
+    test("Default fetch retries all LDES transient status codes", async () => {
+        const statuses = [408, 425, 429, 500, 502, 503, 504, 200];
+        const seen: number[] = [];
+        global.fetch = (async () => {
+            const status = statuses.shift() ?? 200;
+            seen.push(status);
+            return new Response("", { status });
+        }) as typeof fetch;
+
+        const config = intoConfig({ url: "http://example.com/ldes" });
+        const response = await config.fetch!("http://example.com/ldes");
+
+        expect(response.status).toBe(200);
+        expect(seen).toEqual([408, 425, 429, 500, 502, 503, 504, 200]);
+    });
+
+    test("Default fetch treats 410 Gone as an empty successful RDF response", async () => {
+        global.fetch = (async () => new Response("", { status: 410 })) as typeof fetch;
+
+        const config = intoConfig({ url: "http://example.com/ldes" });
+        const response = await config.fetch!("http://example.com/retired");
+
+        expect(response.status).toBe(200);
+        expect(response.headers.get("content-type")).toBe("text/turtle");
+        expect(await response.text()).toBe("");
     });
 });

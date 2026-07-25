@@ -1,4 +1,5 @@
 import { empty_condition as emptyCondition } from "./condition";
+import { enhanced_fetch } from "./fetcher/enhancedFetch";
 
 import type { NamedNode, Quad } from "@rdfjs/types";
 import type { Condition } from "./condition";
@@ -60,5 +61,13 @@ export async function getConfig(): Promise<Config & WithTarget> {
 }
 
 export function intoConfig(config: Partial<Config>): Config {
-    return Object.assign({}, defaultConfig, defaultTarget, config);
+    const out = Object.assign({}, defaultConfig, defaultTarget, config);
+    out.fetch = enhanced_fetch({
+        retry: {
+            base: 0,
+            maxRetries: 10,
+        },
+        concurrent: out.concurrentFetches,
+    }, config.fetch);
+    return out;
 }
