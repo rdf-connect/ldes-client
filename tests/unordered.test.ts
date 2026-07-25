@@ -855,4 +855,54 @@ describe("more complex tree", () => {
             "http://example.com/member/two",
         ]);
     });
+
+    test("Description exposes root context even when shape extraction is disabled", async () => {
+        global.fetch = (async () => new Response(`
+@prefix ex: <http://example.com/> .
+@prefix ldes: <https://w3id.org/ldes#> .
+@prefix tree: <https://w3id.org/tree#> .
+
+<http://example.com/ldes> tree:view <http://example.com/ldes>;
+  tree:shape ex:ShapeA, ex:ShapeB;
+  ldes:timestampPath ex:created;
+  ldes:versionTimestampPath ex:modified;
+  ldes:versionSequencePath ex:version;
+  ldes:pollingInterval 30 .
+
+<http://example.com/ldes> tree:viewDescription ex:service;
+  ldes:retentionPolicy ex:direct-policy .
+ex:service ldes:retentionPolicy ex:service-policy .
+`, {
+            headers: { "content-type": "text/turtle" },
+        })) as typeof fetch;
+
+        const client = replicateLDES({
+            url: "http://example.com/ldes",
+            noShape: true,
+        });
+        let context: Parameters<Parameters<typeof client.on<"description">>[1]>[0] | undefined;
+        client.on("description", (description) => {
+            context = description;
+        });
+
+        await read(client.stream());
+
+        expect(context?.rootNode?.value).toBe("http://example.com/ldes");
+        expect(context?.shapes?.map((shape) => shape.value).sort()).toEqual([
+            "http://example.com/ShapeA",
+            "http://example.com/ShapeB",
+        ]);
+        expect(context?.viewDescriptions?.map((description) => description.value)).toEqual([
+            "http://example.com/service",
+        ]);
+        expect(context?.retentionPolicies?.map((policy) => policy.value).sort()).toEqual([
+            "http://example.com/direct-policy",
+            "http://example.com/service-policy",
+        ]);
+        expect(context?.timestampPath?.value).toBe("http://example.com/created");
+        expect(context?.versionTimestampPath?.value).toBe("http://example.com/modified");
+        expect(context?.versionSequencePath?.value).toBe("http://example.com/version");
+        expect(context?.pollingInterval).toBe(30);
+        expect(context?.contextQuads?.length).toBeGreaterThan(0);
+    });
 });

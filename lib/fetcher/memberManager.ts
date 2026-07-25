@@ -29,13 +29,21 @@ export interface Member {
 export type LDESInfo = {
     shape: Term;
     shapeQuads: Quad[];
+    contextQuads?: Quad[];
     extractor: CBDShapeExtractor;
+    rootNode?: Term;
+    shapes?: Term[];
+    viewDescriptions?: Term[];
+    retentionPolicies?: Term[];
     timestampPath?: Term;
     timestampPathKey?: string;
     sequencePath?: Term;
     sequencePathTerms?: Term[];
     sequencePathKey?: string;
     versionOfPath?: Term;
+    versionTimestampPath?: Term;
+    versionSequencePath?: Term;
+    pollingInterval?: number;
 };
 
 export type ExtractError = {

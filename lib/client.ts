@@ -414,24 +414,36 @@ async function getInfo(
     }
 
     let shapeIds;
+    let contextShapeIds;
     let timestampPaths;
     let sequencePaths;
     let versionOfPaths;
+    let versionTimestampPaths;
+    let versionSequencePaths;
+    let pollingIntervals;
 
     const isLocalDump = ldesId.value.startsWith("file://");
 
     if (isLocalDump) {
         // We are dealing with a local dump LDES
-        shapeIds = config.noShape ? [] : getObjects(store, null, TREE.terms.shape);
+        contextShapeIds = getObjects(store, null, TREE.terms.shape);
+        shapeIds = config.noShape ? [] : contextShapeIds;
         timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
         sequencePaths = getObjects(store, null, LDES.terms.custom("sequencePath"));
         versionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
+        versionTimestampPaths = getObjects(store, null, LDES.terms.custom("versionTimestampPath"));
+        versionSequencePaths = getObjects(store, null, LDES.terms.custom("versionSequencePath"));
+        pollingIntervals = getObjects(store, null, LDES.terms.custom("pollingInterval"));
     } else {
         // This is a normal LDES on the Web
-        shapeIds = config.noShape ? [] : getObjects(store, ldesId, TREE.terms.shape);
+        contextShapeIds = getObjects(store, ldesId, TREE.terms.shape);
+        shapeIds = config.noShape ? [] : contextShapeIds;
         timestampPaths = getObjects(store, ldesId, LDES.terms.timestampPath);
         sequencePaths = getObjects(store, ldesId, LDES.terms.custom("sequencePath"));
         versionOfPaths = getObjects(store, ldesId, LDES.terms.versionOfPath);
+        versionTimestampPaths = getObjects(store, ldesId, LDES.terms.custom("versionTimestampPath"));
+        versionSequencePaths = getObjects(store, ldesId, LDES.terms.custom("versionSequencePath"));
+        pollingIntervals = getObjects(store, ldesId, LDES.terms.custom("pollingInterval"));
     }
 
     logger.debug(
@@ -458,6 +470,7 @@ async function getInfo(
 
             const shapeInView = getObjects(store, null, TREE.terms.shape);
             if (shapeInView) {
+                contextShapeIds = shapeInView;
                 shapeIds = config.noShape ? [] : shapeInView;
             }
 
@@ -469,6 +482,15 @@ async function getInfo(
             }
             if (!versionOfPaths.length) {
                 versionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
+            }
+            if (!versionTimestampPaths.length) {
+                versionTimestampPaths = getObjects(store, null, LDES.terms.custom("versionTimestampPath"));
+            }
+            if (!versionSequencePaths.length) {
+                versionSequencePaths = getObjects(store, null, LDES.terms.custom("versionSequencePath"));
+            }
+            if (!pollingIntervals.length) {
+                pollingIntervals = getObjects(store, null, LDES.terms.custom("pollingInterval"));
             }
             logger.debug(
                 `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${sequencePaths.length} sequencePaths, ${versionOfPaths.length} isVersionOfPaths`,
@@ -493,6 +515,18 @@ async function getInfo(
 
     if (versionOfPaths.length > 1) {
         logger.error(`Expected at most one versionOf path, found ${versionOfPaths.length}`);
+    }
+
+    if (versionTimestampPaths.length > 1) {
+        logger.error(`Expected at most one versionTimestamp path, found ${versionTimestampPaths.length}`);
+    }
+
+    if (versionSequencePaths.length > 1) {
+        logger.error(`Expected at most one versionSequence path, found ${versionSequencePaths.length}`);
+    }
+
+    if (pollingIntervals.length > 1) {
+        logger.error(`Expected at most one polling interval, found ${pollingIntervals.length}`);
     }
 
     const shapeConfigStore = RdfStore.createDefault();
@@ -522,6 +556,16 @@ async function getInfo(
     }
 
     const shapeStore = shapeIds.length > 0 ? store : shapeConfigStore;
+    const viewDescriptions = getObjects(store, viewId, TREE.terms.custom("viewDescription"));
+    const retentionPolicies = [
+        ...getObjects(store, viewId, LDES.terms.retentionPolicy),
+        ...viewDescriptions.flatMap((description) =>
+            getObjects(store, description, LDES.terms.retentionPolicy)
+        ),
+    ].filter((policy, index, policies) =>
+        policies.findIndex((candidate) => candidate.equals(policy)) === index
+    );
+    const pollingInterval = Number(pollingIntervals[0]?.value);
 
     return {
         extractor: new CBDShapeExtractor(shapeStore, dereferencer, {
@@ -535,6 +579,14 @@ async function getInfo(
         sequencePathTerms: shaclPathTerms(store, sequencePaths[0]),
         sequencePathKey: shaclPathKey(store, sequencePaths[0]),
         versionOfPath: versionOfPaths[0],
+        versionTimestampPath: versionTimestampPaths[0],
+        versionSequencePath: versionSequencePaths[0],
+        pollingInterval: Number.isNaN(pollingInterval) ? undefined : pollingInterval,
+        rootNode: viewId,
+        shapes: contextShapeIds,
+        viewDescriptions,
+        retentionPolicies,
+        contextQuads: store.getQuads(),
         shapeQuads: shapeStore.getQuads(),
     };
 }
