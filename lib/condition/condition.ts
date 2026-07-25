@@ -1,4 +1,4 @@
-import { NamedNode, Parser } from "n3";
+import { Parser } from "rdf-parser-ts";
 import { DataFactory } from "rdf-data-factory";
 import { BasicLensM, extractShapes, pred } from "rdf-lens";
 import { RdfStore } from "rdf-stores";
@@ -11,6 +11,7 @@ import type { Quad, Term } from "@rdfjs/types";
 import type { Cont } from "rdf-lens";
 import type { PathRange } from "./range";
 import type { Member, RelationValue } from "../fetcher";
+import type { NamedNode } from "@rdfjs/types";
 
 const df = new DataFactory();
 

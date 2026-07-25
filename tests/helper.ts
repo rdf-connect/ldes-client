@@ -1,4 +1,5 @@
-import { Parser, Writer } from "n3";
+import { Parser } from "rdf-parser-ts";
+import { Writer } from "rdf-writer-ts";
 import { TREE } from "@treecg/types";
 
 import type { Quad } from "@rdfjs/types";

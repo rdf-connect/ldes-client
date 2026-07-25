@@ -3,7 +3,7 @@ import { afterEach, beforeEach, afterAll, describe, expect, test } from "vitest"
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { Parser } from "n3";
+import { Parser } from "rdf-parser-ts";
 import { TREE } from "@treecg/types";
 import { read, Tree } from "./helper";
 import { MaxCountCondition } from "../lib/condition";

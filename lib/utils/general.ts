@@ -1,4 +1,5 @@
-import { BaseQuad, Writer, Parser } from "n3";
+import { Parser } from "rdf-parser-ts";
+import { Writer } from "rdf-writer-ts";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
 import { RDF, SHACL } from "@treecg/types";
@@ -9,6 +10,7 @@ import type { SerializedMember } from "../strategy";
 import type {
     NamedNode,
     Quad,
+    BaseQuad,
     Quad_Predicate,
     Quad_Subject,
     Quad_Object,
