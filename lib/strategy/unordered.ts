@@ -9,7 +9,8 @@ import type {
     Modulator,
     Notifier,
     MemberEvents,
-    Member
+    Member,
+    Ranker
 } from "../fetcher";
 import type { StrategyEvents, SerializedMember } from ".";
 
@@ -77,8 +78,10 @@ export class UnorderedStrategy {
                 for (const { from, target } of relations) {
                     this.logger.debug(`[fetchNotifier - relationFound] Found relation leading to ${target.node}`);
                     from.expected.add(target.node);
+                    const saved = await this.modulator.getMutable(target.node);
                     toPush.push({
                         target: target.node,
+                        etag: saved?.etag,
                         expected: new Set([from.target]),
                     });
                 }
@@ -128,7 +131,7 @@ export class UnorderedStrategy {
          */
         this.modulator = modulatorFactory.create<Node, Member>(
             "fetcher",
-            [],
+            new QueueRanker(),
             {
                 ready: async ({ item, index }) => {
                     // Only fetch this node if it hasn't been fetched in the past
@@ -145,12 +148,14 @@ export class UnorderedStrategy {
             (inp: Node) => {
                 return {
                     target: inp.target,
+                    etag: inp.etag,
                     expected: Array.from(inp.expected),
                 };
             },
             (inp: unknown) => {
                 return {
                     target: (inp as Node).target,
+                    etag: (inp as Node).etag,
                     expected: new Set((inp as Node).expected),
                 };
             },
@@ -242,5 +247,17 @@ export class UnorderedStrategy {
                 this.notifier.close({}, {});
             }
         }
+    }
+}
+
+class QueueRanker<T> implements Ranker<T> {
+    private items: T[] = [];
+
+    push(item: T): void {
+        this.items.push(item);
+    }
+
+    pop(): T | undefined {
+        return this.items.shift();
     }
 }

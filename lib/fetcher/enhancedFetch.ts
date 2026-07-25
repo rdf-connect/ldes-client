@@ -48,7 +48,7 @@ export function enhanced_fetch(
         : safe_f;
 
     const limitedFetch = limit_fetch_per_domain(
-        empty_gone_fetch(retry_fetch(fetch_f, config.retry || {})),
+        empty_special_status_fetch(retry_fetch(fetch_f, config.retry || {})),
         config.concurrent,
     );
 
@@ -134,10 +134,10 @@ export function handle_basic_auth(
     return auth_f;
 }
 
-export function empty_gone_fetch(fetch_f: typeof fetch): typeof fetch {
-    const gone_f: typeof fetch = async (input, init) => {
+export function empty_special_status_fetch(fetch_f: typeof fetch): typeof fetch {
+    const status_f: typeof fetch = async (input, init) => {
         const resp = await fetch_f(input, init);
-        if (resp.status !== 410) {
+        if (resp.status !== 304 && resp.status !== 410) {
             return resp;
         }
 
@@ -151,7 +151,7 @@ export function empty_gone_fetch(fetch_f: typeof fetch): typeof fetch {
         });
     };
 
-    return gone_f;
+    return status_f;
 }
 
 export function retry_fetch(

@@ -2,6 +2,7 @@
 import { RdfDereferencer } from "rdf-dereference";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
+import { LDES } from "@treecg/types";
 import { getLoggerFor } from "../utils";
 import { extractRelations } from "./relation";
 
@@ -20,6 +21,7 @@ const { namedNode } = new DataFactory();
 export type Node = {
     target: string;
     expected: Set<string>;
+    etag?: string;
 };
 
 export type FetchedPage = {
@@ -75,6 +77,7 @@ export type FetchEvent = {
 export type Cache = {
     immutable?: boolean;
     maxAge?: number;
+    etag?: string;
 };
 
 export class Fetcher {
@@ -115,8 +118,15 @@ export class Fetcher {
                 localFiles: true,
                 fetch: this.fetch_f,
             };
+            if (node.etag) {
+                options.headers = {
+                    ...options.headers,
+                    "If-None-Match": node.etag,
+                };
+            }
             if (this.includeMetadata) {
                 options.headers = {
+                    ...options.headers,
                     Accept: "application/metadata+trig",
                 };
             }
@@ -127,6 +137,7 @@ export class Fetcher {
             const cache = {} as Cache;
             if (resp.headers) {
                 const cacheControlCandidate = resp.headers.get("cache-control");
+                cache.etag = resp.headers.get("etag") ?? undefined;
                 if (cacheControlCandidate) {
                     const controls = cacheControlCandidate
                         .split(",")
@@ -141,12 +152,6 @@ export class Fetcher {
                             cache.immutable = true;
                         }
                     }
-                }
-            }
-
-            if (!cache.immutable) {
-                if (!this.closed) {
-                    notifier.scheduleFetch(node, state);
                 }
             }
 
@@ -165,6 +170,15 @@ export class Fetcher {
                     .on("end", resolve)
                     .on("error", reject);
             });
+
+            cache.immutable ||= isRdfImmutable(data, namedNode(resp.url));
+
+            if (!cache.immutable && !this.closed) {
+                notifier.scheduleFetch({
+                    ...node,
+                    etag: cache.etag ?? node.etag,
+                }, state);
+            }
 
             this.logger.debug(
                 `[fetch] Got data ${node.target} (${quadCount} quads)`,
@@ -198,4 +212,10 @@ export class Fetcher {
             notifier.error(ex, state);
         }
     }
+}
+
+function isRdfImmutable(data: RdfStore, page: ReturnType<typeof namedNode>): boolean {
+    return data
+        .getQuads(page, LDES.terms.custom("immutable"), null, null)
+        .some((quad) => quad.object.termType === "Literal" && quad.object.value === "true");
 }

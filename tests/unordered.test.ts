@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { afterEach, beforeEach, afterAll, describe, expect, test } from "vitest";
+import fs from "fs";
+import os from "os";
+import path from "path";
 import { Parser } from "n3";
 import { TREE } from "@treecg/types";
 import { read, Tree } from "./helper";
@@ -905,4 +908,106 @@ ex:service ldes:retentionPolicy ex:service-policy .
         expect(context?.pollingInterval).toBe(30);
         expect(context?.contextQuads?.length).toBeGreaterThan(0);
     });
+
+    test("Saved state skips immutable pages and revalidates mutable pages with ETags", async () => {
+        const statePath = fs.mkdtempSync(path.join(os.tmpdir(), "ldes-cache-state-"));
+        let phase: "initial" | "repeat" = "initial";
+        const requests: { path: string; ifNoneMatch?: string | null }[] = [];
+        global.fetch = (async (input, init) => {
+            const url = new URL(input.toString());
+            const ifNoneMatch = new Headers(init?.headers).get("If-None-Match");
+            requests.push({ path: url.pathname, ifNoneMatch });
+
+            if (url.pathname === "/root") {
+                return turtleResponse(`
+@prefix tree: <https://w3id.org/tree#> .
+<http://example.com/cache-stream> tree:view <http://example.com/root> .
+<http://example.com/root> tree:relation
+  [ tree:node <http://example.com/rdf-immutable> ],
+  [ tree:node <http://example.com/header-immutable> ],
+  [ tree:node <http://example.com/mutable> ] .
+`);
+            }
+            if (url.pathname === "/rdf-immutable") {
+                if (phase === "repeat") {
+                    return new Response("", { status: 500 });
+                }
+                return turtleResponse(`
+@prefix ex: <http://example.com/> .
+@prefix ldes: <https://w3id.org/ldes#> .
+@prefix tree: <https://w3id.org/tree#> .
+<http://example.com/rdf-immutable> ldes:immutable true .
+<http://example.com/cache-stream> tree:member <http://example.com/member/rdf> .
+<http://example.com/member/rdf> ex:value "rdf immutable" .
+`);
+            }
+            if (url.pathname === "/header-immutable") {
+                if (phase === "repeat") {
+                    return new Response("", { status: 500 });
+                }
+                return turtleResponse(`
+@prefix ex: <http://example.com/> .
+@prefix tree: <https://w3id.org/tree#> .
+<http://example.com/cache-stream> tree:member <http://example.com/member/header> .
+<http://example.com/member/header> ex:value "header immutable" .
+`, {
+                    "cache-control": "public, max-age=31536000, immutable",
+                });
+            }
+            if (url.pathname === "/mutable") {
+                if (phase === "repeat") {
+                    return new Response(null, {
+                        status: 304,
+                        headers: { etag: '"mutable-v1"' },
+                    });
+                }
+                return turtleResponse(`
+@prefix ex: <http://example.com/> .
+@prefix tree: <https://w3id.org/tree#> .
+<http://example.com/cache-stream> tree:member <http://example.com/member/mutable> .
+<http://example.com/member/mutable> ex:value "mutable" .
+`, {
+                    etag: '"mutable-v1"',
+                });
+            }
+            return new Response("", { status: 404 });
+        }) as typeof fetch;
+
+        try {
+            const initial = await read(replicateLDES({
+                url: "http://example.com/root",
+                noShape: true,
+                statePath,
+            }).stream());
+            phase = "repeat";
+            const repeat = await read(replicateLDES({
+                url: "http://example.com/root",
+                noShape: true,
+                statePath,
+            }).stream());
+
+            expect(initial.map((member) => member.id.value).sort()).toEqual([
+                "http://example.com/member/header",
+                "http://example.com/member/mutable",
+                "http://example.com/member/rdf",
+            ]);
+            expect(repeat).toHaveLength(0);
+            expect(requests.filter((request) => request.path === "/rdf-immutable")).toHaveLength(1);
+            expect(requests.filter((request) => request.path === "/header-immutable")).toHaveLength(1);
+            expect(
+                requests.findLast((request) => request.path === "/mutable")?.ifNoneMatch,
+            ).toBe('"mutable-v1"');
+        } finally {
+            fs.rmSync(statePath, { recursive: true, force: true });
+        }
+    });
 });
+
+function turtleResponse(body: string, headers: Record<string, string> = {}): Response {
+    return new Response(body, {
+        headers: {
+            "content-type": "text/turtle",
+            ...headers,
+        },
+    });
+}
