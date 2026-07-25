@@ -31,7 +31,10 @@ export type LDESInfo = {
     shapeQuads: Quad[];
     extractor: CBDShapeExtractor;
     timestampPath?: Term;
+    timestampPathKey?: string;
     sequencePath?: Term;
+    sequencePathTerms?: Term[];
+    sequencePathKey?: string;
     versionOfPath?: Term;
 };
 
@@ -61,6 +64,7 @@ export class Manager {
 
     private timestampPath?: Term;
     private sequencePath?: Term;
+    private sequencePathTerms?: Term[];
     private isVersionOfPath?: Term;
 
     private logger = getLoggerFor(this);
@@ -78,6 +82,7 @@ export class Manager {
         this.extractor = info.extractor;
         this.timestampPath = info.timestampPath;
         this.sequencePath = info.sequencePath;
+        this.sequencePathTerms = info.sequencePathTerms;
         this.isVersionOfPath = info.versionOfPath;
         this.shapeId = info.shape;
         this.loose = loose;
@@ -211,8 +216,10 @@ export class Manager {
                     quads,
                     this.timestampPath,
                     this.sequencePath,
+                    this.sequencePathTerms,
                     this.isVersionOfPath,
                     created ? new Date(created) : undefined,
+                    data,
                 );
             }
         } catch (ex) {

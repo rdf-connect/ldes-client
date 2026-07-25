@@ -159,8 +159,10 @@ export function memberFromQuads(
     quads: Quad[],
     timestampPath: Term | undefined,
     sequencePath: Term | undefined,
+    sequencePathTerms: Term[] | undefined,
     isVersionOfPath: Term | undefined,
     created?: Date,
+    pathStore?: RdfStore,
 ): Member {
     // Get timestamp
     let timestamp: string | Date | undefined;
@@ -177,7 +179,7 @@ export function memberFromQuads(
             }
         }
     }
-    const order = timestamp ?? extractSequenceValue(member, quads, sequencePath);
+    const order = timestamp ?? extractSequenceValue(member, quads, sequencePath, sequencePathTerms, pathStore);
 
     // Get isVersionof
     let isVersionOf: string | undefined;
@@ -199,19 +201,98 @@ function extractSequenceValue(
     member: Term,
     quads: Quad[],
     sequencePath: Term | undefined,
+    sequencePathTerms: Term[] | undefined,
+    pathStore?: RdfStore,
 ): string | number | undefined {
     if (!sequencePath) {
         return;
     }
-    const sequence = quads.find(
-        (x) =>
-            x.subject.equals(member) && x.predicate.equals(sequencePath),
-    )?.object;
+    const memberStore = RdfStore.createDefault();
+    quads.forEach((quad) => memberStore.addQuad(quad));
+    const sequence = sequencePathTerms
+        ? resolveShaclPathTerms(pathStore ?? memberStore, member, sequencePathTerms)[0]
+        : resolveShaclPath(pathStore ?? memberStore, member, sequencePath, pathStore)[0];
     if (!sequence) {
         return;
     }
     const numeric = Number(sequence.value);
     return Number.isNaN(numeric) ? sequence.value : numeric;
+}
+
+export function resolveShaclPath(
+    data: RdfStore,
+    focus: Term,
+    path: Term,
+    pathStore = data,
+): Term[] {
+    const sequence = rdfListToArray(pathStore, path);
+    if (sequence) {
+        return sequence.reduce<Term[]>(
+            (subjects, predicate) => subjects.flatMap((subject) =>
+                data.getQuads(subject, predicate, null, null).map((quad) => quad.object),
+            ),
+            [focus],
+        );
+    }
+
+    return data.getQuads(focus, path, null, null).map((quad) => quad.object);
+}
+
+export function resolveShaclPathTerms(
+    data: RdfStore,
+    focus: Term,
+    pathTerms: Term[],
+): Term[] {
+    return pathTerms.reduce<Term[]>(
+        (subjects, predicate) => subjects.flatMap((subject) =>
+            data.getQuads(subject, predicate, null, null).map((quad) => quad.object),
+        ),
+        [focus],
+    );
+}
+
+export function shaclPathKey(store: RdfStore, path: Term | undefined): string | undefined {
+    if (!path) {
+        return;
+    }
+    const sequence = rdfListToArray(store, path);
+    if (sequence) {
+        return `sequence:${sequence.map((term) => term.value).join("/")}`;
+    }
+    return `term:${path.value}`;
+}
+
+export function shaclPathTerms(store: RdfStore, path: Term | undefined): Term[] | undefined {
+    if (!path) {
+        return;
+    }
+    return rdfListToArray(store, path) ?? [path];
+}
+
+function rdfListToArray(store: RdfStore, head: Term): Term[] | undefined {
+    if (head.equals(RDF.terms.nil)) {
+        return [];
+    }
+    const out: Term[] = [];
+    const seen = new Set<string>();
+    let current: Term | undefined = head;
+
+    while (current && !current.equals(RDF.terms.nil)) {
+        if (seen.has(current.value)) {
+            return;
+        }
+        seen.add(current.value);
+
+        const first = store.getQuads(current, RDF.terms.first, null, null)[0]?.object;
+        const rest: Term | undefined = store.getQuads(current, RDF.terms.rest, null, null)[0]?.object;
+        if (!first || !rest || first.termType !== "NamedNode") {
+            return;
+        }
+        out.push(first);
+        current = rest;
+    }
+
+    return out.length > 0 ? out : undefined;
 }
 
 export function serializeMember(member: Member): SerializedMember {

@@ -1,7 +1,7 @@
 import { RDF, TREE } from "@treecg/types";
 import { RdfStore } from "rdf-stores";
 import { RelationCondition } from "../condition";
-import { getObjects, getLoggerFor } from "../utils";
+import { getObjects, getLoggerFor, shaclPathKey } from "../utils";
 
 import type { Term } from "@rdfjs/types";
 import type { Condition } from "../condition";
@@ -18,6 +18,7 @@ export interface RelationKind {
     type: Term;
     value?: Term[];
     path?: Term;
+    pathKey?: string;
 }
 
 export type RelationValue = string | Date | number;
@@ -58,6 +59,7 @@ export function extractRelations(
         const relation = {
             type: ty,
             path,
+            pathKey: shaclPathKey(store, path),
             value,
             id: relationId,
         };

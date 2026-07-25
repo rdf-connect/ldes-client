@@ -826,4 +826,33 @@ describe("more complex tree", () => {
             "http://example.com/member/three",
         ]);
     });
+
+    test("Ordered traversal evaluates RDF list sequence paths", async () => {
+        global.fetch = (async () => new Response(`
+@prefix ex: <http://example.com/> .
+@prefix ldes: <https://w3id.org/ldes#> .
+@prefix tree: <https://w3id.org/tree#> .
+
+<http://example.com/ldes> tree:view <http://example.com/ldes>;
+  ldes:sequencePath ( ex:metadata ex:sequence );
+  tree:member <http://example.com/member/two>, <http://example.com/member/one> .
+
+<http://example.com/member/two> ex:metadata [ ex:sequence 2 ]; ex:value "two" .
+<http://example.com/member/one> ex:metadata [ ex:sequence 1 ]; ex:value "one" .
+`, {
+            headers: { "content-type": "text/turtle" },
+        })) as typeof fetch;
+
+        const client = replicateLDES({
+            url: "http://example.com/ldes",
+            noShape: true,
+        }, "ascending");
+
+        const members = await read(client.stream());
+
+        expect(members.map((member) => member.id.value)).toEqual([
+            "http://example.com/member/one",
+            "http://example.com/member/two",
+        ]);
+    });
 });

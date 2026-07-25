@@ -15,6 +15,7 @@ import type {
     Member,
     FoundRelation,
     RelationValue,
+    LDESInfo,
     FetchedPage,
     FetchEvent,
     Notifier,
@@ -65,6 +66,7 @@ export class OrderedStrategy {
     private polling: boolean;
     private toPoll: Heap<NodeChain>;
     private pollInterval?: number;
+    private orderingPathKeys: Set<string>;
 
     private canceled = false;
     private isEmitChecking = false;
@@ -81,6 +83,7 @@ export class OrderedStrategy {
         fetcher: Fetcher,
         notifier: Notifier<StrategyEvents, unknown>,
         factory: ModulatorFactory,
+        info: LDESInfo,
         ordered: Ordered,
         polling: boolean,
         pollInterval?: number,
@@ -91,6 +94,10 @@ export class OrderedStrategy {
         this.notifier = notifier;
         this.polling = polling;
         this.pollInterval = pollInterval;
+        this.orderingPathKeys = new Set([
+            info.timestampPathKey,
+            info.sequencePathKey,
+        ].filter((value): value is string => value !== undefined));
 
         this.toPoll = new Heap((a, b) => a.chain.ordering(b.chain));
         this.launchedRelations = new Heap((a, b) => a.ordering(b));
@@ -474,6 +481,7 @@ export class OrderedStrategy {
         if (this.ordered === "ascending") {
             value = rel.relations
                 .filter((x) => GTRs.some((gr) => x.type.value === gr.value))
+                .filter((x) => this.matchesOrderingPath(x))
                 .filter((a) => a.value)
                 .map((a) => <undefined | number | Date>val(a.value![0].value))
                 .reduce((a, b) => {
@@ -488,6 +496,7 @@ export class OrderedStrategy {
         } else if (this.ordered === "descending") {
             value = rel.relations
                 .filter((x) => LTR.some((gr) => x.type.value === gr.value))
+                .filter((x) => this.matchesOrderingPath(x))
                 .filter((a) => a.value)
                 .map((a) => <undefined | number | Date>val(a.value![0].value))
                 .reduce((a, b) => {
@@ -511,6 +520,10 @@ export class OrderedStrategy {
                 value: 0,
             };
         }
+    }
+
+    private matchesOrderingPath(relation: FoundRelation["relations"][number]): boolean {
+        return relation.pathKey !== undefined && this.orderingPathKeys.has(relation.pathKey);
     }
 
     private async handleFetched(page: FetchedPage, state: { chain: RelationChain, index: number }) {
