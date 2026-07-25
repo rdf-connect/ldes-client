@@ -295,7 +295,12 @@ export class OrderedStrategy {
         }
     }
 
-    async start(url: string, condition: Condition, root?: FetchedPage) {
+    async start(
+        url: string,
+        condition: Condition,
+        root?: FetchedPage,
+        traverseRoot = true,
+    ) {
         if (this.canceled) return;
         // Try to initialize the modulator
         if (!(await this.modulator.init(condition))) return;
@@ -314,7 +319,18 @@ export class OrderedStrategy {
             this.toPoll.push(fragment);
         });
 
-        if (root) {
+        if (root && !traverseRoot) {
+            this.manager.extractMembers(
+                root,
+                {
+                    chain: new RelationChain("", ""),
+                    index: 0,
+                    modulator: this.modulator,
+                },
+                this.memberNotifier
+            );
+            return;
+        } else if (root) {
             this.preloadedPages.set(root.url, root);
         }
 

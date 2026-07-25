@@ -7,6 +7,7 @@ import { getLoggerFor } from "./logUtil";
 
 import type { LDESInfo, Member, Modulator } from "../fetcher";
 import type { SerializedMember } from "../strategy";
+import type { DataFactoryLike, ParserOptions } from "rdf-parser-ts";
 import type {
     NamedNode,
     Quad,
@@ -21,17 +22,38 @@ import type {
 const logger = getLoggerFor("Utils");
 
 const df = new DataFactory();
+let parserBlankNodeScope = 0;
 
 export function parseQuads(
     source: string,
-    options?: ConstructorParameters<typeof Parser>[0],
+    options?: ParserOptions,
 ): Quad[] {
+    const factory = scopedBlankNodeFactory(options?.factory);
     const parser = new Parser({
         ...options,
+        factory,
         messages: false,
         rdfMessages: false,
     });
     return (parser.parse(source) ?? []) as Quad[];
+}
+
+function scopedBlankNodeFactory(factory: DataFactoryLike = df): DataFactoryLike {
+    const scope = `p${parserBlankNodeScope++}`;
+    let anonymous = 0;
+    return {
+        namedNode: (value) => factory.namedNode(value),
+        blankNode: (value) =>
+            factory.blankNode(`${scope}_${value ?? `b${anonymous++}`}`),
+        literal: (value, languageOrDatatype, datatype) =>
+            factory.literal(value, languageOrDatatype, datatype),
+        variable: factory.variable
+            ? (value) => factory.variable!(value)
+            : undefined,
+        defaultGraph: () => factory.defaultGraph(),
+        quad: (subject, predicate, object, graph) =>
+            factory.quad(subject, predicate, object, graph),
+    };
 }
 
 export function getSubjects(

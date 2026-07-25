@@ -299,6 +299,7 @@ export class Client {
             viewId.value,
             condition,
             isLocalDump || root.url === viewId.value ? root : undefined,
+            !isLocalDump,
         );
     }
 
@@ -455,13 +456,13 @@ async function getInfo(
     // Only try to dereference the view if we are not dealing with a local dump
     if (isLocalDump) {
         logger.debug("Ignoring view since this is a local dump");
-    } else if (
-        viewId.value !== fetchedRootUrl &&
-        (shapeIds.length === 0 || timestampPaths.length === 0 || versionOfPaths.length === 0)
-    ) {
+    } else if (shapeIds.length === 0 || timestampPaths.length === 0 || versionOfPaths.length === 0) {
         let tryAgainUrl = viewId.value;
         if (config.urlIsView) {
             tryAgainUrl = ldesId.value;
+        }
+        if (tryAgainUrl === fetchedRootUrl) {
+            return buildInfo(config, store, dereferencer, shapeIds, timestampPaths, sequencePaths, versionOfPaths, versionTimestampPaths, versionSequencePaths, pollingIntervals, ldesId, viewId, contextShapeIds);
         }
         try {
             logger.debug(`Maybe find more info at ${tryAgainUrl}`);
@@ -534,6 +535,25 @@ async function getInfo(
         logger.error(`Expected at most one polling interval, found ${pollingIntervals.length}`);
     }
 
+    return buildInfo(config, store, dereferencer, shapeIds, timestampPaths, sequencePaths, versionOfPaths, versionTimestampPaths, versionSequencePaths, pollingIntervals, ldesId, viewId, contextShapeIds);
+}
+
+async function buildInfo(
+    config: Config,
+    store: RdfStore,
+    dereferencer: RdfDereferencer,
+    shapeIds: Term[],
+    timestampPaths: Term[],
+    sequencePaths: Term[],
+    versionOfPaths: Term[],
+    versionTimestampPaths: Term[],
+    versionSequencePaths: Term[],
+    pollingIntervals: Term[],
+    ldesId: Term,
+    viewId: Term,
+    contextShapeIds: Term[],
+): Promise<LDESInfo> {
+    const logger = getLoggerFor("getShape");
     const shapeConfigStore = RdfStore.createDefault();
     if (config.shape) {
         for (const quad of config.shape.quads) {

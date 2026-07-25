@@ -176,12 +176,23 @@ export class UnorderedStrategy {
         );
     }
 
-    async start(url: string, condition: Condition, root?: FetchedPage) {
+    async start(
+        url: string,
+        condition: Condition,
+        root?: FetchedPage,
+        traverseRoot = true,
+    ) {
         if (this.canceled) return;
         // Try to initialize the modulator
         if (!(await this.modulator.init(condition))) return;
 
-        if (root) {
+        if (root && !traverseRoot) {
+            this.manager.extractMembers(
+                root,
+                { index: 0, modulator: this.modulator },
+                this.memberNotifier
+            );
+        } else if (root) {
             this.preloadedPages.set(root.url, root);
             await this.modulator.push([{ target: root.url, expected: new Set() }]);
         } else if ((await this.modulator.pendingCount()) < 1) {

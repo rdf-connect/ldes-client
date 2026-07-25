@@ -35,7 +35,7 @@ describe("Simple Tree", () => {
         const tree = new Tree<number>(
             (x, numb) =>
                 parseQuads(
-                    `<${x}> <http://example.com/value> ${numb} .`,
+                    `<${x}> <http://example.com/value> "${numb}" .`,
                 ),
             "http://example.com/value",
         );
@@ -157,7 +157,7 @@ describe("more complex tree", () => {
         const tree = new Tree<number>(
             (x, numb) =>
                 parseQuads(
-                    `<${x}> <http://example.com/value> ${numb} .`,
+                    `<${x}> <http://example.com/value> "${numb}" .`,
                 ),
             "http://example.com/value",
         );
@@ -538,7 +538,7 @@ describe("more complex tree", () => {
         const tree = new Tree<number>(
             (x, numb) =>
                 parseQuads(
-                    `<${x}> <http://example.com/value> ${numb} .`,
+                    `<${x}> <http://example.com/value> "${numb}" .`,
                 ),
             "http://example.com/value",
         );
@@ -587,7 +587,7 @@ describe("more complex tree", () => {
         const tree = new Tree<number>(
             (x, numb) =>
                 parseQuads(
-                    `<${x}> <http://example.com/value> ${numb} .`,
+                    `<${x}> <http://example.com/value> "${numb}" .`,
                 ),
             "http://example.com/value",
         );
@@ -636,7 +636,7 @@ describe("more complex tree", () => {
         const tree = new Tree<number>(
             (x, numb) =>
                 parseQuads(
-                    `<${x}> <http://example.com/value> ${numb} .`,
+                    `<${x}> <http://example.com/value> "${numb}" .`,
                 ),
             "http://example.com/value",
         );
@@ -694,7 +694,7 @@ describe("more complex tree", () => {
         const tree = new Tree<number>(
             (x, numb) =>
                 parseQuads(
-                    `<${x}> <http://example.com/value> ${numb} .`,
+                    `<${x}> <http://example.com/value> "${numb}" .`,
                 ),
             "http://example.com/value",
         );
@@ -730,7 +730,7 @@ describe("more complex tree", () => {
         const tree = new Tree<number>(
             (x, numb) =>
                 parseQuads(
-                    `<${x}> <http://example.com/value> ${numb} .`,
+                    `<${x}> <http://example.com/value> "${numb}" .`,
                 ),
             "http://example.com/value",
         );
