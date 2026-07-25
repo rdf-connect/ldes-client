@@ -38,7 +38,7 @@
   "dependencies": {
     "@treecg/types": "^0.4.6",
     "commander": "^15.0.0",
-    "extract-cbd-shape": "^0.3.0-b",
+    "extract-cbd-shape": "^0.3.0",
     "heap-js": "^2.7.1",
     "level": "^10.0.0",
     "rdf-data-factory": "^2.0.2",
