@@ -3,12 +3,12 @@ import { afterEach, beforeEach, afterAll, describe, expect, test } from "vitest"
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { Parser } from "rdf-parser-ts";
 import { TREE } from "@treecg/types";
 import { read, Tree } from "./helper";
 import { MaxCountCondition } from "../lib/condition";
 import { retry_fetch } from "../lib/fetcher";
 import { intoConfig, replicateLDES } from "../lib/client";
+import { parseQuads } from "../lib/utils";
 
 const oldFetch = global.fetch;
 beforeEach(() => {
@@ -34,8 +34,8 @@ describe("Simple Tree", () => {
         // root -> first -> second
         const tree = new Tree<number>(
             (x, numb) =>
-                new Parser().parse(
-                    `<${x}> <http://example.com/value> ${numb}.`,
+                parseQuads(
+                    `<${x}> <http://example.com/value> ${numb} .`,
                 ),
             "http://example.com/value",
         );
@@ -156,8 +156,8 @@ describe("more complex tree", () => {
         //  |> second (2)
         const tree = new Tree<number>(
             (x, numb) =>
-                new Parser().parse(
-                    `<${x}> <http://example.com/value> ${numb}.`,
+                parseQuads(
+                    `<${x}> <http://example.com/value> ${numb} .`,
                 ),
             "http://example.com/value",
         );
@@ -286,8 +286,8 @@ describe("more complex tree", () => {
         // root (2) -GTE> first (3) -GTE (delay)> second (5)
         const tree = new Tree<Date>(
             (x, numb) =>
-                new Parser().parse(
-                    `<${x}> <http://example.com/value> "${numb.toISOString()}".`,
+                parseQuads(
+                    `<${x}> <http://example.com/value> "${numb.toISOString()}" .`,
                 ),
             "http://example.com/value",
         );
@@ -344,8 +344,8 @@ describe("more complex tree", () => {
         //      -GTE 5> second (delay)> (6)
         const tree = new Tree<Date>(
             (x, numb) =>
-                new Parser().parse(
-                    `<${x}> <http://example.com/value> "${numb.toISOString()}".`,
+                parseQuads(
+                    `<${x}> <http://example.com/value> "${numb.toISOString()}" .`,
                 ),
             "http://example.com/value",
         );
@@ -400,8 +400,8 @@ describe("more complex tree", () => {
         // root -LTE> first (10) -LTE (delay)> second (7)
         const tree = new Tree<Date>(
             (x, numb) =>
-                new Parser().parse(
-                    `<${x}> <http://example.com/value> "${numb.toISOString()}".`,
+                parseQuads(
+                    `<${x}> <http://example.com/value> "${numb.toISOString()}" .`,
                 ),
             "http://example.com/value",
         );
@@ -469,8 +469,8 @@ describe("more complex tree", () => {
         //      -LTE 6> second (delay)> (5)
         const tree = new Tree<Date>(
             (x, numb) =>
-                new Parser().parse(
-                    `<${x}> <http://example.com/value> "${numb.toISOString()}".`,
+                parseQuads(
+                    `<${x}> <http://example.com/value> "${numb.toISOString()}" .`,
                 ),
             "http://example.com/value",
         );
@@ -537,8 +537,8 @@ describe("more complex tree", () => {
         // return;
         const tree = new Tree<number>(
             (x, numb) =>
-                new Parser().parse(
-                    `<${x}> <http://example.com/value> ${numb}.`,
+                parseQuads(
+                    `<${x}> <http://example.com/value> ${numb} .`,
                 ),
             "http://example.com/value",
         );
@@ -586,8 +586,8 @@ describe("more complex tree", () => {
     test("Polling works, single page - ordered", async () => {
         const tree = new Tree<number>(
             (x, numb) =>
-                new Parser().parse(
-                    `<${x}> <http://example.com/value> ${numb}.`,
+                parseQuads(
+                    `<${x}> <http://example.com/value> ${numb} .`,
                 ),
             "http://example.com/value",
         );
@@ -635,8 +635,8 @@ describe("more complex tree", () => {
     test("Polling works, single page - max values", async () => {
         const tree = new Tree<number>(
             (x, numb) =>
-                new Parser().parse(
-                    `<${x}> <http://example.com/value> ${numb}.`,
+                parseQuads(
+                    `<${x}> <http://example.com/value> ${numb} .`,
                 ),
             "http://example.com/value",
         );
@@ -693,8 +693,8 @@ describe("more complex tree", () => {
     test("Exponential backoff works", async () => {
         const tree = new Tree<number>(
             (x, numb) =>
-                new Parser().parse(
-                    `<${x}> <http://example.com/value> ${numb}.`,
+                parseQuads(
+                    `<${x}> <http://example.com/value> ${numb} .`,
                 ),
             "http://example.com/value",
         );
@@ -729,8 +729,8 @@ describe("more complex tree", () => {
     test("Exponential backoff works, handle max retries", async () => {
         const tree = new Tree<number>(
             (x, numb) =>
-                new Parser().parse(
-                    `<${x}> <http://example.com/value> ${numb}.`,
+                parseQuads(
+                    `<${x}> <http://example.com/value> ${numb} .`,
                 ),
             "http://example.com/value",
         );

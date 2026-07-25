@@ -243,6 +243,25 @@ Caught HTTP codes:
 config.fetch = enhanced_fetch({ retry: { codes: [408, 425, 429, 500, 502, 503, 504] } });
 ```
 
+## Compliance tests
+
+LDES 1.0 compliance is checked with the external [ldes-client-conformance-test-suite](https://github.com/pietercolpaert/ldes-client-conformance-test-suite). The suite runs this client through its `rdf-connect` adapter and writes JSON, EARL, and evidence files for every scenario.
+
+From the parent directory of this repository:
+
+```bash
+git clone https://github.com/pietercolpaert/ldes-client-conformance-test-suite.git
+cd ldes-client
+npm ci
+npm --prefix ../ldes-client-conformance-test-suite ci
+npm run test:compliance
+```
+
+The command exits with a non-zero status when required conformance tests fail. To generate the report artifacts while adopting or debugging failures, pass `--no-fail` through npm:
+
+```bash
+npm run test:compliance -- --no-fail
+```
 
 ## Expected Features
 

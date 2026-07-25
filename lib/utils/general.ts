@@ -22,6 +22,18 @@ const logger = getLoggerFor("Utils");
 
 const df = new DataFactory();
 
+export function parseQuads(
+    source: string,
+    options?: ConstructorParameters<typeof Parser>[0],
+): Quad[] {
+    const parser = new Parser({
+        ...options,
+        messages: false,
+        rdfMessages: false,
+    });
+    return (parser.parse(source) ?? []) as Quad[];
+}
+
 export function getSubjects(
     store: RdfStore,
     predicate: Term | null,
@@ -336,7 +348,7 @@ export function deserializeMember(serialized: SerializedMember): Member {
     }
     return {
         id: df.namedNode(serialized.id),
-        quads: new Parser().parse(serialized.quads),
+        quads: parseQuads(serialized.quads),
         order,
         timestamp,
         isVersionOf: serialized.isVersionOf,

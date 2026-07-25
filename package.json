@@ -15,6 +15,7 @@
     "build": "tsc && tsc-alias && rollup -c",
     "test": "vitest run --coverage --coverage.include lib --coverage.exclude dist",
     "test:browser": "vitest run -c vitest.browser.config.ts",
+    "test:compliance": "npm run build && cd ../ldes-client-conformance-test-suite && npm run build && LDES_CT_RDF_CONNECT_ROOT=\"../ldes-client\" node dist/cli.js run --adapter rdf-connect --tests tests --out ../ldes-client/reports/conformance",
     "prepublishOnly": "npm run build"
   },
   "files": [

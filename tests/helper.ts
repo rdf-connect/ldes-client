@@ -1,6 +1,6 @@
-import { Parser } from "rdf-parser-ts";
 import { Writer } from "rdf-writer-ts";
 import { TREE } from "@treecg/types";
+import { parseQuads } from "../lib/utils";
 
 import type { Quad } from "@rdfjs/types";
 import type { Member } from "../lib/fetcher";
@@ -29,7 +29,7 @@ function relationToQuads(rel: Relation): Quad[] {
   ${value}
 ].
 `;
-    return new Parser().parse(string);
+    return parseQuads(string);
 }
 
 export async function read(stream: ReadableStream<Member>): Promise<Member[]> {
@@ -78,7 +78,7 @@ export class Fragment<T> {
 
         for (const { id, member } of this.members) {
             out.push(
-                ...new Parser().parse(`<${ldesId}> <${TREE.member}> <${id}>.`),
+                ...parseQuads(`<${ldesId}> <${TREE.member}> <${id}>.`),
             );
             out.push(...memberToQuads(id, member));
         }
@@ -158,7 +158,7 @@ export class Tree<T> {
                     : "";
 
                 quads.push(
-                    ...new Parser().parse(`
+                    ...parseQuads(`
 <> ${path}
   <https://w3id.org/tree#view> <>.
 `),
