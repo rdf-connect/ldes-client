@@ -36,6 +36,7 @@ export type StrategyEvents = {
 export type SerializedMember = {
     id: string;
     quads: string;
+    order?: string;
     timestamp?: string;
     isVersionOf?: string;
     type?: string;

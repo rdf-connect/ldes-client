@@ -158,6 +158,7 @@ export function memberFromQuads(
     member: Term,
     quads: Quad[],
     timestampPath: Term | undefined,
+    sequencePath: Term | undefined,
     isVersionOfPath: Term | undefined,
     created?: Date,
 ): Member {
@@ -176,6 +177,7 @@ export function memberFromQuads(
             }
         }
     }
+    const order = timestamp ?? extractSequenceValue(member, quads, sequencePath);
 
     // Get isVersionof
     let isVersionOf: string | undefined;
@@ -190,13 +192,35 @@ export function memberFromQuads(
     const type: Term | undefined = quads.find(
         (x) => x.subject.equals(member) && x.predicate.value === RDF.type,
     )?.object;
-    return { quads, id: member, isVersionOf, timestamp, type, created };
+    return { quads, id: member, isVersionOf, order, timestamp, type, created };
+}
+
+function extractSequenceValue(
+    member: Term,
+    quads: Quad[],
+    sequencePath: Term | undefined,
+): string | number | undefined {
+    if (!sequencePath) {
+        return;
+    }
+    const sequence = quads.find(
+        (x) =>
+            x.subject.equals(member) && x.predicate.equals(sequencePath),
+    )?.object;
+    if (!sequence) {
+        return;
+    }
+    const numeric = Number(sequence.value);
+    return Number.isNaN(numeric) ? sequence.value : numeric;
 }
 
 export function serializeMember(member: Member): SerializedMember {
     return {
         id: member.id.value,
         quads: new Writer().quadsToString(member.quads),
+        order: member.order instanceof Date
+            ? member.order.toISOString()
+            : member.order?.toString(),
         timestamp: member.timestamp instanceof Date
             ? member.timestamp.toISOString()
             : member.timestamp?.toString(),
@@ -207,6 +231,18 @@ export function serializeMember(member: Member): SerializedMember {
 }
 
 export function deserializeMember(serialized: SerializedMember): Member {
+    let order: string | Date | number | undefined;
+    if (serialized.order) {
+        const date = new Date(serialized.order);
+        const number = Number(serialized.order);
+        if (!Number.isNaN(number)) {
+            order = number;
+        } else if (!Number.isNaN(date.getTime())) {
+            order = date;
+        } else {
+            order = serialized.order;
+        }
+    }
     let timestamp: string | Date | undefined;
     if (serialized.timestamp) {
         try {
@@ -218,6 +254,7 @@ export function deserializeMember(serialized: SerializedMember): Member {
     return {
         id: df.namedNode(serialized.id),
         quads: new Parser().parse(serialized.quads),
+        order,
         timestamp,
         isVersionOf: serialized.isVersionOf,
         type: serialized.type ? df.namedNode(serialized.type) : undefined,

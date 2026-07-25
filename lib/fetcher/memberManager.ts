@@ -19,6 +19,7 @@ const { namedNode } = new DataFactory();
 export interface Member {
     id: Term;
     quads: Quad[];
+    order?: string | Date | number;
     timestamp?: string | Date;
     isVersionOf?: string;
     type?: Term;
@@ -30,6 +31,7 @@ export type LDESInfo = {
     shapeQuads: Quad[];
     extractor: CBDShapeExtractor;
     timestampPath?: Term;
+    sequencePath?: Term;
     versionOfPath?: Term;
 };
 
@@ -58,6 +60,7 @@ export class Manager {
     private shapeId?: Term;
 
     private timestampPath?: Term;
+    private sequencePath?: Term;
     private isVersionOfPath?: Term;
 
     private logger = getLoggerFor(this);
@@ -74,6 +77,7 @@ export class Manager {
         this.ldesUri = ldesUri;
         this.extractor = info.extractor;
         this.timestampPath = info.timestampPath;
+        this.sequencePath = info.sequencePath;
         this.isVersionOfPath = info.versionOfPath;
         this.shapeId = info.shape;
         this.loose = loose;
@@ -91,6 +95,7 @@ export class Manager {
             extractor: info.extractor.constructor.name,
             shape: info.shape,
             timestampPath: info.timestampPath,
+            sequencePath: info.sequencePath,
             isVersionOfPath: info.versionOfPath,
         })}`);
     }
@@ -205,6 +210,7 @@ export class Manager {
                     member,
                     quads,
                     this.timestampPath,
+                    this.sequencePath,
                     this.isVersionOfPath,
                     created ? new Date(created) : undefined,
                 );

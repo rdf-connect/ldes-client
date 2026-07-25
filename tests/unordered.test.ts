@@ -795,4 +795,35 @@ describe("more complex tree", () => {
         expect(response.headers.get("content-type")).toBe("text/turtle");
         expect(await response.text()).toBe("");
     });
+
+    test("Ordered traversal accepts direct sequence path metadata", async () => {
+        global.fetch = (async () => new Response(`
+@prefix ex: <http://example.com/> .
+@prefix ldes: <https://w3id.org/ldes#> .
+@prefix tree: <https://w3id.org/tree#> .
+
+<http://example.com/ldes> tree:view <http://example.com/ldes>;
+  ldes:sequencePath ex:sequence;
+  tree:member <http://example.com/member/three>, <http://example.com/member/one>, <http://example.com/member/two> .
+
+<http://example.com/member/three> ex:sequence 3; ex:value "three" .
+<http://example.com/member/one> ex:sequence 1; ex:value "one" .
+<http://example.com/member/two> ex:sequence 2; ex:value "two" .
+`, {
+            headers: { "content-type": "text/turtle" },
+        })) as typeof fetch;
+
+        const client = replicateLDES({
+            url: "http://example.com/ldes",
+            noShape: true,
+        }, "ascending");
+
+        const members = await read(client.stream());
+
+        expect(members.map((member) => member.id.value)).toEqual([
+            "http://example.com/member/one",
+            "http://example.com/member/two",
+            "http://example.com/member/three",
+        ]);
+    });
 });

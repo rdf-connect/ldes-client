@@ -212,9 +212,10 @@ export class Client {
         );
 
         this.logger.debug(`timestampPath: ${!!info.timestampPath}`);
+        this.logger.debug(`sequencePath: ${!!info.sequencePath}`);
 
-        if (this.ordered !== "none" && !info.timestampPath) {
-            throw "Can only emit members in order, if LDES is configured with timestampPath";
+        if (this.ordered !== "none" && !info.timestampPath && !info.sequencePath) {
+            throw "Can only emit members in order, if LDES is configured with timestampPath or sequencePath";
         }
 
         // Component that manages the fetching of RDF data over HTTP
@@ -411,6 +412,7 @@ async function getInfo(
 
     let shapeIds;
     let timestampPaths;
+    let sequencePaths;
     let versionOfPaths;
 
     const isLocalDump = ldesId.value.startsWith("file://");
@@ -419,16 +421,18 @@ async function getInfo(
         // We are dealing with a local dump LDES
         shapeIds = config.noShape ? [] : getObjects(store, null, TREE.terms.shape);
         timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
+        sequencePaths = getObjects(store, null, LDES.terms.custom("sequencePath"));
         versionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
     } else {
         // This is a normal LDES on the Web
         shapeIds = config.noShape ? [] : getObjects(store, ldesId, TREE.terms.shape);
         timestampPaths = getObjects(store, ldesId, LDES.terms.timestampPath);
+        sequencePaths = getObjects(store, ldesId, LDES.terms.custom("sequencePath"));
         versionOfPaths = getObjects(store, ldesId, LDES.terms.versionOfPath);
     }
 
     logger.debug(
-        `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${versionOfPaths.length} versionOfPaths`,
+        `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${sequencePaths.length} sequencePaths, ${versionOfPaths.length} versionOfPaths`,
     );
 
     // Only try to dereference the view if we are not dealing with a local dump
@@ -457,11 +461,14 @@ async function getInfo(
             if (!timestampPaths.length) {
                 timestampPaths = getObjects(store, null, LDES.terms.timestampPath);
             }
+            if (!sequencePaths.length) {
+                sequencePaths = getObjects(store, null, LDES.terms.custom("sequencePath"));
+            }
             if (!versionOfPaths.length) {
                 versionOfPaths = getObjects(store, null, LDES.terms.versionOfPath);
             }
             logger.debug(
-                `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${versionOfPaths.length} isVersionOfPaths`,
+                `Found ${shapeIds.length} shapes, ${timestampPaths.length} timestampPaths, ${sequencePaths.length} sequencePaths, ${versionOfPaths.length} isVersionOfPaths`,
             );
         } catch (ex: unknown) {
             logger.error(`Failed to fetch ${tryAgainUrl}`);
@@ -475,6 +482,10 @@ async function getInfo(
 
     if (timestampPaths.length > 1) {
         logger.error(`Expected at most one timestamp path, found ${timestampPaths.length}`);
+    }
+
+    if (sequencePaths.length > 1) {
+        logger.error(`Expected at most one sequence path, found ${sequencePaths.length}`);
     }
 
     if (versionOfPaths.length > 1) {
@@ -516,6 +527,7 @@ async function getInfo(
         }),
         shape: config.shape ? config.shape.shapeId : shapeIds[0],
         timestampPath: timestampPaths[0],
+        sequencePath: sequencePaths[0],
         versionOfPath: versionOfPaths[0],
         shapeQuads: shapeStore.getQuads(),
     };

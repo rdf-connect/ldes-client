@@ -233,17 +233,10 @@ export class OrderedStrategy {
                         };
 
                 // Try to parse relations as dates
-                const relations = chain.relations.map((r) => {
-                    try {
-                        const d = new Date(r.value);
-                        return {
-                            ...r,
-                            value: d,
-                        };
-                    } catch (e) {
-                        return r;
-                    }
-                });
+                const relations = chain.relations.map((r) => ({
+                    ...r,
+                    value: parseRelationValue(r.value),
+                }));
                 return {
                     chain: new RelationChain(
                         chain.source,
@@ -265,19 +258,19 @@ export class OrderedStrategy {
         if (ordered == "ascending") {
             this.members = new Heap((a, b) => {
                 if (a.id.equals(b.id)) return 0;
-                if (a.timestamp == b.timestamp) return 0;
+                if (a.order == b.order) return 0;
                 if (!a && b) return 1;
                 if (a && !b) return -1;
-                if (a.timestamp! < b.timestamp!) return -1;
+                if (a.order! < b.order!) return -1;
                 return 1;
             });
         } else {
             this.members = new Heap((a, b) => {
                 if (a.id.equals(b.id)) return 0;
-                if (a.timestamp == b.timestamp) return 0;
+                if (a.order == b.order) return 0;
                 if (!a && b) return -1;
                 if (a && !b) return 1;
-                if (a.timestamp! < b.timestamp!) return 1;
+                if (a.order! < b.order!) return 1;
                 return -1;
             });
         }
@@ -433,11 +426,7 @@ export class OrderedStrategy {
      */
     private extractRelation(rel: FoundRelation): SimpleRelation {
         const val = (s: string) => {
-            const d = new Date(s);
-            if (!isNaN(d.getTime())) {
-                return d;
-            }
-            return s;
+            return parseRelationValue(s);
         };
         let value = undefined;
         const betweens = rel.relations
@@ -618,8 +607,8 @@ export class OrderedStrategy {
             let member = this.members.pop();
             while (member) {
                 // Euhm yeah, what to do if there is no timestamp?
-                if (!member.timestamp) {
-                    this.logger.warn("[_checkEmit] Member " + member.id.value + " has no timestamp, emitting it anyway");
+                if (member.order === undefined) {
+                    this.logger.warn("[_checkEmit] Member " + member.id.value + " has no ordering value, emitting it anyway");
                     const streamed = this.notifier.member(member, {}) as boolean;
                     if (streamed) {
                         await this.modulator.addEmitted(member.id.value)
@@ -627,14 +616,14 @@ export class OrderedStrategy {
                 } else if (
                     !marker.important || (
                         this.ordered == "ascending"
-                            ? (member.timestamp) < (marker.value)
-                            : (member.timestamp) > (marker.value)
+                            ? (member.order) < (marker.value)
+                            : (member.order) > (marker.value)
                     )
                 ) {
                     await this.emitIfNotOld(member);
                 } else {
-                    this.logger.debug("[_checkEmit] Member <" + member.id.value + "> with timestamp "
-                        + (member.timestamp as Date).toISOString() + " didn't fit in the marker range");
+                    this.logger.debug("[_checkEmit] Member <" + member.id.value + "> with ordering value "
+                        + String(member.order) + " didn't fit in the marker range");
                     break;
                 }
                 member = this.members.pop();
@@ -681,4 +670,19 @@ export class OrderedStrategy {
             await this.modulator.deleteUnemitted(member.id.value);
         }
     }
+}
+
+function parseRelationValue(value: RelationValue): RelationValue {
+    if (typeof value !== "string") {
+        return value;
+    }
+    const numeric = Number(value);
+    if (!Number.isNaN(numeric)) {
+        return numeric;
+    }
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+        return date;
+    }
+    return value;
 }
