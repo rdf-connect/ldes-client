@@ -1,5 +1,4 @@
-import { Parser } from "rdf-parser-ts";
-import { Writer } from "rdf-writer-ts";
+import { Parser, quadToString } from "rdf-parser-ts/browser";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
 import { RDF, SHACL } from "@treecg/types";
@@ -7,7 +6,10 @@ import { getLoggerFor } from "./logUtil";
 
 import type { LDESInfo, Member, Modulator } from "../fetcher";
 import type { SerializedMember } from "../strategy";
-import type { DataFactoryLike, ParserOptions } from "rdf-parser-ts";
+import type {
+    DataFactoryLike,
+    ParserOptions,
+} from "rdf-parser-ts/browser";
 import type {
     NamedNode,
     Quad,
@@ -364,7 +366,7 @@ function rdfListToArray(store: RdfStore, head: Term): Term[] | undefined {
 export function serializeMember(member: Member): SerializedMember {
     return {
         id: member.id.value,
-        quads: new Writer().quadsToString(member.quads),
+        quads: member.quads.map(quadToString).join("\n"),
         order: member.order instanceof Date
             ? member.order.toISOString()
             : member.order?.toString(),
