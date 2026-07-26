@@ -705,7 +705,10 @@ function parseRelationValue(value: RelationValue): RelationValue {
 
 function compareMembers(a: Member, b: Member, ordered: Ordered): number {
     if (a.id.equals(b.id)) return 0;
-    const order = compareOrderValues(a.order, b.order);
+    let order = compareOrderValues(a.order, b.order);
+    if (order === 0 && a.timestamp !== undefined && b.timestamp !== undefined) {
+        order = compareOrderValues(a.sequence, b.sequence);
+    }
     if (order !== 0) {
         return ordered === "ascending" ? order : -order;
     }

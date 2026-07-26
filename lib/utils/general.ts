@@ -40,6 +40,10 @@ export function parseQuads(
     return (parser.parse(source) ?? []) as Quad[];
 }
 
+export function serializeQuads(quads: Quad[]): string {
+    return quads.map(quadToString).join("\n");
+}
+
 function scopedBlankNodeFactory(factory: DataFactoryLike = df): DataFactoryLike {
     const scope = `p${parserBlankNodeScope++}`;
     let anonymous = 0;
@@ -200,31 +204,38 @@ export function memberFromQuads(
     sequencePathTerms: Term[] | undefined,
     transactionFinalizedPath: Term | undefined,
     transactionFinalizedPathTerms: Term[] | undefined,
+    transactionFinalizedObject: Term | undefined,
     isVersionOfPath: Term | undefined,
     created?: Date,
     pathStore?: RdfStore,
 ): Member {
+    const memberStore = RdfStore.createDefault();
+    quads.forEach((quad) => memberStore.addQuad(quad));
+
     // Get timestamp
-    let timestamp: string | Date | undefined;
+    let timestamp: string | Date | number | undefined;
     if (timestampPath) {
-        const ts = quads.find(
-            (x) =>
-                x.subject.equals(member) && x.predicate.equals(timestampPath),
-        )?.object.value;
-        if (ts) {
-            try {
-                timestamp = new Date(ts);
-            } catch (ex: unknown) {
-                timestamp = ts;
-            }
+        const value = resolveShaclPath(
+            memberStore,
+            member,
+            timestampPath,
+            pathStore ?? memberStore,
+        )[0];
+        if (value) {
+            const date = new Date(value.value);
+            timestamp = Number.isNaN(date.getTime())
+                ? termToOrderValue(value)
+                : date;
         }
     }
-    const order = timestamp ?? extractSequenceValue(member, quads, sequencePath, sequencePathTerms, pathStore);
-    const transactionFinalized = extractBooleanValue(
+    const sequence = extractSequenceValue(member, quads, sequencePath, sequencePathTerms, pathStore);
+    const order = timestamp ?? sequence;
+    const transactionFinalized = extractFinalizedValue(
         member,
         quads,
         transactionFinalizedPath,
         transactionFinalizedPathTerms,
+        transactionFinalizedObject,
         pathStore,
     );
 
@@ -241,7 +252,7 @@ export function memberFromQuads(
     const type: Term | undefined = quads.find(
         (x) => x.subject.equals(member) && x.predicate.value === RDF.type,
     )?.object;
-    return { quads, id: member, isVersionOf, order, timestamp, transactionFinalized, type, created };
+    return { quads, id: member, isVersionOf, order, timestamp, sequence, transactionFinalized, type, created };
 }
 
 function extractSequenceValue(
@@ -250,27 +261,27 @@ function extractSequenceValue(
     sequencePath: Term | undefined,
     sequencePathTerms: Term[] | undefined,
     pathStore?: RdfStore,
-): string | number | undefined {
+): string | Date | number | undefined {
     if (!sequencePath) {
         return;
     }
     const memberStore = RdfStore.createDefault();
     quads.forEach((quad) => memberStore.addQuad(quad));
     const sequence = sequencePathTerms
-        ? resolveShaclPathTerms(pathStore ?? memberStore, member, sequencePathTerms)[0]
-        : resolveShaclPath(pathStore ?? memberStore, member, sequencePath, pathStore)[0];
+        ? resolveShaclPathTerms(memberStore, member, sequencePathTerms)[0]
+        : resolveShaclPath(memberStore, member, sequencePath, pathStore ?? memberStore)[0];
     if (!sequence) {
         return;
     }
-    const numeric = Number(sequence.value);
-    return Number.isNaN(numeric) ? sequence.value : numeric;
+    return termToOrderValue(sequence);
 }
 
-function extractBooleanValue(
+function extractFinalizedValue(
     member: Term,
     quads: Quad[],
     path: Term | undefined,
     pathTerms: Term[] | undefined,
+    finalizedObject: Term | undefined,
     pathStore?: RdfStore,
 ): boolean | undefined {
     if (!path) {
@@ -279,12 +290,53 @@ function extractBooleanValue(
     const memberStore = RdfStore.createDefault();
     quads.forEach((quad) => memberStore.addQuad(quad));
     const value = pathTerms
-        ? resolveShaclPathTerms(pathStore ?? memberStore, member, pathTerms)[0]
-        : resolveShaclPath(pathStore ?? memberStore, member, path, pathStore)[0];
+        ? resolveShaclPathTerms(memberStore, member, pathTerms)[0]
+        : resolveShaclPath(memberStore, member, path, pathStore ?? memberStore)[0];
     if (!value) {
         return;
     }
-    return value.value === "true" || value.value === "1";
+    const expected = finalizedObject ??
+        df.literal("true", df.namedNode("http://www.w3.org/2001/XMLSchema#boolean"));
+    return value.equals(expected);
+}
+
+const numericDatatypes = new Set([
+    "http://www.w3.org/2001/XMLSchema#byte",
+    "http://www.w3.org/2001/XMLSchema#decimal",
+    "http://www.w3.org/2001/XMLSchema#double",
+    "http://www.w3.org/2001/XMLSchema#float",
+    "http://www.w3.org/2001/XMLSchema#int",
+    "http://www.w3.org/2001/XMLSchema#integer",
+    "http://www.w3.org/2001/XMLSchema#long",
+    "http://www.w3.org/2001/XMLSchema#negativeInteger",
+    "http://www.w3.org/2001/XMLSchema#nonNegativeInteger",
+    "http://www.w3.org/2001/XMLSchema#nonPositiveInteger",
+    "http://www.w3.org/2001/XMLSchema#positiveInteger",
+    "http://www.w3.org/2001/XMLSchema#short",
+    "http://www.w3.org/2001/XMLSchema#unsignedByte",
+    "http://www.w3.org/2001/XMLSchema#unsignedInt",
+    "http://www.w3.org/2001/XMLSchema#unsignedLong",
+    "http://www.w3.org/2001/XMLSchema#unsignedShort",
+]);
+const dateDatatypes = new Set([
+    "http://www.w3.org/2001/XMLSchema#date",
+    "http://www.w3.org/2001/XMLSchema#dateTime",
+    "http://www.w3.org/2001/XMLSchema#dateTimeStamp",
+]);
+
+function termToOrderValue(term: Term): string | Date | number {
+    if (term.termType === "Literal") {
+        if (numericDatatypes.has(term.datatype.value)) {
+            return Number(term.value);
+        }
+        if (dateDatatypes.has(term.datatype.value)) {
+            const date = new Date(term.value);
+            if (!Number.isNaN(date.getTime())) {
+                return date;
+            }
+        }
+    }
+    return term.value;
 }
 
 export function resolveShaclPath(
@@ -293,17 +345,61 @@ export function resolveShaclPath(
     path: Term,
     pathStore = data,
 ): Term[] {
+    return resolveShaclPathInternal(data, focus, path, pathStore, new Set());
+}
+
+function resolveShaclPathInternal(
+    data: RdfStore,
+    focus: Term,
+    path: Term,
+    pathStore: RdfStore,
+    active: Set<string>,
+): Term[] {
+    const key = `${focus.termType}:${focus.value}|${path.termType}:${path.value}`;
+    if (active.has(key)) return [];
+    const nextActive = new Set(active).add(key);
+
     const sequence = rdfListToArray(pathStore, path);
     if (sequence) {
         return sequence.reduce<Term[]>(
-            (subjects, predicate) => subjects.flatMap((subject) =>
-                data.getQuads(subject, predicate, null, null).map((quad) => quad.object),
+            (subjects, item) => subjects.flatMap((subject) =>
+                resolveShaclPathInternal(data, subject, item, pathStore, nextActive),
             ),
             [focus],
         );
     }
 
+    const alternative = pathStore.getQuads(
+        path,
+        df.namedNode("http://www.w3.org/ns/shacl#alternativePath"),
+        null,
+        null,
+    )[0]?.object;
+    if (alternative) {
+        return uniqueTerms(
+            (rdfListToArray(pathStore, alternative) ?? []).flatMap((item) =>
+                resolveShaclPathInternal(data, focus, item, pathStore, nextActive),
+            ),
+        );
+    }
+
+    const inverse = pathStore.getQuads(
+        path,
+        df.namedNode("http://www.w3.org/ns/shacl#inversePath"),
+        null,
+        null,
+    )[0]?.object;
+    if (inverse?.termType === "NamedNode") {
+        return data.getQuads(null, inverse, focus, null).map((quad) => quad.subject);
+    }
+
     return data.getQuads(focus, path, null, null).map((quad) => quad.object);
+}
+
+function uniqueTerms(terms: Term[]): Term[] {
+    return terms.filter((term, index) =>
+        terms.findIndex((candidate) => candidate.equals(term)) === index
+    );
 }
 
 export function resolveShaclPathTerms(
@@ -325,7 +421,17 @@ export function shaclPathKey(store: RdfStore, path: Term | undefined): string | 
     }
     const sequence = rdfListToArray(store, path);
     if (sequence) {
-        return `sequence:${sequence.map((term) => term.value).join("/")}`;
+        return `sequence:${sequence.map((term) => shaclPathKey(store, term)).join("/")}`;
+    }
+    const alternative = store.getQuads(
+        path,
+        df.namedNode("http://www.w3.org/ns/shacl#alternativePath"),
+        null,
+        null,
+    )[0]?.object;
+    if (alternative) {
+        const choices = rdfListToArray(store, alternative) ?? [];
+        return `alternative:${choices.map((term) => shaclPathKey(store, term)).join("|")}`;
     }
     return `term:${path.value}`;
 }
@@ -334,7 +440,7 @@ export function shaclPathTerms(store: RdfStore, path: Term | undefined): Term[] 
     if (!path) {
         return;
     }
-    return rdfListToArray(store, path) ?? [path];
+    return rdfListToArray(store, path);
 }
 
 function rdfListToArray(store: RdfStore, head: Term): Term[] | undefined {
@@ -353,7 +459,7 @@ function rdfListToArray(store: RdfStore, head: Term): Term[] | undefined {
 
         const first = store.getQuads(current, RDF.terms.first, null, null)[0]?.object;
         const rest: Term | undefined = store.getQuads(current, RDF.terms.rest, null, null)[0]?.object;
-        if (!first || !rest || first.termType !== "NamedNode") {
+        if (!first || !rest) {
             return;
         }
         out.push(first);
@@ -373,6 +479,9 @@ export function serializeMember(member: Member): SerializedMember {
         timestamp: member.timestamp instanceof Date
             ? member.timestamp.toISOString()
             : member.timestamp?.toString(),
+        sequence: member.sequence instanceof Date
+            ? member.sequence.toISOString()
+            : member.sequence?.toString(),
         transactionFinalized: member.transactionFinalized,
         isVersionOf: member.isVersionOf,
         type: member.type?.value,
@@ -381,19 +490,10 @@ export function serializeMember(member: Member): SerializedMember {
 }
 
 export function deserializeMember(serialized: SerializedMember): Member {
-    let order: string | Date | number | undefined;
-    if (serialized.order) {
-        const date = new Date(serialized.order);
-        const number = Number(serialized.order);
-        if (!Number.isNaN(number)) {
-            order = number;
-        } else if (!Number.isNaN(date.getTime())) {
-            order = date;
-        } else {
-            order = serialized.order;
-        }
-    }
-    let timestamp: string | Date | undefined;
+    const order = serialized.order === undefined
+        ? undefined
+        : deserializeOrderValue(serialized.order);
+    let timestamp: string | Date | number | undefined;
     if (serialized.timestamp) {
         try {
             timestamp = new Date(serialized.timestamp);
@@ -401,16 +501,33 @@ export function deserializeMember(serialized: SerializedMember): Member {
             timestamp = serialized.timestamp;
         }
     }
+    let sequence: string | Date | number | undefined;
+    if (serialized.sequence !== undefined) {
+        sequence = deserializeOrderValue(serialized.sequence);
+    }
     return {
         id: df.namedNode(serialized.id),
         quads: parseQuads(serialized.quads),
         order,
         timestamp,
+        sequence,
         transactionFinalized: serialized.transactionFinalized,
         isVersionOf: serialized.isVersionOf,
         type: serialized.type ? df.namedNode(serialized.type) : undefined,
         created: serialized.created ? new Date(serialized.created) : undefined,
     };
+}
+
+function deserializeOrderValue(value: string): string | Date | number {
+    const number = Number(value);
+    if (!Number.isNaN(number)) {
+        return number;
+    }
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+        return date;
+    }
+    return value;
 }
 
 /**

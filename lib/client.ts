@@ -20,6 +20,8 @@ import {
     maybeVersionMaterialize,
     shaclPathKey,
     shaclPathTerms,
+    parseQuads,
+    serializeQuads,
     streamToArray,
     getLoggerFor,
     handleExit,
@@ -31,6 +33,12 @@ import type { Config } from "./config";
 import { ClientStateManager } from "./state";
 import type { Ordered, StrategyEvents } from "./strategy";
 import type { LDESInfo, Notifier, FetchedPage, Member } from "./fetcher";
+
+type CachedRoot = {
+    url: string;
+    quads: string;
+    immutable: boolean;
+};
 
 // RDF-JS data factory
 const df = new DataFactory();
@@ -133,12 +141,44 @@ export class Client {
         // Initialize the client state manager
         this.clientStateManager.init();
 
-        // Fetch the given root URL
-        const root: FetchedPage = await statelessPageFetch(
-            this.config.url,
-            this.dereferencer,
-            this.config.fetch,
-        );
+        const rootState = this.clientStateManager.build<string, CachedRoot>("root");
+        let root: FetchedPage | undefined;
+        if (this.config.statePath) {
+            const cached = await rootState.get(this.config.url).catch(() => undefined);
+            if (cached?.immutable) {
+                const data = RdfStore.createDefault();
+                parseQuads(cached.quads).forEach((quad) => data.addQuad(quad));
+                root = {
+                    url: cached.url,
+                    data,
+                    immutable: true,
+                    memberCount: 0,
+                };
+                this.logger.debug(`Reusing persisted immutable root ${cached.url}`);
+            }
+        }
+        if (!root) {
+            root = await statelessPageFetch(
+                this.config.url,
+                this.dereferencer,
+                this.config.fetch,
+            );
+            root.immutable = root.data
+                .getQuads(
+                    df.namedNode(root.url),
+                    LDES.terms.custom("immutable"),
+                    null,
+                    null,
+                )
+                .some((quad) => quad.object.value === "true" || quad.object.value === "1");
+            if (this.config.statePath && root.immutable) {
+                await rootState.put(this.config.url, {
+                    url: root.url,
+                    quads: serializeQuads(root.data.getQuads()),
+                    immutable: true,
+                });
+            }
+        }
         this.fragmentCount++;
         this.emit("fragment", root);
 
@@ -150,30 +190,62 @@ export class Client {
             ? df.namedNode("file://" + this.config.url)
             : df.namedNode(this.config.url);
 
-        //*****************************************************************
-        // TODO: Handle the case where there are multiple views available
-        // through a discovery process.
-        //*****************************************************************
-        const viewQuads = root.data.getQuads(null, TREE.terms.view, null, null);
+        const allViewQuads = root.data.getQuads(null, TREE.terms.view, null, null);
+        const fetchedUrl = df.namedNode(root.url);
+        const currentViewQuads = root.data.getQuads(
+            null,
+            TREE.terms.view,
+            fetchedUrl,
+            null,
+        );
+        const suppliedIriViewQuads = root.data.getQuads(
+            ldesId,
+            TREE.terms.view,
+            null,
+            null,
+        );
         let viewId: Term;
+        let ldesUri: Term | undefined;
 
         if (this.config.urlIsView) {
             viewId = ldesId;
+            if (currentViewQuads.length === 1) {
+                ldesUri = currentViewQuads[0].subject;
+            }
         } else {
-            if (viewQuads.length === 0) {
+            const candidates = currentViewQuads.length > 0
+                ? currentViewQuads
+                : suppliedIriViewQuads.length > 0
+                    ? suppliedIriViewQuads
+                    : isLocalDump
+                        ? allViewQuads
+                        : [];
+            if (candidates.length === 0) {
                 this.logger.error(
-                    "Did not find a tree:view predicate, which is required to interpret the LDES. " +
+                    "Did not find exactly one applicable tree:view predicate, which is required to interpret the LDES. " +
                     "If you are targeting a tree:view directly, use the '--url-is-view' option.",
                 );
-                throw "No view found";
-            } else {
-                viewId = viewQuads[0].object;
+                throw new Error("No applicable tree:view found");
             }
+            if (candidates.length > 1 && !this.config.allowUnsafeAmbiguousView) {
+                throw new Error(
+                    `Ambiguous tree:view discovery: found ${candidates.length} applicable statements`,
+                );
+            }
+            if (candidates.length > 1) {
+                this.logger.warn(
+                    `Found ${candidates.length} applicable tree:view statements; ` +
+                    "the command-line client is taking the first one. This fallback is not specification compliant.",
+                );
+            }
+            const selected = candidates[0];
+            viewId = selected.object;
+            ldesUri = selected.subject;
         }
 
         // This is the actual LDES IRI found in the RDF data.
         // Might be different from the configured ldesId due to HTTP redirects
-        const ldesUri = viewQuads[0]?.subject ||
+        ldesUri = ldesUri ||
             root.data.getQuads(null, RDF.terms.type, LDES.terms.EventStream)[0].subject;
         if (!ldesUri) {
             this.logger.error("Could not find the LDES IRI in the fetched RDF data.");
@@ -292,7 +364,7 @@ export class Client {
                 );
 
         if (!isLocalDump) this.logger.debug(
-            `Found ${viewQuads.length} views, choosing ${viewId.value}`,
+            `Found ${allViewQuads.length} views, choosing ${viewId.value}`,
         );
 
         await this.strategy.start(
@@ -605,7 +677,9 @@ async function buildInfo(
 
     return {
         extractor: new CBDShapeExtractor(shapeStore, dereferencer, {
-            cbdDefaultGraph: config.onlyDefaultGraph,
+            // Generic LDES member extraction is defined over the default graph
+            // (plus the member's own named graph), not unrelated named graphs.
+            cbdDefaultGraph: true,
             fetch: config.fetch,
         }),
         shape: config.shape ? config.shape.shapeId : shapeIds[0],
@@ -616,6 +690,9 @@ async function buildInfo(
         sequencePathKey: shaclPathKey(store, sequencePaths[0]),
         transactionFinalizedPath: transactionFinalizedPaths[0],
         transactionFinalizedPathTerms: shaclPathTerms(store, transactionFinalizedPaths[0]),
+        transactionFinalizedObject:
+            getObjects(store, ldesId, LDES.terms.custom("transactionFinalizedObject"))[0] ??
+            getObjects(store, null, LDES.terms.custom("transactionFinalizedObject"))[0],
         versionOfPath: versionOfPaths[0],
         versionTimestampPath: versionTimestampPaths[0],
         versionSequencePath: versionSequencePaths[0],

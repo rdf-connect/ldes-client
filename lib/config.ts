@@ -14,6 +14,11 @@ export interface Config {
     polling: boolean;
     url: string;
     urlIsView: boolean;
+    /**
+     * CLI compatibility mode: choose the first matching view when discovery is
+     * ambiguous. Library callers must leave this disabled to remain compliant.
+     */
+    allowUnsafeAmbiguousView: boolean;
     noShape: boolean;
     statePath?: string;
     pollInterval: number;
@@ -38,6 +43,7 @@ export interface WithTarget {
 
 const defaultConfig: Config = {
     urlIsView: false,
+    allowUnsafeAmbiguousView: false,
     noShape: false,
     condition: emptyCondition(),
     loose: false,

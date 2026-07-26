@@ -20,7 +20,8 @@ export interface Member {
     id: Term;
     quads: Quad[];
     order?: string | Date | number;
-    timestamp?: string | Date;
+    timestamp?: string | Date | number;
+    sequence?: string | Date | number;
     transactionFinalized?: boolean;
     isVersionOf?: string;
     type?: Term;
@@ -43,6 +44,7 @@ export type LDESInfo = {
     sequencePathKey?: string;
     transactionFinalizedPath?: Term;
     transactionFinalizedPathTerms?: Term[];
+    transactionFinalizedObject?: Term;
     versionOfPath?: Term;
     versionTimestampPath?: Term;
     versionSequencePath?: Term;
@@ -78,12 +80,15 @@ export class Manager {
     private sequencePathTerms?: Term[];
     private transactionFinalizedPath?: Term;
     private transactionFinalizedPathTerms?: Term[];
+    private transactionFinalizedObject?: Term;
     private isVersionOfPath?: Term;
+    private pathStore: RdfStore;
 
     private logger = getLoggerFor(this);
     private loose: boolean;
 
     private condition: Condition;
+    private extracting = new Set<string>();
 
     constructor(
         ldesUri: Term | null,
@@ -98,7 +103,10 @@ export class Manager {
         this.sequencePathTerms = info.sequencePathTerms;
         this.transactionFinalizedPath = info.transactionFinalizedPath;
         this.transactionFinalizedPathTerms = info.transactionFinalizedPathTerms;
+        this.transactionFinalizedObject = info.transactionFinalizedObject;
         this.isVersionOfPath = info.versionOfPath;
+        this.pathStore = RdfStore.createDefault();
+        info.contextQuads?.forEach((quad) => this.pathStore.addQuad(quad));
         this.shapeId = info.shape;
         this.loose = loose;
         this.condition = condition;
@@ -155,7 +163,12 @@ export class Manager {
         const promises: Promise<Member | undefined | void>[] = [];
 
         for (const member of members) {
-            if (!(await state.modulator.wasEmitted(member.value))) {
+            if (this.extracting.has(member.value)) continue;
+            if (await state.modulator.wasEmitted(member.value)) continue;
+            // Recheck after the asynchronous state lookup: another concurrently
+            // processed page may have claimed this member while we were waiting.
+            if (!this.extracting.has(member.value)) {
+                this.extracting.add(member.value);
                 const promise = this.extractMember(member, page.data, members)
                     .then(async (member) => {
                         if (member) {
@@ -179,7 +192,8 @@ export class Manager {
                             { error: ex, type: "extract", memberId: member },
                             state,
                         );
-                    });
+                    })
+                    .finally(() => this.extracting.delete(member.value));
 
                 promises.push(promise);
             }
@@ -234,9 +248,10 @@ export class Manager {
                     this.sequencePathTerms,
                     this.transactionFinalizedPath,
                     this.transactionFinalizedPathTerms,
+                    this.transactionFinalizedObject,
                     this.isVersionOfPath,
                     created ? new Date(created) : undefined,
-                    data,
+                    this.pathStore,
                 );
             }
         } catch (ex) {

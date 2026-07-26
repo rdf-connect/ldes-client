@@ -38,6 +38,7 @@ export type SerializedMember = {
     quads: string;
     order?: string;
     timestamp?: string;
+    sequence?: string;
     transactionFinalized?: boolean;
     isVersionOf?: string;
     type?: string;
