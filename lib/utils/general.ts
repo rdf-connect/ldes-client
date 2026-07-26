@@ -228,13 +228,12 @@ export function memberFromQuads(
                 : date;
         }
     }
-    const sequence = extractSequenceValue(member, quads, sequencePath, sequencePathTerms, pathStore);
+    const sequence = extractSequenceValue(member, quads, sequencePath, pathStore);
     const order = timestamp ?? sequence;
     const transactionFinalized = extractFinalizedValue(
         member,
         quads,
         transactionFinalizedPath,
-        transactionFinalizedPathTerms,
         transactionFinalizedObject,
         pathStore,
     );
@@ -259,7 +258,6 @@ function extractSequenceValue(
     member: Term,
     quads: Quad[],
     sequencePath: Term | undefined,
-    sequencePathTerms: Term[] | undefined,
     pathStore?: RdfStore,
 ): string | Date | number | undefined {
     if (!sequencePath) {
@@ -267,9 +265,7 @@ function extractSequenceValue(
     }
     const memberStore = RdfStore.createDefault();
     quads.forEach((quad) => memberStore.addQuad(quad));
-    const sequence = sequencePathTerms
-        ? resolveShaclPathTerms(memberStore, member, sequencePathTerms)[0]
-        : resolveShaclPath(memberStore, member, sequencePath, pathStore ?? memberStore)[0];
+    const sequence = resolveShaclPath(memberStore, member, sequencePath, pathStore ?? memberStore)[0];
     if (!sequence) {
         return;
     }
@@ -280,7 +276,6 @@ function extractFinalizedValue(
     member: Term,
     quads: Quad[],
     path: Term | undefined,
-    pathTerms: Term[] | undefined,
     finalizedObject: Term | undefined,
     pathStore?: RdfStore,
 ): boolean | undefined {
@@ -289,9 +284,7 @@ function extractFinalizedValue(
     }
     const memberStore = RdfStore.createDefault();
     quads.forEach((quad) => memberStore.addQuad(quad));
-    const value = pathTerms
-        ? resolveShaclPathTerms(memberStore, member, pathTerms)[0]
-        : resolveShaclPath(memberStore, member, path, pathStore ?? memberStore)[0];
+    const value = resolveShaclPath(memberStore, member, path, pathStore ?? memberStore)[0];
     if (!value) {
         return;
     }
@@ -355,7 +348,7 @@ function resolveShaclPathInternal(
     pathStore: RdfStore,
     active: Set<string>,
 ): Term[] {
-    const key = `${focus.termType}:${focus.value}|${path.termType}:${path.value}`;
+    const key = `${termKey(focus)}|${termKey(path)}`;
     if (active.has(key)) return [];
     const nextActive = new Set(active).add(key);
 
@@ -389,17 +382,98 @@ function resolveShaclPathInternal(
         null,
         null,
     )[0]?.object;
-    if (inverse?.termType === "NamedNode") {
-        return data.getQuads(null, inverse, focus, null).map((quad) => quad.subject);
+    if (inverse) {
+        if (inverse.termType === "NamedNode") {
+            return data.getQuads(null, inverse, focus, null).map((quad) => quad.subject);
+        }
+        return uniqueTerms(
+            data.getQuads(null, null, null, null)
+                .map((quad) => quad.subject)
+                .filter((subject, index, subjects) =>
+                    subjects.findIndex((candidate) => candidate.equals(subject)) === index
+                )
+                .filter((subject) =>
+                    resolveShaclPathInternal(data, subject, inverse, pathStore, nextActive)
+                        .some((value) => value.equals(focus))
+                ),
+        );
+    }
+
+    const zeroOrMore = pathStore.getQuads(
+        path,
+        df.namedNode("http://www.w3.org/ns/shacl#zeroOrMorePath"),
+        null,
+        null,
+    )[0]?.object;
+    if (zeroOrMore) {
+        return uniqueTerms([
+            focus,
+            ...resolveTransitiveShaclPath(data, focus, zeroOrMore, pathStore, nextActive),
+        ]);
+    }
+
+    const oneOrMore = pathStore.getQuads(
+        path,
+        df.namedNode("http://www.w3.org/ns/shacl#oneOrMorePath"),
+        null,
+        null,
+    )[0]?.object;
+    if (oneOrMore) {
+        return resolveTransitiveShaclPath(data, focus, oneOrMore, pathStore, nextActive);
+    }
+
+    const zeroOrOne = pathStore.getQuads(
+        path,
+        df.namedNode("http://www.w3.org/ns/shacl#zeroOrOnePath"),
+        null,
+        null,
+    )[0]?.object;
+    if (zeroOrOne) {
+        return uniqueTerms([
+            focus,
+            ...resolveShaclPathInternal(data, focus, zeroOrOne, pathStore, nextActive),
+        ]);
     }
 
     return data.getQuads(focus, path, null, null).map((quad) => quad.object);
+}
+
+function resolveTransitiveShaclPath(
+    data: RdfStore,
+    focus: Term,
+    path: Term,
+    pathStore: RdfStore,
+    active: Set<string>,
+): Term[] {
+    const results: Term[] = [];
+    const queue = resolveShaclPathInternal(data, focus, path, pathStore, active);
+    const seen = new Set<string>();
+
+    for (let index = 0; index < queue.length; index++) {
+        const term = queue[index];
+        const key = termKey(term);
+        if (seen.has(key)) {
+            continue;
+        }
+        seen.add(key);
+        results.push(term);
+        queue.push(...resolveShaclPathInternal(data, term, path, pathStore, active));
+    }
+
+    return results;
 }
 
 function uniqueTerms(terms: Term[]): Term[] {
     return terms.filter((term, index) =>
         terms.findIndex((candidate) => candidate.equals(term)) === index
     );
+}
+
+function termKey(term: Term): string {
+    if (term.termType === "Literal") {
+        return `${term.termType}:${term.value}:${term.language}:${term.datatype.value}`;
+    }
+    return `${term.termType}:${term.value}`;
 }
 
 export function resolveShaclPathTerms(
@@ -432,6 +506,42 @@ export function shaclPathKey(store: RdfStore, path: Term | undefined): string | 
     if (alternative) {
         const choices = rdfListToArray(store, alternative) ?? [];
         return `alternative:${choices.map((term) => shaclPathKey(store, term)).join("|")}`;
+    }
+    const inverse = store.getQuads(
+        path,
+        df.namedNode("http://www.w3.org/ns/shacl#inversePath"),
+        null,
+        null,
+    )[0]?.object;
+    if (inverse) {
+        return `inverse:${shaclPathKey(store, inverse)}`;
+    }
+    const zeroOrMore = store.getQuads(
+        path,
+        df.namedNode("http://www.w3.org/ns/shacl#zeroOrMorePath"),
+        null,
+        null,
+    )[0]?.object;
+    if (zeroOrMore) {
+        return `zeroOrMore:${shaclPathKey(store, zeroOrMore)}`;
+    }
+    const oneOrMore = store.getQuads(
+        path,
+        df.namedNode("http://www.w3.org/ns/shacl#oneOrMorePath"),
+        null,
+        null,
+    )[0]?.object;
+    if (oneOrMore) {
+        return `oneOrMore:${shaclPathKey(store, oneOrMore)}`;
+    }
+    const zeroOrOne = store.getQuads(
+        path,
+        df.namedNode("http://www.w3.org/ns/shacl#zeroOrOnePath"),
+        null,
+        null,
+    )[0]?.object;
+    if (zeroOrOne) {
+        return `zeroOrOne:${shaclPathKey(store, zeroOrOne)}`;
     }
     return `term:${path.value}`;
 }

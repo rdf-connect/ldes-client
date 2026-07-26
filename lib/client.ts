@@ -342,6 +342,9 @@ export class Client {
 
         // Fetching strategy definition, i.e., whether to use ordered or unordered fetching;
         // keep on polling the LDES (mutable pages) for new data or finish when fully fetched.
+        const pollInterval = info.pollingInterval === undefined
+            ? this.config.pollInterval
+            : info.pollingInterval * 1000;
         this.strategy =
             this.ordered !== "none"
                 ? new OrderedStrategy(
@@ -352,7 +355,7 @@ export class Client {
                     info,
                     this.ordered,
                     this.config.polling,
-                    this.config.pollInterval,
+                    pollInterval,
                 )
                 : new UnorderedStrategy(
                     this.memberManager,
@@ -360,7 +363,7 @@ export class Client {
                     notifier,
                     this.modulatorFactory,
                     this.config.polling,
-                    this.config.pollInterval,
+                    pollInterval,
                 );
 
         if (!isLocalDump) this.logger.debug(
