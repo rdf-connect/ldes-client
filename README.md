@@ -212,17 +212,6 @@ The ordering of these chains is thus, first unimportant relations, then importan
 
 Given that multiple relations can be encountered from every new page, it is possible to fetch multiple pages at the same time. However, when following an ordered strategy and considering that fetching is asynchronous, we can only interpret a page that came from a smaller relation, if no pages are _in flight_. These aspects are managed by a [`Modulator`](./lib/fetcher/modulator.ts).
 
-### Member Extraction and Emission
-
-**TODO: Update this section**
-
-The member manager _just_ extracts members and emits them when they are ready.
-Extracting members is asynchonous, because it is possible that some members require out of band requests.
-
-### State Management
-
-**TODO: Update this section**
-
 ### Fault Tolerance
 
 The fetcher tries to be fault tolerant. HTTP codes that indicate that the server is overloaded or something else is going wrong are caught and retried, following an exponential back-off strategy.
@@ -261,12 +250,6 @@ The command exits with a non-zero status when required conformance tests fail. T
 ```bash
 npm run test:conformance -- --no-fail
 ```
-
-## Expected Features
-
- * Use view that is indicated as EventSource
- * conformance tests and test cases
-
 
 ## Authors and license
 
