@@ -9,10 +9,10 @@ import {
 import fs from "fs";
 import path from "path";
 import { createUriAndTermNamespace, RDF, SDS, DC } from "@treecg/types";
-import { channel, createRunner } from "@rdfc/js-runner/lib/testUtils";
+import { channel, createRunner } from "@rdfc/js-runner/lib/testUtils/index.js";
 import { fastify, FastifyInstance, RequestPayload } from "fastify";
 import { fastifyStatic } from "@fastify/static";
-import { Parser } from "n3";
+import { Parser } from "rdf-parser-ts";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
 import { LDESClientProcessor } from "../../lib/rdfc-processor";
