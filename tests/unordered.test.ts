@@ -782,10 +782,12 @@ describe("more complex tree", () => {
         }) as typeof fetch;
 
         const config = intoConfig({ url: "http://example.com/ldes" });
+        const startedAt = Date.now();
         const response = await config.fetch!("http://example.com/ldes");
 
         expect(response.status).toBe(200);
         expect(seen).toEqual([408, 425, 429, 500, 502, 503, 504, 200]);
+        expect(Date.now() - startedAt).toBeGreaterThanOrEqual(100);
     });
 
     test("Default fetch treats 410 Gone as an empty successful RDF response", async () => {
