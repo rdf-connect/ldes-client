@@ -23,6 +23,7 @@ import type {
     MemberEvents,
     Modulator
 } from "../fetcher";
+import type { NumericOrderValue, OrderValue } from "../fetcher";
 import type { StrategyEvents, Ordered, SerializedMember } from ".";
 
 type NodeChain = {
@@ -200,24 +201,22 @@ export class OrderedStrategy {
             new Heap((a, b) => a.item.chain.ordering(b.item.chain)),
             {
                 ready: async ({ item: { chain, expected }, index }) => {
-                    if (!(await this.modulator.seen(chain.target))) {
+                    const preloadedPage = this.preloadedPages.get(chain.target);
+                    if (preloadedPage) {
+                        this.preloadedPages.delete(chain.target);
+                        await this.fetcher.processFetchedPage(
+                            { target: chain.target, expected },
+                            preloadedPage,
+                            { chain, index },
+                            this.fetchNotifier,
+                        );
+                    } else if (!(await this.modulator.seen(chain.target))) {
                         this.logger.debug(`[modulator - ready] Ready to fetch page: ${chain.target}`);
-                        const preloadedPage = this.preloadedPages.get(chain.target);
-                        if (preloadedPage) {
-                            this.preloadedPages.delete(chain.target);
-                            await this.fetcher.processFetchedPage(
-                                { target: chain.target, expected },
-                                preloadedPage,
-                                { chain, index },
-                                this.fetchNotifier,
-                            );
-                        } else {
-                            await this.fetcher.fetch(
-                                { target: chain.target, expected },
-                                { chain, index },
-                                this.fetchNotifier,
-                            );
-                        }
+                        await this.fetcher.fetch(
+                            { target: chain.target, expected },
+                            { chain, index },
+                            this.fetchNotifier,
+                        );
                     } else {
                         this.logger.debug(`[modulator - ready] Skipping fetch for previously fetched immutable page: ${chain.target}`);
                         await this.modulator.finished(index);
@@ -297,7 +296,8 @@ export class OrderedStrategy {
         }
 
         // Schedule any mutable pages found in a previous run
-        (await this.modulator.getAllMutable()).forEach(fragment => {
+        const mutableFragments = await this.modulator.getAllMutable();
+        mutableFragments.forEach(fragment => {
             this.toPoll.push(fragment);
         });
 
@@ -719,15 +719,55 @@ function compareMembers(a: Member, b: Member, ordered: Ordered): number {
 }
 
 function compareOrderValues(
-    a: string | Date | number | undefined,
-    b: string | Date | number | undefined,
+    a: OrderValue | undefined,
+    b: OrderValue | undefined,
 ): number {
     if (a === undefined && b === undefined) return 0;
     if (a === undefined) return 1;
     if (b === undefined) return -1;
+    if (isNumericOrderValue(a) && isNumericOrderValue(b)) {
+        return compareNumericStrings(a.value, b.value);
+    }
     const left = a instanceof Date ? a.getTime() : a;
     const right = b instanceof Date ? b.getTime() : b;
     if (left < right) return -1;
     if (left > right) return 1;
     return 0;
+}
+
+function isNumericOrderValue(value: OrderValue): value is NumericOrderValue {
+    return typeof value === "object" && !(value instanceof Date) && value.type === "numeric";
+}
+
+function compareNumericStrings(a: string, b: string): number {
+    const left = parseDecimal(a);
+    const right = parseDecimal(b);
+    if (!left || !right) {
+        const leftNumber = Number(a);
+        const rightNumber = Number(b);
+        if (leftNumber < rightNumber) return -1;
+        if (leftNumber > rightNumber) return 1;
+        return 0;
+    }
+    if (left.sign !== right.sign) return left.sign < right.sign ? -1 : 1;
+    const scale = Math.max(left.scale, right.scale);
+    const leftInt = left.integer * 10n ** BigInt(scale - left.scale);
+    const rightInt = right.integer * 10n ** BigInt(scale - right.scale);
+    if (leftInt === rightInt) return 0;
+    return (leftInt < rightInt ? -1 : 1) * left.sign;
+}
+
+function parseDecimal(value: string): { sign: 1 | -1; integer: bigint; scale: number } | undefined {
+    const match = value.trim().match(/^([+-])?(?:(\d+)(?:\.(\d*))?|\.(\d+))(?:[eE]([+-]?\d+))?$/);
+    if (!match) return;
+    const sign = match[1] === "-" ? -1 : 1;
+    const before = match[2] ?? "";
+    const after = match[3] ?? match[4] ?? "";
+    const exponent = Number(match[5] ?? 0);
+    const digits = `${before}${after}`.replace(/^0+/, "") || "0";
+    return {
+        sign,
+        integer: BigInt(digits),
+        scale: Math.max(0, after.length - exponent),
+    };
 }

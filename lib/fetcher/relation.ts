@@ -49,7 +49,7 @@ export function extractRelations(
     >();
 
     for (const relationId of relationIds) {
-        const node = getObjects(store, relationId, TREE.terms.node, null)[0];
+        const nodes = getObjects(store, relationId, TREE.terms.node, null);
         const ty =
             getObjects(store, relationId, RDF.terms.type, null)[0] ||
             TREE.Relation;
@@ -63,22 +63,24 @@ export function extractRelations(
             value,
             id: relationId,
         };
-        const found = conditions.get(node.value);
-        if (!found) {
-            const condition = new RelationCondition(store, defaultTimezone);
-            condition.addRelation(relationId);
-            conditions.set(node.value, {
-                cond: condition,
-                relation: {
-                    node: node.value,
-                    source,
-                    allowed: false,
-                    relations: [relation],
-                },
-            });
-        } else {
-            found.relation.relations.push(relation);
-            found.cond.addRelation(relationId);
+        for (const node of nodes) {
+            const found = conditions.get(node.value);
+            if (!found) {
+                const condition = new RelationCondition(store, defaultTimezone);
+                condition.addRelation(relationId);
+                conditions.set(node.value, {
+                    cond: condition,
+                    relation: {
+                        node: node.value,
+                        source,
+                        allowed: false,
+                        relations: [relation],
+                    },
+                });
+            } else {
+                found.relation.relations.push(relation);
+                found.cond.addRelation(relationId);
+            }
         }
     }
 

@@ -22,6 +22,7 @@ export type Node = {
     target: string;
     expected: Set<string>;
     etag?: string;
+    relations?: string[];
 };
 
 export type FetchedPage = {
@@ -29,6 +30,8 @@ export type FetchedPage = {
     data: RdfStore;
     immutable: boolean;
     memberCount: number;
+    etag?: string;
+    status?: number;
     created?: Date;
     updated?: Date;
 };
@@ -54,17 +57,34 @@ export async function statelessPageFetch(
     location: string,
     dereferencer: RdfDereferencer,
     fetch_f?: typeof fetch,
+    headers?: Record<string, string>,
 ): Promise<FetchedPage> {
+    let etag: string | undefined;
+    let status = 200;
+    const fetchWithMetadata: typeof fetch = async (input, init) => {
+        const resp = await (fetch_f ?? fetch)(input, init);
+        etag = resp.headers.get("etag") ?? undefined;
+        status = Number(resp.headers.get("x-ldes-client-original-status") ?? resp.status);
+        return resp;
+    };
     const resp = await dereferencer.dereference(location, {
         localFiles: true,
-        fetch: fetch_f,
+        fetch: fetchWithMetadata,
+        headers,
     });
     const url = resp.url;
     const data = RdfStore.createDefault();
     await new Promise((resolve, reject) => {
         data.import(resp.data).on("end", resolve).on("error", reject);
     });
-    return <FetchedPage>{ url, data, immutable: false, memberCount: 0 };
+    return <FetchedPage>{
+        url,
+        data,
+        immutable: false,
+        memberCount: 0,
+        etag: etag ?? resp.headers?.get("etag") ?? undefined,
+        status,
+    };
 }
 
 export type FetchEvent = {
@@ -178,6 +198,8 @@ export class Fetcher {
                     url: resp.url,
                     immutable: !!cache.immutable,
                     memberCount: 0,
+                    etag: cache.etag,
+                    status: Number(resp.headers?.get("x-ldes-client-original-status") ?? 200),
                 },
                 state,
                 notifier,
@@ -198,18 +220,20 @@ export class Fetcher {
     ) {
         cache.immutable ||= page.immutable || isRdfImmutable(page.data, namedNode(page.url));
 
-        if (!cache.immutable && !this.closed) {
-            notifier.scheduleFetch({
-                ...node,
-                target: page.url,
-                etag: cache.etag ?? node.etag,
-            }, state);
-        }
-
         this.logger.debug(
             `[fetch] Got data ${page.url} (${page.data.getQuads().length} quads)`,
         );
-        const toFetch = [];
+        const toFetch: { from: Node; target: FoundRelation }[] = page.status === 304
+            ? (node.relations ?? []).map((target) => ({
+                from: node,
+                target: {
+                    source: page.url,
+                    node: target,
+                    allowed: true,
+                    relations: [],
+                },
+            }))
+            : [];
         for (const rel of extractRelations(
             page.data,
             namedNode(page.url),
@@ -222,6 +246,15 @@ export class Fetcher {
             }
         }
 
+        if (!cache.immutable && !this.closed) {
+            notifier.scheduleFetch({
+                ...node,
+                target: page.url,
+                etag: cache.etag ?? node.etag,
+                relations: toFetch.map(({ target }) => target.node),
+            }, state);
+        }
+
         if (!this.closed) {
             if (toFetch.length > 0) {
                 await notifier.relationsFound(toFetch, state);
@@ -231,6 +264,8 @@ export class Fetcher {
                 url: page.url,
                 immutable: !!cache.immutable,
                 memberCount: 0,
+                etag: cache.etag ?? page.etag,
+                status: page.status,
                 created: page.created,
                 updated: page.updated,
             }, state);

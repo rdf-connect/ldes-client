@@ -143,6 +143,7 @@ export function empty_special_status_fetch(fetch_f: typeof fetch): typeof fetch 
 
         const headers = new Headers(resp.headers);
         headers.set("content-type", "text/turtle");
+        headers.set("x-ldes-client-original-status", resp.status.toString());
 
         return new Response("", {
             headers,

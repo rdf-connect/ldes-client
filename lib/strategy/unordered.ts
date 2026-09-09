@@ -83,6 +83,7 @@ export class UnorderedStrategy {
                     toPush.push({
                         target: target.node,
                         etag: saved?.etag,
+                        relations: saved?.relations,
                         expected: new Set([from.target]),
                     });
                 }
@@ -135,9 +136,6 @@ export class UnorderedStrategy {
             new QueueRanker(),
             {
                 ready: async ({ item, index }) => {
-                    // Only fetch this node if it hasn't been fetched in the past
-                    if (!(await this.modulator.seen(item.target))) {
-                        this.logger.debug(`[modulator - ready] Ready to fetch page: ${item.target}`);
                         const preloadedPage = this.preloadedPages.get(item.target);
                         if (preloadedPage) {
                             this.preloadedPages.delete(item.target);
@@ -147,9 +145,9 @@ export class UnorderedStrategy {
                                 { index },
                                 this.fetchNotifier,
                             );
-                        } else {
+                        } else if (!(await this.modulator.seen(item.target))) {
+                            this.logger.debug(`[modulator - ready] Ready to fetch page: ${item.target}`);
                             this.fetcher.fetch(item, { index }, this.fetchNotifier);
-                        }
                     } else {
                         this.logger.debug(`[modulator - ready] Skipping fetch for previously fetched immutable page: ${item.target}`);
                         await this.modulator.finished(index);
@@ -161,6 +159,7 @@ export class UnorderedStrategy {
                 return {
                     target: inp.target,
                     etag: inp.etag,
+                    relations: inp.relations,
                     expected: Array.from(inp.expected),
                 };
             },
@@ -168,6 +167,7 @@ export class UnorderedStrategy {
                 return {
                     target: (inp as Node).target,
                     etag: (inp as Node).etag,
+                    relations: (inp as Node).relations,
                     expected: new Set((inp as Node).expected),
                 };
             },

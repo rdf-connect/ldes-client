@@ -14,14 +14,21 @@ import type { Quad, Term } from "@rdfjs/types";
 import type { Modulator, Notifier } from "./modulator";
 import type { FetchedPage } from "./pageFetcher";
 
+export type NumericOrderValue = {
+    type: "numeric";
+    value: string;
+};
+
+export type OrderValue = string | Date | number | NumericOrderValue;
+
 const { namedNode } = new DataFactory();
 
 export interface Member {
     id: Term;
     quads: Quad[];
-    order?: string | Date | number;
-    timestamp?: string | Date | number;
-    sequence?: string | Date | number;
+    order?: OrderValue;
+    timestamp?: OrderValue;
+    sequence?: OrderValue;
     transactionFinalized?: boolean;
     isVersionOf?: string;
     type?: Term;
@@ -37,6 +44,7 @@ export type LDESInfo = {
     shapes?: Term[];
     viewDescriptions?: Term[];
     retentionPolicies?: Term[];
+    emptyRetentionPolicies?: Term[];
     timestampPath?: Term;
     timestampPathKey?: string;
     sequencePath?: Term;
@@ -219,10 +227,11 @@ export class Manager {
         data: RdfStore,
         otherMembers: Term[] = [],
     ): Promise<Quad[]> {
-        return await this.extractor.extract(data, member, this.shapeId, [
+        const quads = await this.extractor.extract(data, member, this.shapeId, [
             namedNode(LDES.custom("IngestionMetadata")),
             ...otherMembers,
         ]);
+        return expandBlankNodeGraphClosure(data, quads, otherMembers);
     }
 
     private async extractMember(
@@ -259,4 +268,51 @@ export class Manager {
             return;
         }
     }
+}
+
+function expandBlankNodeGraphClosure(
+    data: RdfStore,
+    quads: Quad[],
+    otherMembers: Term[],
+): Quad[] {
+    const output = quads.slice();
+    const seenQuads = new Set(output.map(quadKey));
+    const seenBlankNodes = new Set<string>();
+    const excluded = new Set(otherMembers.map((term) => term.value));
+    const queue = output.flatMap(blankNodesInQuad);
+
+    for (let index = 0; index < queue.length; index++) {
+        const blankNode = queue[index];
+        if (seenBlankNodes.has(blankNode.value)) continue;
+        seenBlankNodes.add(blankNode.value);
+
+        const related = [
+            ...data.getQuads(blankNode, null, null, null),
+            ...data.getQuads(null, null, null, blankNode),
+        ];
+
+        for (const quad of related) {
+            if (quad.subject.termType === "NamedNode" && excluded.has(quad.subject.value)) {
+                continue;
+            }
+            const key = quadKey(quad);
+            if (seenQuads.has(key)) continue;
+            seenQuads.add(key);
+            output.push(quad);
+            queue.push(...blankNodesInQuad(quad));
+        }
+    }
+
+    return output;
+}
+
+function blankNodesInQuad(quad: Quad): Term[] {
+    return [quad.subject, quad.object, quad.graph]
+        .filter((term) => term.termType === "BlankNode");
+}
+
+function quadKey(quad: Quad): string {
+    return [quad.subject, quad.predicate, quad.object, quad.graph]
+        .map((term) => `${term.termType}:${term.value}`)
+        .join("|");
 }

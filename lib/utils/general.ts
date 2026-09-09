@@ -5,6 +5,7 @@ import { RDF, SHACL } from "@treecg/types";
 import { getLoggerFor } from "./logUtil";
 
 import type { LDESInfo, Member, Modulator } from "../fetcher";
+import type { NumericOrderValue, OrderValue } from "../fetcher";
 import type { SerializedMember } from "../strategy";
 import type {
     DataFactoryLike,
@@ -213,7 +214,7 @@ export function memberFromQuads(
     quads.forEach((quad) => memberStore.addQuad(quad));
 
     // Get timestamp
-    let timestamp: string | Date | number | undefined;
+    let timestamp: OrderValue | undefined;
     if (timestampPath) {
         const value = resolveShaclPath(
             memberStore,
@@ -259,7 +260,7 @@ function extractSequenceValue(
     quads: Quad[],
     sequencePath: Term | undefined,
     pathStore?: RdfStore,
-): string | Date | number | undefined {
+): OrderValue | undefined {
     if (!sequencePath) {
         return;
     }
@@ -317,10 +318,10 @@ const dateDatatypes = new Set([
     "http://www.w3.org/2001/XMLSchema#dateTimeStamp",
 ]);
 
-function termToOrderValue(term: Term): string | Date | number {
+function termToOrderValue(term: Term): OrderValue {
     if (term.termType === "Literal") {
         if (numericDatatypes.has(term.datatype.value)) {
-            return Number(term.value);
+            return { type: "numeric", value: term.value };
         }
         if (dateDatatypes.has(term.datatype.value)) {
             const date = new Date(term.value);
@@ -583,15 +584,9 @@ export function serializeMember(member: Member): SerializedMember {
     return {
         id: member.id.value,
         quads: member.quads.map(quadToString).join("\n"),
-        order: member.order instanceof Date
-            ? member.order.toISOString()
-            : member.order?.toString(),
-        timestamp: member.timestamp instanceof Date
-            ? member.timestamp.toISOString()
-            : member.timestamp?.toString(),
-        sequence: member.sequence instanceof Date
-            ? member.sequence.toISOString()
-            : member.sequence?.toString(),
+        order: serializeOrderValue(member.order),
+        timestamp: serializeOrderValue(member.timestamp),
+        sequence: serializeOrderValue(member.sequence),
         transactionFinalized: member.transactionFinalized,
         isVersionOf: member.isVersionOf,
         type: member.type?.value,
@@ -603,7 +598,7 @@ export function deserializeMember(serialized: SerializedMember): Member {
     const order = serialized.order === undefined
         ? undefined
         : deserializeOrderValue(serialized.order);
-    let timestamp: string | Date | number | undefined;
+    let timestamp: OrderValue | undefined;
     if (serialized.timestamp) {
         try {
             timestamp = new Date(serialized.timestamp);
@@ -611,7 +606,7 @@ export function deserializeMember(serialized: SerializedMember): Member {
             timestamp = serialized.timestamp;
         }
     }
-    let sequence: string | Date | number | undefined;
+    let sequence: OrderValue | undefined;
     if (serialized.sequence !== undefined) {
         sequence = deserializeOrderValue(serialized.sequence);
     }
@@ -628,7 +623,10 @@ export function deserializeMember(serialized: SerializedMember): Member {
     };
 }
 
-function deserializeOrderValue(value: string): string | Date | number {
+function deserializeOrderValue(value: string): OrderValue {
+    if (value.startsWith("numeric:")) {
+        return <NumericOrderValue>{ type: "numeric", value: value.slice("numeric:".length) };
+    }
     const number = Number(value);
     if (!Number.isNaN(number)) {
         return number;
@@ -638,6 +636,20 @@ function deserializeOrderValue(value: string): string | Date | number {
         return date;
     }
     return value;
+}
+
+function serializeOrderValue(value: OrderValue | undefined): string | undefined {
+    if (value instanceof Date) {
+        return value.toISOString();
+    }
+    if (isNumericOrderValue(value)) {
+        return `numeric:${value.value}`;
+    }
+    return value?.toString();
+}
+
+function isNumericOrderValue(value: OrderValue | undefined): value is NumericOrderValue {
+    return typeof value === "object" && value !== undefined && !(value instanceof Date) && value.type === "numeric";
 }
 
 /**
@@ -697,8 +709,14 @@ export async function memberIsOld(member: Member, modulator: Modulator<unknown, 
     }
     logger.silly(`[memberIsOld] Checking if member <${member.id.value}> (version of: ${member.isVersionOf}) is old`);
     // We are emitting latest versions only
-    const version = member.timestamp instanceof Date ?
-        member.timestamp.getTime() : new Date(member.timestamp).getTime();
+    const version = member.timestamp instanceof Date
+        ? member.timestamp.getTime()
+        : isNumericOrderValue(member.timestamp)
+            ? Number.NaN
+            : new Date(member.timestamp).getTime();
+    if (Number.isNaN(version)) {
+        return false;
+    }
     try {
         return await modulator.filterLatest(member.isVersionOf, version);
     } catch (ex) {

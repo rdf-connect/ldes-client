@@ -38,6 +38,7 @@ type CachedRoot = {
     url: string;
     quads: string;
     immutable: boolean;
+    etag?: string;
 };
 
 // RDF-JS data factory
@@ -143,8 +144,9 @@ export class Client {
 
         const rootState = this.clientStateManager.build<string, CachedRoot>("root");
         let root: FetchedPage | undefined;
+        let cached: CachedRoot | undefined;
         if (this.config.statePath) {
-            const cached = await rootState.get(this.config.url).catch(() => undefined);
+            cached = await rootState.get(this.config.url).catch(() => undefined);
             if (cached?.immutable) {
                 const data = RdfStore.createDefault();
                 parseQuads(cached.quads).forEach((quad) => data.addQuad(quad));
@@ -158,11 +160,18 @@ export class Client {
             }
         }
         if (!root) {
+            const headers = cached?.etag
+                ? { "If-None-Match": cached.etag }
+                : undefined;
             root = await statelessPageFetch(
                 this.config.url,
                 this.dereferencer,
                 this.config.fetch,
+                headers,
             );
+            if (root.status === 304 && cached) {
+                parseQuads(cached.quads).forEach((quad) => root!.data.addQuad(quad));
+            }
             root.immutable = root.data
                 .getQuads(
                     df.namedNode(root.url),
@@ -171,11 +180,12 @@ export class Client {
                     null,
                 )
                 .some((quad) => quad.object.value === "true" || quad.object.value === "1");
-            if (this.config.statePath && root.immutable) {
+            if (this.config.statePath) {
                 await rootState.put(this.config.url, {
                     url: root.url,
                     quads: serializeQuads(root.data.getQuads()),
-                    immutable: true,
+                    immutable: root.immutable,
+                    etag: root.etag ?? cached?.etag,
                 });
             }
         }
@@ -676,6 +686,9 @@ async function buildInfo(
     ].filter((policy, index, policies) =>
         policies.findIndex((candidate) => candidate.equals(policy)) === index
     );
+    const emptyRetentionPolicies = retentionPolicies.filter((policy) =>
+        store.getQuads(policy, null, null, null).length === 0
+    );
     const pollingInterval = Number(pollingIntervals[0]?.value);
 
     return {
@@ -704,6 +717,7 @@ async function buildInfo(
         shapes: contextShapeIds,
         viewDescriptions,
         retentionPolicies,
+        emptyRetentionPolicies,
         contextQuads: store.getQuads(),
         shapeQuads: shapeStore.getQuads(),
     };

@@ -70,7 +70,7 @@ export function intoConfig(config: Partial<Config>): Config {
     const out = Object.assign({}, defaultConfig, defaultTarget, config);
     out.fetch = enhanced_fetch({
         retry: {
-            base: 1,
+            base: 10,
             maxRetries: 10,
         },
         concurrent: out.concurrentFetches,
