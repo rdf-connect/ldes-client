@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import * as process from "process";
 import { Command, Option } from "commander";
-import { Writer } from "n3";
+import { Writer } from "rdf-writer-ts";
 import { getLoggerFor } from "../lib/utils";
 import { replicateLDES, enhanced_fetch, intoConfig, processConditionFile } from "../lib/client";
 
@@ -167,6 +167,7 @@ async function main() {
             noShape,
             polling,
             url: paramURL,
+            allowUnsafeAmbiguousView: true,
             statePath: save,
             pollInterval: paramPollInterval,
             urlIsView: urlIsView,
