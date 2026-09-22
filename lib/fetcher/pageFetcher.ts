@@ -220,9 +220,7 @@ export class Fetcher {
     ) {
         cache.immutable ||= page.immutable || isRdfImmutable(page.data, namedNode(page.url));
 
-        this.logger.debug(
-            `[fetch] Got data ${page.url} (${page.data.getQuads().length} quads)`,
-        );
+        this.logger.debug(`[fetch] Got data ${page.url}`);
         const toFetch: { from: Node; target: FoundRelation }[] = page.status === 304
             ? (node.relations ?? []).map((target) => ({
                 from: node,

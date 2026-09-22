@@ -210,18 +210,31 @@ export function memberFromQuads(
     created?: Date,
     pathStore?: RdfStore,
 ): Member {
-    const memberStore = RdfStore.createDefault();
-    quads.forEach((quad) => memberStore.addQuad(quad));
+    // Indexing every member into its own store is expensive, so only do it when
+    // a path actually requires the store (complex SHACL paths). Plain predicate
+    // paths are resolved with a direct scan over the member quads.
+    let memberStore: RdfStore | undefined;
+    const getMemberStore = () => {
+        if (!memberStore) {
+            memberStore = RdfStore.createDefault();
+            quads.forEach((quad) => memberStore!.addQuad(quad));
+        }
+        return memberStore;
+    };
+    const resolvePath = (path: Term): Term | undefined => {
+        if (isPlainPredicate(path, quads, pathStore)) {
+            return quads.find(
+                (x) => x.subject.equals(member) && x.predicate.equals(path),
+            )?.object;
+        }
+        const store = getMemberStore();
+        return resolveShaclPath(store, member, path, pathStore ?? store)[0];
+    };
 
     // Get timestamp
     let timestamp: OrderValue | undefined;
     if (timestampPath) {
-        const value = resolveShaclPath(
-            memberStore,
-            member,
-            timestampPath,
-            pathStore ?? memberStore,
-        )[0];
+        const value = resolvePath(timestampPath);
         if (value) {
             const date = new Date(value.value);
             timestamp = Number.isNaN(date.getTime())
@@ -229,14 +242,12 @@ export function memberFromQuads(
                 : date;
         }
     }
-    const sequence = extractSequenceValue(member, quads, sequencePath, pathStore);
+    const sequence = extractSequenceValue(sequencePath, resolvePath);
     const order = timestamp ?? sequence;
     const transactionFinalized = extractFinalizedValue(
-        member,
-        quads,
         transactionFinalizedPath,
         transactionFinalizedObject,
-        pathStore,
+        resolvePath,
     );
 
     // Get isVersionof
@@ -255,18 +266,32 @@ export function memberFromQuads(
     return { quads, id: member, isVersionOf, order, timestamp, sequence, transactionFinalized, type, created };
 }
 
-function extractSequenceValue(
-    member: Term,
+/**
+ * A path is a plain predicate when it is a named node that carries no SHACL
+ * path description (sequence, alternative, inverse, ...) in the path store.
+ */
+function isPlainPredicate(
+    path: Term,
     quads: Quad[],
-    sequencePath: Term | undefined,
     pathStore?: RdfStore,
+): boolean {
+    if (path.termType !== "NamedNode") {
+        return false;
+    }
+    if (pathStore) {
+        return pathStore.getQuads(path, null, null, null).length === 0;
+    }
+    return !quads.some((quad) => quad.subject.equals(path));
+}
+
+function extractSequenceValue(
+    sequencePath: Term | undefined,
+    resolvePath: (path: Term) => Term | undefined,
 ): OrderValue | undefined {
     if (!sequencePath) {
         return;
     }
-    const memberStore = RdfStore.createDefault();
-    quads.forEach((quad) => memberStore.addQuad(quad));
-    const sequence = resolveShaclPath(memberStore, member, sequencePath, pathStore ?? memberStore)[0];
+    const sequence = resolvePath(sequencePath);
     if (!sequence) {
         return;
     }
@@ -274,18 +299,14 @@ function extractSequenceValue(
 }
 
 function extractFinalizedValue(
-    member: Term,
-    quads: Quad[],
     path: Term | undefined,
     finalizedObject: Term | undefined,
-    pathStore?: RdfStore,
+    resolvePath: (path: Term) => Term | undefined,
 ): boolean | undefined {
     if (!path) {
         return;
     }
-    const memberStore = RdfStore.createDefault();
-    quads.forEach((quad) => memberStore.addQuad(quad));
-    const value = resolveShaclPath(memberStore, member, path, pathStore ?? memberStore)[0];
+    const value = resolvePath(path);
     if (!value) {
         return;
     }

@@ -222,25 +222,18 @@ export class Manager {
         this.closed = true;
     }
 
-    private async extractMemberQuads(
-        member: Term,
-        data: RdfStore,
-        otherMembers: Term[] = [],
-    ): Promise<Quad[]> {
-        const quads = await this.extractor.extract(data, member, this.shapeId, [
-            namedNode(LDES.custom("IngestionMetadata")),
-            ...otherMembers,
-        ]);
-        return expandBlankNodeGraphClosure(data, quads, otherMembers);
-    }
-
     private async extractMember(
         member: Term,
         data: RdfStore,
         otherMembers: Term[] = [],
     ): Promise<Member | undefined> {
         try {
-            const quads: Quad[] = await this.extractMemberQuads(member, data, otherMembers);
+            const quads: Quad[] = await this.extractor.extract(
+                data,
+                member,
+                this.shapeId,
+                [namedNode(LDES.custom("IngestionMetadata")), ...otherMembers],
+            );
             const created = getObjects(
                 data,
                 member,
@@ -268,51 +261,4 @@ export class Manager {
             return;
         }
     }
-}
-
-function expandBlankNodeGraphClosure(
-    data: RdfStore,
-    quads: Quad[],
-    otherMembers: Term[],
-): Quad[] {
-    const output = quads.slice();
-    const seenQuads = new Set(output.map(quadKey));
-    const seenBlankNodes = new Set<string>();
-    const excluded = new Set(otherMembers.map((term) => term.value));
-    const queue = output.flatMap(blankNodesInQuad);
-
-    for (let index = 0; index < queue.length; index++) {
-        const blankNode = queue[index];
-        if (seenBlankNodes.has(blankNode.value)) continue;
-        seenBlankNodes.add(blankNode.value);
-
-        const related = [
-            ...data.getQuads(blankNode, null, null, null),
-            ...data.getQuads(null, null, null, blankNode),
-        ];
-
-        for (const quad of related) {
-            if (quad.subject.termType === "NamedNode" && excluded.has(quad.subject.value)) {
-                continue;
-            }
-            const key = quadKey(quad);
-            if (seenQuads.has(key)) continue;
-            seenQuads.add(key);
-            output.push(quad);
-            queue.push(...blankNodesInQuad(quad));
-        }
-    }
-
-    return output;
-}
-
-function blankNodesInQuad(quad: Quad): Term[] {
-    return [quad.subject, quad.object, quad.graph]
-        .filter((term) => term.termType === "BlankNode");
-}
-
-function quadKey(quad: Quad): string {
-    return [quad.subject, quad.predicate, quad.object, quad.graph]
-        .map((term) => `${term.termType}:${term.value}`)
-        .join("|");
 }
