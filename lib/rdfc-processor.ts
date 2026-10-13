@@ -5,20 +5,29 @@ import { Writer as NWriter } from "n3";
 import { Client, replicateLDES, intoConfig, processConditionFile } from "./client";
 import { enhanced_fetch } from "./fetcher"
 import { Logger } from "winston";
+import { fileURLToPath } from "url";
 
 import type { Quad_Object } from "@rdfjs/types";
 import type { Ordered } from "./strategy";
 
 const df = new DataFactory();
 
+/**
+ * A location can be written as an IRI in the pipeline, which reaches the
+ * processor as a `file:` URL: turn that into a path, keep anything else.
+ */
+export function toPath(location: string): string {
+    return location.startsWith("file:") ? fileURLToPath(location) : location;
+}
+
 type LDESClientArgs = {
     url: string;
     output: Writer;
     before?: Date;
     after?: Date;
-    ordered?: string;
+    ordered: Ordered;
     follow?: boolean;
-    pollInterval?: number;
+    pollInterval: number;
     shapeFile?: string;
     noShape?: boolean;
     savePath?: string;
@@ -58,19 +67,21 @@ export class LDESClientProcessor extends Processor<LDESClientArgs> {
                 before: this.before,
                 polling: this.follow,
                 pollInterval: this.pollInterval,
-                shapeFile: this.shapeFile,
+                shapeFile: this.shapeFile && toPath(this.shapeFile),
                 noShape: this.noShape,
-                statePath: this.savePath,
+                statePath: this.savePath && toPath(this.savePath),
                 loose: this.loose,
                 urlIsView: this.urlIsView,
                 fetch: this.fetchConfig ? enhanced_fetch(this.fetchConfig) : fetch,
-                condition: await processConditionFile(this.conditionFile),
+                condition: await processConditionFile(
+                    this.conditionFile && toPath(this.conditionFile),
+                ),
                 materialize: this.materialize,
                 lastVersionOnly: this.lastVersionOnly,
                 startFresh: this.startFresh,
                 concurrentFetches: this.fetchConfig?.concurrent,
             }),
-            <Ordered>this.ordered || "none",
+            this.ordered,
             undefined,
             this.streamId ? df.namedNode(this.streamId) : undefined,
         );
