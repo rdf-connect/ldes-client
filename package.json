@@ -67,7 +67,7 @@
     "fastify": "^5.12.7",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
-    "playwright": "^1.64.0",
+    "playwright": "^1.64.1",
     "prettier": "^3.9.10",
     "rollup": "^4.64.6",
     "tsc-alias": "^1.9.7",
