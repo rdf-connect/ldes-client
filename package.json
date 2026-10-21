@@ -45,7 +45,7 @@
     "rdf-dereference": "^5.0.0",
     "rdf-lens": "^2.1.0",
     "rdf-parser-ts": "^0.4.0",
-    "rdf-stores": "^2.7.0",
+    "rdf-stores": "^2.8.0",
     "rdf-writer-ts": "^0.2.1",
     "winston": "^3.19.0"
   },

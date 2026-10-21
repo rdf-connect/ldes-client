@@ -1,4 +1,5 @@
-import { Parser, quadToString } from "rdf-parser-ts/browser";
+import { Parser } from "rdf-parser-ts/browser";
+import { Writer } from "rdf-writer-ts/browser";
 import { RdfStore } from "rdf-stores";
 import { DataFactory } from "rdf-data-factory";
 import { RDF, SHACL } from "@treecg/types";
@@ -8,10 +9,10 @@ import type { LDESInfo, Member, Modulator } from "../fetcher";
 import type { NumericOrderValue, OrderValue } from "../fetcher";
 import type { SerializedMember } from "../strategy";
 import type {
-    DataFactoryLike,
     ParserOptions,
 } from "rdf-parser-ts/browser";
 import type {
+    DataFactory as RDFDataFactory,
     NamedNode,
     Quad,
     BaseQuad,
@@ -42,24 +43,28 @@ export function parseQuads(
 }
 
 export function serializeQuads(quads: Quad[]): string {
-    return quads.map(quadToString).join("\n");
+    return new Writer().quadsToString(quads);
 }
 
-function scopedBlankNodeFactory(factory: DataFactoryLike = df): DataFactoryLike {
+function scopedBlankNodeFactory(
+    factory: RDFDataFactory<BaseQuad> = new DataFactory<BaseQuad>(),
+): RDFDataFactory<BaseQuad> {
     const scope = `p${parserBlankNodeScope++}`;
     let anonymous = 0;
     return {
         namedNode: (value) => factory.namedNode(value),
         blankNode: (value) =>
             factory.blankNode(`${scope}_${value ?? `b${anonymous++}`}`),
-        literal: (value, languageOrDatatype, datatype) =>
-            factory.literal(value, languageOrDatatype, datatype),
+        literal: (value, languageOrDatatype) =>
+            factory.literal(value, languageOrDatatype),
         variable: factory.variable
             ? (value) => factory.variable!(value)
             : undefined,
         defaultGraph: () => factory.defaultGraph(),
         quad: (subject, predicate, object, graph) =>
             factory.quad(subject, predicate, object, graph),
+        fromTerm: factory.fromTerm.bind(factory),
+        fromQuad: (quad) => factory.fromQuad(quad),
     };
 }
 
@@ -604,7 +609,7 @@ function rdfListToArray(store: RdfStore, head: Term): Term[] | undefined {
 export function serializeMember(member: Member): SerializedMember {
     return {
         id: member.id.value,
-        quads: member.quads.map(quadToString).join("\n"),
+        quads: serializeQuads(member.quads),
         order: serializeOrderValue(member.order),
         timestamp: serializeOrderValue(member.timestamp),
         sequence: serializeOrderValue(member.sequence),
