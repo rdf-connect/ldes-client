@@ -58,9 +58,9 @@
     "@types/node": "^26.6.5",
     "@typescript-eslint/eslint-plugin": "^8.72.0",
     "@typescript-eslint/parser": "^8.72.0",
-    "@vitest/browser": "^4.1.12",
-    "@vitest/browser-playwright": "^4.1.12",
-    "@vitest/coverage-v8": "^4.1.12",
+    "@vitest/browser": "^5.0.5",
+    "@vitest/browser-playwright": "^5.0.5",
+    "@vitest/coverage-v8": "^5.0.5",
     "benchmark": "^2.1.4",
     "eslint": "^10.8.0",
     "eslint-config-prettier": "^10.1.8",
@@ -73,7 +73,7 @@
     "tsc-alias": "^1.9.8",
     "typescript": "^6.0.3",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^4.1.12"
+    "vitest": "^5.0.5"
   },
   "browser": {
     "fs": false,
